@@ -1,4 +1,12 @@
 [package]
 name = "gateway"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+hyper.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+
+[lib]
+name = "gateway_lib"
