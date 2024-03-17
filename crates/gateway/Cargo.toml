@@ -7,6 +7,9 @@ edition = "2021"
 hyper = "0.13.9"
 tokio = { version = "0.2", features = ["full"] }
 thiserror = "1.0"
+starknet_api = "0.8.0"
+assert_matches = "1.5.0"
+rstest = "0.17.0"
 
 [lib]
 name = "gateway_lib"
