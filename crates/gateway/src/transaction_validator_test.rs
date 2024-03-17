@@ -5,10 +5,12 @@ use starknet_api::transaction::{
     Transaction, TransactionVersion,
 };
 
-use crate::starknet_api_utils::{zero_resource_bounds_mapping, TransactionParametersExt};
+use crate::starknet_api_utils::{
+    non_zero_resource_bounds_mapping, zero_resource_bounds_mapping, TransactionParametersExt,
+};
 use crate::transaction_validator::{
-    TransactionValidator, TransactionValidatorConfig, TransactionValidatorError,
-    TransactionValidatorResult,
+    StarknetApiTransactionError, TransactionValidator, TransactionValidatorConfig,
+    TransactionValidatorError, TransactionValidatorResult,
 };
 
 const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionValidatorConfig {
@@ -74,28 +76,41 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
         ..Default::default()
     },
     Transaction::Deploy(starknet_api::transaction::DeployTransaction {..Default::default()}),
-    Err(TransactionValidatorError::TransactionTypeNotSupported)
+    Err(StarknetApiTransactionError::TransactionTypeNotSupported.into())
 )]
 #[case::unsupported_l1_handler_tx(
     TransactionValidatorConfig {
         ..Default::default()
     },
     Transaction::L1Handler(starknet_api::transaction::L1HandlerTransaction {..Default::default()}),
-    Err(TransactionValidatorError::TransactionTypeNotSupported)
+    Err(StarknetApiTransactionError::TransactionTypeNotSupported.into())
+)]
+#[case::invalid_max_fee(
+    TransactionValidatorConfig {
+        min_allowed_tx_version: TransactionVersion::ZERO,
+        max_allowed_tx_version: TransactionVersion::THREE,
+        ..Default::default()
+    },
+    Transaction::create_for_testing(zero_resource_bounds_mapping()),
+    Err(TransactionValidatorError::ZeroFee)
 )]
 #[case::valid_declare_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    Transaction::Declare(DeclareTransaction::create_for_testing(zero_resource_bounds_mapping())),
+    Transaction::Declare(DeclareTransaction::create_for_testing(
+        non_zero_resource_bounds_mapping()
+    )),
     Ok(())
 )]
 #[case::valid_deploy_account_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(zero_resource_bounds_mapping())),
+    Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(
+        non_zero_resource_bounds_mapping()
+    )),
     Ok(())
 )]
 #[case::valid_invoke_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    Transaction::Invoke(InvokeTransaction::create_for_testing(zero_resource_bounds_mapping())),
+    Transaction::Invoke(InvokeTransaction::create_for_testing(non_zero_resource_bounds_mapping())),
     Ok(())
 )]
 fn test_transaction_validator(
