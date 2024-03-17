@@ -1,6 +1,7 @@
 use crate::errors::GatewayError;
+use crate::transaction::ExternalTransaction;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{Body, Method, Request, Response, Server};
+use hyper::{Body, Method, Request, Response, Server, StatusCode};
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -10,6 +11,8 @@ use std::str::FromStr;
 pub mod gateway_test;
 
 const NOT_FOUND_RESPONSE: &str = "Not found.";
+type RequestBody = Request<Body>;
+type ResponseBody = Response<Body>;
 pub type GatewayResult = Result<(), GatewayError>;
 
 pub struct Gateway {
@@ -44,11 +47,12 @@ struct HandleContext {}
 
 async fn handle_request(
     _ctx: HandleContext,
-    request: Request<Body>,
+    request: RequestBody,
 ) -> Result<Response<Body>, GatewayError> {
-    let (parts, _body) = request.into_parts();
+    let (parts, body) = request.into_parts();
     let response = match (parts.method, parts.uri.path()) {
         (Method::GET, "/is_alive") => is_alive(),
+        (Method::POST, "/add_transaction") => add_transaction(body).await,
         _ => Ok(Response::builder()
             .status(404)
             .body(Body::from(NOT_FOUND_RESPONSE))
@@ -59,7 +63,7 @@ async fn handle_request(
 
 // This function hasn't been implemented yet. It might need a HandleContext parameter to verify if
 // the server is alive.
-fn is_alive() -> Result<Response<Body>, GatewayError> {
+fn is_alive() -> Result<ResponseBody, GatewayError> {
     if true {
         return Response::builder()
             .status(200)
@@ -67,4 +71,21 @@ fn is_alive() -> Result<Response<Body>, GatewayError> {
             .map_err(|_| GatewayError::InternalServerError);
     }
     unimplemented!("Future error handling might be implemented here.");
+}
+
+async fn add_transaction(body: Body) -> Result<ResponseBody, GatewayError> {
+    let bytes = hyper::body::to_bytes(body)
+        .await
+        .map_err(|_| GatewayError::InternalServerError)?;
+
+    match serde_json::from_slice::<ExternalTransaction>(&bytes) {
+        Ok(transaction) => {
+            let response_body = transaction.get_transaction_type();
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from(response_body))
+                .map_err(|_| GatewayError::InternalServerError)?)
+        }
+        Err(_) => Err(GatewayError::InvalidTransactionFormat),
+    }
 }
