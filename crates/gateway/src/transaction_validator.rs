@@ -1,7 +1,9 @@
-use starknet_api::transaction::{Transaction, TransactionVersion};
+use starknet_api::transaction::{Fee, Transaction, TransactionVersion};
 
-use crate::errors::{TransactionValidatorError, TransactionValidatorResult};
-use crate::starknet_api_utils::TransactionVersionExt;
+use crate::errors::{
+    StarknetApiTransactionError, TransactionValidatorError, TransactionValidatorResult,
+};
+use crate::starknet_api_utils::{TransactionParametersExt, TransactionVersionExt};
 
 #[cfg(test)]
 #[path = "transaction_validator_test.rs"]
@@ -25,7 +27,7 @@ impl TransactionValidator {
         // Deploy transactions are deprecated.
         // L1Handler transactions are not supported in the gateway.
         if matches!(tx, Transaction::Deploy(_) | Transaction::L1Handler(_)) {
-            return Err(TransactionValidatorError::TransactionTypeNotSupported);
+            return Err(StarknetApiTransactionError::TransactionTypeNotSupported.into());
         }
 
         // Check if the declaration of Cairo / Cairo-0 contracts are blocked.
@@ -65,7 +67,17 @@ impl TransactionValidator {
             ));
         }
 
-        // TODO(Arni, 1/4/2024): Validate fee and tx size.
+        // TODO(Arni, 1/4/2024): Validate tx size.
+        self.validate_fee(&tx)?;
+
+        Ok(())
+    }
+
+    fn validate_fee(&self, tx: &Transaction) -> TransactionValidatorResult<()> {
+        if tx.max_fee()? == Fee(0) {
+            return Err(TransactionValidatorError::ZeroFee);
+        }
+
         Ok(())
     }
 }
