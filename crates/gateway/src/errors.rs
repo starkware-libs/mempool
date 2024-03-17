@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum GatewayError {
     #[error("Internal server error")]
     InternalServerError,
+    #[error("Invalid transaction format")]
+    InvalidTransactionFormat,
     #[error("Error while starting the server")]
     ServerError,
 }

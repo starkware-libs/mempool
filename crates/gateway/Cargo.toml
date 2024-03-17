@@ -6,7 +6,10 @@ edition = "2021"
 [dependencies]
 hyper = "0.13.9"
 tokio = { version = "0.2", features = ["full"] }
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0"
 thiserror = "1.0"
+starknet_api = { workspace = true, features = ["testing"] }
 
 [lib]
 name = "gateway_lib"
