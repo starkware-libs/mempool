@@ -1,4 +1,13 @@
 [package]
 name = "gateway"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+starknet_api.workspace = true
+assert_matches.workspace = true
+rstest.workspace = true
+
+[lib]
+name = "gateway_lib"
