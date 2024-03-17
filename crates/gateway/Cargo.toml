@@ -6,6 +6,10 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
+thiserror.workspace = true
+starknet_api.workspace = true
+assert_matches.workspace = true
+rstest.workspace = true
 
 [lints]
 workspace = true
