@@ -1,3 +1,8 @@
+use serde::Deserialize;
+use starknet_api::core::ChainId;
+use starknet_api::internal_transaction::InternalTransaction;
+use tokio::task;
+
 use crate::errors::GatewayError;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -11,8 +16,10 @@ pub mod gateway_test;
 
 pub type GatewayResult = Result<(), GatewayError>;
 
+#[derive(Clone)]
 pub struct Gateway {
     pub config: GatewayConfig,
+    pub chain_id: ChainId,
 }
 
 impl Gateway {
@@ -44,14 +51,22 @@ async fn is_alive() -> impl IntoResponse {
     unimplemented!("Future handling should be implemented here.");
 }
 
-async fn add_transaction(Json(transaction): Json<ExternalTransaction>) -> impl IntoResponse {
-    match transaction {
-        ExternalTransaction::Declare(_) => "DECLARE",
-        ExternalTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT",
-        ExternalTransaction::Invoke(_) => "INVOKE",
+async fn add_transaction(Json(input): Json<TransactionInput>) -> impl IntoResponse {
+    let transaction_clone = input.transaction.clone();
+    let handle = task::spawn_blocking(move || {
+        // Simulate a heavy computation
+        transaction_clone.into_internal(&input.chain_id)
+    });
+
+    let internal_tx = handle.await.unwrap();
+    match internal_tx {
+        InternalTransaction::Declare(tx) => tx.tx_hash.to_string().into_response(),
+        InternalTransaction::DeployAccount(tx) => tx.tx_hash.to_string().into_response(),
+        InternalTransaction::Invoke(tx) => tx.tx_hash.to_string().into_response(),
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct GatewayConfig {
     pub ip: IpAddr,
     pub port: u16,
@@ -61,4 +76,10 @@ impl GatewayConfig {
     pub fn new(ip: IpAddr, port: u16) -> Self {
         Self { ip, port }
     }
+}
+
+#[derive(Deserialize)]
+pub struct TransactionInput {
+    chain_id: ChainId,
+    transaction: ExternalTransaction,
 }
