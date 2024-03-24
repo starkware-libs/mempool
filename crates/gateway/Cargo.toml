@@ -17,6 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 starknet_api.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 tower.workspace = true
 validator.workspace = true
 
