@@ -11,6 +11,12 @@ serde.workspace = true
 serde_json.workspace = true
 starknet_api.workspace = true
 assert_matches.workspace = true
+starknet-crypto.workspace = true
+hex.workspace = true
+lazy_static.workspace = true
+papyrus_common.workspace = true
+
+
 
 [lib]
 name = "gateway_lib"
