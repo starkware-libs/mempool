@@ -1,9 +1,9 @@
-use starknet_api::transaction::{Transaction, TransactionVersion};
+use starknet_api::transaction::{Fee, Transaction, TransactionVersion};
 
 use crate::errors::{
     StarknetApiTransactionError, TransactionValidatorError, TransactionValidatorResult,
 };
-use crate::starknet_api_utils::TransactionVersionExt;
+use crate::starknet_api_utils::{TransactionParametersExt, TransactionVersionExt};
 
 #[cfg(test)]
 #[path = "transaction_validator_test.rs"]
@@ -67,7 +67,17 @@ impl TransactionValidator {
             ));
         }
 
-        // TODO(Arni, 1/4/2024): Validate fee and tx size.
+        // TODO(Arni, 1/4/2024): Validate tx size.
+        self.validate_fee(&tx)?;
+
+        Ok(())
+    }
+
+    fn validate_fee(&self, tx: &Transaction) -> TransactionValidatorResult<()> {
+        if tx.max_fee()? == Fee(0) {
+            return Err(TransactionValidatorError::ZeroFee);
+        }
+
         Ok(())
     }
 }
