@@ -1,8 +1,23 @@
 use serde::{Deserialize, Serialize};
-use starknet_api::transaction::Transaction;
+use starknet_api::transaction::{Transaction, TransactionHash};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 
+pub struct InternalTransaction {
+    transaction: Transaction,
+    hash: TransactionHash,
+}
+
+impl InternalTransaction {
+    pub fn new(transaction: Transaction, hash: TransactionHash) -> Self {
+        InternalTransaction { transaction, hash }
+    }
+    pub fn get_transaction_hash(&self) -> &TransactionHash {
+        &self.hash
+    }
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ExternalTransaction {
     transaction: Transaction,
 }
