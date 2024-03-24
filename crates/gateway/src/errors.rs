@@ -20,6 +20,8 @@ pub enum TransactionValidatorError {
     InvalidTransactionVersion(TransactionVersion, String),
     #[error("Blocked transaction version {0:?}. {1}")]
     BlockedTransactionVersion(TransactionVersion, String),
+    #[error("Transaction must commit to pay a positive amount on fee.")]
+    ZeroFee,
 }
 
 pub type TransactionValidatorResult<T> = Result<T, TransactionValidatorError>;

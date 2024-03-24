@@ -83,6 +83,15 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
     Transaction::L1Handler(starknet_api::transaction::L1HandlerTransaction {..Default::default()}),
     Err(StarknetApiTransactionError::TransactionTypeNotSupported.into())
 )]
+#[case::invalid_max_fee(
+    TransactionValidatorConfig {
+        min_allowed_tx_version: TransactionVersion::ZERO,
+        max_allowed_tx_version: TransactionVersion::THREE,
+        ..Default::default()
+    },
+    Transaction::create_for_testing(None), // Zero resource bounds.
+    Err(TransactionValidatorError::ZeroFee)
+)]
 #[case::valid_declare_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::Declare(DeclareTransaction::create_for_testing(Some(
