@@ -18,6 +18,7 @@ starknet_api.workspace = true
 thiserror.workspace = true
 papyrus_config.workspace = true
 validator.workspace = true
+tokio.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
