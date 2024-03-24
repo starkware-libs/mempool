@@ -12,18 +12,26 @@ const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 // TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
 // into JSON for testing.
 #[rstest]
-#[case::declare(&Path::new(TEST_FILES_FOLDER).join("declare_v3.json"), "DECLARE")]
+#[case::declare(
+    &Path::new(TEST_FILES_FOLDER).join("declare_v3.json"),
+    "0x03822dbc50d129064b16e3ed3ff1af2cb34cdb15f202ea6c5ec98f1cc0190ede"
+)]
 #[case::deploy_account(
     &Path::new(TEST_FILES_FOLDER).join("deploy_account_v3.json"),
-    "DEPLOY_ACCOUNT"
+    "0x0274837d32404e10c2aba2c782854abd692eaed9e4d46676f5611c90de6979f9"
 )]
-#[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
+#[case::invoke(
+    &Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"),
+    "0x06401db149315bdd1370b04c911d2e83789017574665744afa257bc1abb00308"
+)]
 #[tokio::test]
 async fn test_routes(#[case] json_file_path: &Path, #[case] expected_response: &str) {
     let tx_json = fs::read_to_string(json_file_path).unwrap();
+    let full_json = format!(r#"{{"chain_id": "SN_TEST", "tx": {}}}"#, tx_json);
+
     let request = Request::post("/add_transaction")
         .header("content-type", "application/json")
-        .body(Body::from(tx_json))
+        .body(Body::from(full_json))
         .unwrap();
 
     let response = check_request(request, StatusCode::OK).await;
