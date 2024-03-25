@@ -16,6 +16,9 @@ pub struct TransactionValidatorConfig {
 
     pub min_allowed_tx_version: TransactionVersion,
     pub max_allowed_tx_version: TransactionVersion,
+
+    pub max_calldata_length: usize,
+    pub max_signature_length: usize,
 }
 
 pub struct TransactionValidator {
@@ -67,8 +70,8 @@ impl TransactionValidator {
             ));
         }
 
-        // TODO(Arni, 1/4/2024): Validate tx size.
         self.validate_fee(&tx)?;
+        self.validate_tx_size(&tx)?;
 
         Ok(())
     }
@@ -76,6 +79,28 @@ impl TransactionValidator {
     fn validate_fee(&self, tx: &Transaction) -> TransactionValidatorResult<()> {
         if tx.max_fee()? == Fee(0) {
             return Err(TransactionValidatorError::ZeroFee);
+        }
+
+        Ok(())
+    }
+
+    fn validate_tx_size(&self, tx: &Transaction) -> TransactionValidatorResult<()> {
+        if let Transaction::DeployAccount(_) | Transaction::Invoke(_) = tx {
+            let calldata = tx.ref_to_calldata()?;
+            if calldata.0.len() > self.config.max_calldata_length {
+                return Err(TransactionValidatorError::CalldataTooLong {
+                    calldata_length: calldata.0.len(),
+                    max_calldata_length: self.config.max_calldata_length,
+                });
+            }
+        }
+
+        let signature = tx.ref_to_signature()?;
+        if signature.0.len() > self.config.max_signature_length {
+            return Err(TransactionValidatorError::SignatureTooLong {
+                signature_length: signature.0.len(),
+                max_signature_length: self.config.max_signature_length,
+            });
         }
 
         Ok(())
