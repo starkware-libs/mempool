@@ -30,6 +30,7 @@ impl Gateway {
             make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle_request)) });
 
         Server::bind(&addr).serve(make_service).await?;
+        Server::bind(&addr).serve(make_service).await?;
 
         Ok(())
     }
