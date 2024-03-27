@@ -8,6 +8,8 @@ pub enum GatewayError {
     HTTPError(#[from] hyper::http::Error),
     #[error("Internal server error")]
     InternalServerError,
+    #[error("Invalid transaction format")]
+    InvalidTransactionFormat,
     #[error("Error while starting the server")]
     ServerStartError(#[from] hyper::Error),
 }
