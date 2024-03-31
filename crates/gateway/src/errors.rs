@@ -1,4 +1,4 @@
-use starknet_api::transaction::TransactionVersion;
+use starknet_api::transaction::{Resource, ResourceBounds, TransactionVersion};
 
 use thiserror::Error;
 
@@ -29,6 +29,11 @@ pub enum TransactionValidatorError {
     BlockedTransactionVersion(TransactionVersion, String),
     #[error("This transaction type is not supported by the mempool")]
     TransactionTypeNotSupported,
+    #[error("Expected a positive amount of {resource:?}. Got {resource_bounds:?}.")]
+    ZeroFee {
+        resource: Resource,
+        resource_bounds: ResourceBounds,
+    },
     #[error(
         "Calldata length exceeded maximum: length {calldata_length}
         (allowed length: {max_calldata_length})."

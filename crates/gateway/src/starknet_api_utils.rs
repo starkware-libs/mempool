@@ -14,6 +14,7 @@ pub trait TransactionVersionExt {
 
 pub trait TransactionParametersExt {
     // Note, not all transaction types has a calldata field.
+    fn ref_to_resource_bounds(&self) -> TransactionValidatorResult<&ResourceBoundsMapping>;
     fn ref_to_calldata(&self) -> TransactionValidatorResult<&Calldata>;
     fn ref_to_signature(&self) -> TransactionValidatorResult<&TransactionSignature>;
     fn create_for_testing(
@@ -68,6 +69,7 @@ impl TransactionVersionExt for Transaction {
 
 impl TransactionParametersExt for Transaction {
     implement_transaction_params_getters!(
+        (ref_to_resource_bounds, ResourceBoundsMapping),
         (ref_to_calldata, Calldata),
         (ref_to_signature, TransactionSignature)
     );
@@ -90,7 +92,14 @@ impl TransactionParametersExt for DeclareTransaction {
         unimplemented!("Declare transactions do not have calldata.")
     }
 
-    implement_tx_params_ref_getters!((ref_to_signature, signature, TransactionSignature));
+    implement_tx_params_ref_getters!(
+        (
+            ref_to_resource_bounds,
+            resource_bounds,
+            ResourceBoundsMapping
+        ),
+        (ref_to_signature, signature, TransactionSignature)
+    );
 
     fn create_for_testing(
         resource_bounds: ResourceBoundsMapping,
@@ -116,6 +125,11 @@ impl TransactionParametersExt for DeclareTransaction {
 
 impl TransactionParametersExt for DeployAccountTransaction {
     implement_tx_params_ref_getters!(
+        (
+            ref_to_resource_bounds,
+            resource_bounds,
+            ResourceBoundsMapping
+        ),
         (ref_to_calldata, constructor_calldata, Calldata),
         (ref_to_signature, signature, TransactionSignature)
     );
@@ -142,6 +156,11 @@ impl TransactionParametersExt for DeployAccountTransaction {
 
 impl TransactionParametersExt for InvokeTransaction {
     implement_tx_params_ref_getters!(
+        (
+            ref_to_resource_bounds,
+            resource_bounds,
+            ResourceBoundsMapping
+        ),
         (ref_to_calldata, calldata, Calldata),
         (ref_to_signature, signature, TransactionSignature)
     );
@@ -173,6 +192,23 @@ pub fn zero_resource_bounds_mapping() -> ResourceBoundsMapping {
         (
             starknet_api::transaction::Resource::L1Gas,
             ResourceBounds::default(),
+        ),
+        (
+            starknet_api::transaction::Resource::L2Gas,
+            ResourceBounds::default(),
+        ),
+    ])
+    .expect("Resource bounds mapping has unexpected structure.")
+}
+
+pub fn non_zero_resource_bounds_mapping() -> ResourceBoundsMapping {
+    ResourceBoundsMapping::try_from(vec![
+        (
+            starknet_api::transaction::Resource::L1Gas,
+            ResourceBounds {
+                max_amount: 1,
+                max_price_per_unit: 1,
+            },
         ),
         (
             starknet_api::transaction::Resource::L2Gas,

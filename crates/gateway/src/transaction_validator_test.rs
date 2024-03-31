@@ -4,10 +4,12 @@ use starknet_api::calldata;
 use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction, InvokeTransactionV1,
-    Resource, Transaction, TransactionSignature, TransactionVersion,
+    Resource, ResourceBounds, Transaction, TransactionSignature, TransactionVersion,
 };
 
-use crate::starknet_api_utils::{zero_resource_bounds_mapping, TransactionParametersExt};
+use crate::starknet_api_utils::{
+    non_zero_resource_bounds_mapping, zero_resource_bounds_mapping, TransactionParametersExt,
+};
 use crate::transaction_validator::{
     TransactionValidator, TransactionValidatorConfig, TransactionValidatorError,
     TransactionValidatorResult,
@@ -88,10 +90,19 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
     Transaction::L1Handler(starknet_api::transaction::L1HandlerTransaction {..Default::default()}),
     Err(TransactionValidatorError::TransactionTypeNotSupported)
 )]
+#[case::invalid_resource_bounds(
+    TransactionValidatorConfig {
+        min_allowed_tx_version: TransactionVersion::ZERO,
+        max_allowed_tx_version: TransactionVersion::THREE,
+        ..Default::default()
+    },
+    Transaction::create_for_testing(zero_resource_bounds_mapping(), None, None),
+    Err(TransactionValidatorError::ZeroFee{resource: Resource::L1Gas, resource_bounds: ResourceBounds::default()})
+)]
 #[case::deploy_account_calldata_too_long(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(
-        zero_resource_bounds_mapping(),
+        non_zero_resource_bounds_mapping(),
         None,
         Some(calldata![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])
     )),
@@ -100,7 +111,7 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
 #[case::invoke_calldata_too_long(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::Invoke(InvokeTransaction::create_for_testing(
-        zero_resource_bounds_mapping(),
+        non_zero_resource_bounds_mapping(),
         None,
         Some(calldata![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])
     )),
@@ -109,7 +120,7 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
 #[case::declare_signature_too_long(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::Declare(DeclareTransaction::create_for_testing(
-        zero_resource_bounds_mapping(),
+        non_zero_resource_bounds_mapping(),
         Some(TransactionSignature(vec![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])),
         None
     )),
@@ -119,7 +130,7 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
 #[case::deploy_account_signature_too_long(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(
-        zero_resource_bounds_mapping(),
+        non_zero_resource_bounds_mapping(),
         Some(TransactionSignature(vec![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])),
         None
     )),
@@ -128,7 +139,7 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
 #[case::invoke_signature_too_long(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::Invoke(InvokeTransaction::create_for_testing(
-        zero_resource_bounds_mapping(),
+        non_zero_resource_bounds_mapping(),
         Some(TransactionSignature(vec![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])),
         None
     )),
@@ -137,21 +148,21 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
 #[case::valid_declare_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::Declare(DeclareTransaction::create_for_testing(
-        zero_resource_bounds_mapping(), None, None
+        non_zero_resource_bounds_mapping(), None, None
     )),
     Ok(())
 )]
 #[case::valid_deploy_account_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(
-        zero_resource_bounds_mapping(), None, None
+        non_zero_resource_bounds_mapping(), None, None
     )),
     Ok(())
 )]
 #[case::valid_invoke_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
     Transaction::Invoke(InvokeTransaction::create_for_testing(
-        zero_resource_bounds_mapping(), None, None
+        non_zero_resource_bounds_mapping(), None, None
     )),
     Ok(())
 )]

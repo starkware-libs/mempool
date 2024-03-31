@@ -90,8 +90,21 @@ impl TransactionValidator {
             return Err(TransactionValidatorError::TransactionTypeNotSupported);
         }
 
-        // TODO(Arni, 1/4/2024): Validate fee.
+        self.validate_fee(&tx)?;
         self.validate_tx_size(&tx)?;
+
+        Ok(())
+    }
+
+    fn validate_fee(&self, tx: &Transaction) -> TransactionValidatorResult<()> {
+        let resource = self.config.fee_resource;
+        let resource_bounds = tx.ref_to_resource_bounds()?.0[&resource];
+        if resource_bounds.max_amount == 0 || resource_bounds.max_price_per_unit == 0 {
+            return Err(TransactionValidatorError::ZeroFee {
+                resource,
+                resource_bounds,
+            });
+        }
 
         Ok(())
     }
