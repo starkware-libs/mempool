@@ -29,6 +29,22 @@ pub enum TransactionValidatorError {
     BlockedTransactionVersion(TransactionVersion, String),
     #[error("This transaction type is not supported by the mempool")]
     TransactionTypeNotSupported,
+    #[error(
+        "Calldata length exceeded maximum: length {calldata_length}
+        (allowed length: {max_calldata_length})."
+    )]
+    CalldataTooLong {
+        calldata_length: usize,
+        max_calldata_length: usize,
+    },
+    #[error(
+        "Signature length exceeded maximum: length {signature_length}
+        (allowed length: {max_signature_length})."
+    )]
+    SignatureTooLong {
+        signature_length: usize,
+        max_signature_length: usize,
+    },
 }
 
 pub type TransactionValidatorResult<T> = Result<T, TransactionValidatorError>;

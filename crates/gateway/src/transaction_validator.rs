@@ -1,19 +1,40 @@
-use starknet_api::transaction::{Transaction, TransactionVersion};
+use starknet_api::transaction::{Resource, Transaction, TransactionVersion};
 
 use crate::errors::{TransactionValidatorError, TransactionValidatorResult};
-use crate::starknet_api_utils::TransactionVersionExt;
+use crate::starknet_api_utils::{TransactionParametersExt, TransactionVersionExt};
 
 #[cfg(test)]
 #[path = "transaction_validator_test.rs"]
 mod transaction_validator_test;
 
-#[derive(Default)]
+// It is an assumption of this repository that the minimal supported transaction version is 3.
+const HARD_CODED_MINIMAL_TX_VERSION: TransactionVersion = TransactionVersion::THREE;
+
 pub struct TransactionValidatorConfig {
     pub block_declare_cairo1: bool,
     pub block_declare_cairo0: bool,
 
     pub min_allowed_tx_version: TransactionVersion,
     pub max_allowed_tx_version: TransactionVersion,
+
+    pub fee_resource: Resource,
+
+    pub max_calldata_length: usize,
+    pub max_signature_length: usize,
+}
+
+impl Default for TransactionValidatorConfig {
+    fn default() -> Self {
+        Self {
+            block_declare_cairo1: Default::default(),
+            block_declare_cairo0: Default::default(),
+            min_allowed_tx_version: Default::default(),
+            max_allowed_tx_version: Default::default(),
+            fee_resource: Resource::L1Gas,
+            max_calldata_length: Default::default(),
+            max_signature_length: Default::default(),
+        }
+    }
 }
 
 pub struct TransactionValidator {
@@ -65,7 +86,35 @@ impl TransactionValidator {
             ));
         }
 
-        // TODO(Arni, 1/4/2024): Validate fee and tx size.
+        if version < HARD_CODED_MINIMAL_TX_VERSION {
+            return Err(TransactionValidatorError::TransactionTypeNotSupported);
+        }
+
+        // TODO(Arni, 1/4/2024): Validate fee.
+        self.validate_tx_size(&tx)?;
+
+        Ok(())
+    }
+
+    fn validate_tx_size(&self, tx: &Transaction) -> TransactionValidatorResult<()> {
+        if let Transaction::DeployAccount(_) | Transaction::Invoke(_) = tx {
+            let calldata = tx.ref_to_calldata()?;
+            if calldata.0.len() > self.config.max_calldata_length {
+                return Err(TransactionValidatorError::CalldataTooLong {
+                    calldata_length: calldata.0.len(),
+                    max_calldata_length: self.config.max_calldata_length,
+                });
+            }
+        }
+
+        let signature = tx.ref_to_signature()?;
+        if signature.0.len() > self.config.max_signature_length {
+            return Err(TransactionValidatorError::SignatureTooLong {
+                signature_length: signature.0.len(),
+                max_signature_length: self.config.max_signature_length,
+            });
+        }
+
         Ok(())
     }
 }

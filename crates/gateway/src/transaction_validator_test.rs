@@ -1,8 +1,10 @@
 use rstest::rstest;
 
+use starknet_api::calldata;
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
-    DeclareTransaction, DeployAccountTransaction, InvokeTransaction, InvokeTransactionV1,
-    Transaction, TransactionVersion,
+    Calldata, DeclareTransaction, DeployAccountTransaction, InvokeTransaction, InvokeTransactionV1,
+    Resource, Transaction, TransactionSignature, TransactionVersion,
 };
 
 use crate::starknet_api_utils::{zero_resource_bounds_mapping, TransactionParametersExt};
@@ -16,6 +18,9 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
     block_declare_cairo1: false,
     min_allowed_tx_version: TransactionVersion::THREE,
     max_allowed_tx_version: TransactionVersion::THREE,
+    fee_resource: Resource::L1Gas,
+    max_calldata_length: 1,
+    max_signature_length: 1,
 };
 
 #[rstest]
@@ -83,19 +88,71 @@ const VALIDATOR_CONFIG_FOR_TESTING: TransactionValidatorConfig = TransactionVali
     Transaction::L1Handler(starknet_api::transaction::L1HandlerTransaction {..Default::default()}),
     Err(TransactionValidatorError::TransactionTypeNotSupported)
 )]
+#[case::deploy_account_calldata_too_long(
+    VALIDATOR_CONFIG_FOR_TESTING,
+    Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(
+        zero_resource_bounds_mapping(),
+        None,
+        Some(calldata![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])
+    )),
+    Err(TransactionValidatorError::CalldataTooLong { calldata_length: 2, max_calldata_length: 1 })
+)]
+#[case::invoke_calldata_too_long(
+    VALIDATOR_CONFIG_FOR_TESTING,
+    Transaction::Invoke(InvokeTransaction::create_for_testing(
+        zero_resource_bounds_mapping(),
+        None,
+        Some(calldata![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])
+    )),
+    Err(TransactionValidatorError::CalldataTooLong { calldata_length: 2, max_calldata_length: 1 })
+)]
+#[case::declare_signature_too_long(
+    VALIDATOR_CONFIG_FOR_TESTING,
+    Transaction::Declare(DeclareTransaction::create_for_testing(
+        zero_resource_bounds_mapping(),
+        Some(TransactionSignature(vec![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])),
+        None
+    )),
+    Err(TransactionValidatorError::SignatureTooLong { signature_length: 2, max_signature_length: 1 })
+
+)]
+#[case::deploy_account_signature_too_long(
+    VALIDATOR_CONFIG_FOR_TESTING,
+    Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(
+        zero_resource_bounds_mapping(),
+        Some(TransactionSignature(vec![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])),
+        None
+    )),
+    Err(TransactionValidatorError::SignatureTooLong { signature_length: 2, max_signature_length: 1 })
+)]
+#[case::invoke_signature_too_long(
+    VALIDATOR_CONFIG_FOR_TESTING,
+    Transaction::Invoke(InvokeTransaction::create_for_testing(
+        zero_resource_bounds_mapping(),
+        Some(TransactionSignature(vec![StarkFelt::from_u128(1),StarkFelt::from_u128(2)])),
+        None
+    )),
+    Err(TransactionValidatorError::SignatureTooLong { signature_length: 2, max_signature_length: 1 })
+)]
 #[case::valid_declare_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    Transaction::Declare(DeclareTransaction::create_for_testing(zero_resource_bounds_mapping())),
+    Transaction::Declare(DeclareTransaction::create_for_testing(
+        zero_resource_bounds_mapping(), None, None
+    )),
     Ok(())
 )]
 #[case::valid_deploy_account_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(zero_resource_bounds_mapping())),
+    Transaction::DeployAccount(DeployAccountTransaction::create_for_testing(
+        zero_resource_bounds_mapping(), None, None
+    )),
     Ok(())
 )]
 #[case::valid_invoke_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    Transaction::Invoke(InvokeTransaction::create_for_testing(zero_resource_bounds_mapping())),
+    Transaction::Invoke(InvokeTransaction::create_for_testing(
+        zero_resource_bounds_mapping(), None, None
+    )),
     Ok(())
 )]
 fn test_transaction_validator(
