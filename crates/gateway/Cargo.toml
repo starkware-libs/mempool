@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 assert_matches.workspace = true
-assert_matches.workspace = true
+axum.workspace = true
 hyper.workspace = true
 rstest.workspace = true
 serde.workspace = true
