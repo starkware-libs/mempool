@@ -1,0 +1,7 @@
+{
+    "bnd_address": {
+        "description": "IP:PORT of the gateway.",
+        "value": "0.0.0.0:8080",
+        "privacy": "Public"
+    }   
+}
