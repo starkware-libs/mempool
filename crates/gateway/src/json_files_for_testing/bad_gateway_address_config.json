@@ -1,0 +1,7 @@
+{
+    "bind_address": {
+        "description": "IP:PORT of the gateway.",
+        "value": "bad_address:8080",
+        "privacy": "Public"
+    }   
+}
