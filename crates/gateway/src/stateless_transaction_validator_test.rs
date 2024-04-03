@@ -3,7 +3,9 @@ use rstest::rstest;
 use starknet_api::calldata;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::{Calldata, Resource, ResourceBounds, ResourceBoundsMapping};
+use starknet_api::transaction::{
+    Calldata, Resource, ResourceBounds, ResourceBoundsMapping, TransactionSignature,
+};
 
 use crate::starknet_api_test_utils::{
     create_external_declare_tx_for_testing, create_external_deploy_account_tx_for_testing,
@@ -21,6 +23,7 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
         validate_non_zero_l2_gas_fee: true,
 
         max_calldata_length: 1,
+        max_signature_length: 1,
     };
 
 #[rstest]
@@ -31,7 +34,7 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
         validate_non_zero_l2_gas_fee: false,
         ..DEFAULT_VALIDATOR_CONFIG_FOR_TESTING
     },
-    create_external_invoke_tx_for_testing(zero_resource_bounds_mapping(), calldata![]),
+    create_external_invoke_tx_for_testing(zero_resource_bounds_mapping(), calldata![], TransactionSignature::default()),
     Ok(())
 )]
 #[case::missing_l1_gas_resource_bounds(
@@ -40,7 +43,7 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
         validate_non_zero_l2_gas_fee: false,
         ..DEFAULT_VALIDATOR_CONFIG_FOR_TESTING
     },
-    create_external_invoke_tx_for_testing(ResourceBoundsMapping::default(), calldata![]),
+    create_external_invoke_tx_for_testing(ResourceBoundsMapping::default(), calldata![], TransactionSignature::default()),
     Err(TransactionValidatorError::MissingResource { resource: Resource::L1Gas })
 )]
 #[case::missing_l2_gas_resource_bounds(
@@ -49,12 +52,14 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
         validate_non_zero_l2_gas_fee: true,
         ..DEFAULT_VALIDATOR_CONFIG_FOR_TESTING
     },
-    create_external_invoke_tx_for_testing(ResourceBoundsMapping::default(), calldata![]),
+    create_external_invoke_tx_for_testing(ResourceBoundsMapping::default(), calldata![], TransactionSignature::default()),
     Err(TransactionValidatorError::MissingResource { resource: Resource::L2Gas })
 )]
 #[case::zero_l1_gas_resource_bounds(
     DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_invoke_tx_for_testing(zero_resource_bounds_mapping(), calldata![]),
+    create_external_invoke_tx_for_testing(
+        zero_resource_bounds_mapping(), calldata![], TransactionSignature::default()
+    ),
     Err(TransactionValidatorError::ZeroFee{
         resource: Resource::L1Gas, resource_bounds: ResourceBounds::default()
     })
@@ -63,7 +68,8 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
     DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
     create_external_invoke_tx_for_testing(
         create_resource_bounds_mapping(NON_EMPTY_RESOURCE_BOUNDS, ResourceBounds::default()),
-        calldata![]
+        calldata![],
+        TransactionSignature::default()
     ),
     Err(TransactionValidatorError::ZeroFee{
         resource: Resource::L2Gas, resource_bounds: ResourceBounds::default()
@@ -77,7 +83,7 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
     },
     create_external_invoke_tx_for_testing(
         create_resource_bounds_mapping(ResourceBounds::default(), NON_EMPTY_RESOURCE_BOUNDS),
-        calldata![]
+        calldata![], TransactionSignature::default()
     ),
     Ok(())
 )]
@@ -86,7 +92,8 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
     DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
     create_external_deploy_account_tx_for_testing(
         non_zero_resource_bounds_mapping(),
-        calldata![StarkFelt::from_u128(1),StarkFelt::from_u128(2)],
+        calldata![StarkFelt::from_u128(1), StarkFelt::from_u128(2)],
+        TransactionSignature::default()
     ),
     Err(TransactionValidatorError::CalldataTooLong { calldata_length: 2, max_calldata_length: 1 })
 )]
@@ -94,7 +101,8 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
     DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
     create_external_invoke_tx_for_testing(
         non_zero_resource_bounds_mapping(),
-        calldata![StarkFelt::from_u128(1),StarkFelt::from_u128(2)],
+        calldata![StarkFelt::from_u128(1), StarkFelt::from_u128(2)],
+        TransactionSignature::default()
     ),
     Err(TransactionValidatorError::CalldataTooLong { calldata_length: 2, max_calldata_length: 1 })
 )]
@@ -103,23 +111,60 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
     create_external_invoke_tx_for_testing(
         non_zero_resource_bounds_mapping(),
         calldata![StarkFelt::from_u128(1)],
+        TransactionSignature::default()
+    ),
+    Ok(())
+)]
+#[case::declare_signature_too_long(
+    DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
+    create_external_declare_tx_for_testing(
+        non_zero_resource_bounds_mapping(),
+        TransactionSignature(vec![StarkFelt::from_u128(1), StarkFelt::from_u128(2)]),
+    ),
+    Err(TransactionValidatorError::SignatureTooLong { signature_length: 2, max_signature_length: 1 })
+
+)]
+#[case::deploy_account_signature_too_long(
+    DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
+    create_external_deploy_account_tx_for_testing(
+        non_zero_resource_bounds_mapping(),
+        calldata![],
+        TransactionSignature(vec![StarkFelt::from_u128(1), StarkFelt::from_u128(2)])
+    ),
+    Err(TransactionValidatorError::SignatureTooLong { signature_length: 2, max_signature_length: 1 })
+)]
+#[case::invoke_signature_too_long(
+    DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
+    create_external_invoke_tx_for_testing(
+        non_zero_resource_bounds_mapping(),
+        calldata![],
+        TransactionSignature(vec![StarkFelt::from_u128(1), StarkFelt::from_u128(2)])
+    ),
+    Err(TransactionValidatorError::SignatureTooLong { signature_length: 2, max_signature_length: 1 })
+)]
+#[case::non_empty_valid_signature(
+    DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
+    create_external_invoke_tx_for_testing(
+        non_zero_resource_bounds_mapping(),
+        calldata![],
+        TransactionSignature(vec![StarkFelt::from_u128(1)])
     ),
     Ok(())
 )]
 // General cases.
 #[case::valid_declare_tx(
     DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_declare_tx_for_testing(non_zero_resource_bounds_mapping()),
+    create_external_declare_tx_for_testing(non_zero_resource_bounds_mapping(), TransactionSignature::default()),
     Ok(())
 )]
 #[case::valid_deploy_account_tx(
     DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_deploy_account_tx_for_testing(non_zero_resource_bounds_mapping(), calldata![]),
+    create_external_deploy_account_tx_for_testing(non_zero_resource_bounds_mapping(), calldata![], TransactionSignature::default()),
     Ok(())
 )]
 #[case::valid_invoke_tx(
     DEFAULT_VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_invoke_tx_for_testing(non_zero_resource_bounds_mapping(), calldata![]),
+    create_external_invoke_tx_for_testing(non_zero_resource_bounds_mapping(), calldata![], TransactionSignature::default()),
     Ok(())
 )]
 fn test_transaction_validator(

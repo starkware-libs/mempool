@@ -17,6 +17,7 @@ pub struct StatelessTransactionValidatorConfig {
     pub validate_non_zero_l2_gas_fee: bool,
 
     pub max_calldata_length: usize,
+    pub max_signature_length: usize,
 }
 
 pub struct StatelessTransactionValidator {
@@ -28,13 +29,13 @@ impl StatelessTransactionValidator {
         // TODO(Arni, 1/5/2024): Add a mechanism that validate the sender address is not blocked.
         // TODO(Arni, 1/5/2024): Validate transaction version.
 
-        self.validate_fee(tx)?;
+        self.validate_resource_bounds(tx)?;
         self.validate_tx_size(tx)?;
 
         Ok(())
     }
 
-    fn validate_fee(&self, tx: &ExternalTransaction) -> TransactionValidatorResult<()> {
+    fn validate_resource_bounds(&self, tx: &ExternalTransaction) -> TransactionValidatorResult<()> {
         let resource_bounds_mapping = match tx {
             ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => &tx.resource_bounds,
             ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
@@ -44,10 +45,10 @@ impl StatelessTransactionValidator {
         };
 
         if self.config.validate_non_zero_l1_gas_fee {
-            validate_resource_bounds(resource_bounds_mapping, Resource::L1Gas)?;
+            validate_resource_is_non_zero(resource_bounds_mapping, Resource::L1Gas)?;
         }
         if self.config.validate_non_zero_l2_gas_fee {
-            validate_resource_bounds(resource_bounds_mapping, Resource::L2Gas)?;
+            validate_resource_is_non_zero(resource_bounds_mapping, Resource::L2Gas)?;
         }
 
         Ok(())
@@ -55,8 +56,7 @@ impl StatelessTransactionValidator {
 
     fn validate_tx_size(&self, tx: &ExternalTransaction) -> TransactionValidatorResult<()> {
         self.validate_tx_calldata_size(tx)?;
-
-        // TODO(Arni, 4/4/2024): Validate tx signature is not too long.
+        self.validate_tx_signature_size(tx)?;
 
         Ok(())
     }
@@ -70,12 +70,10 @@ impl StatelessTransactionValidator {
                 // Declare transaction has no calldata.
                 return Ok(());
             }
-            ExternalTransaction::DeployAccount(tx) => match tx {
-                ExternalDeployAccountTransaction::V3(tx) => &tx.constructor_calldata,
-            },
-            ExternalTransaction::Invoke(tx) => match tx {
-                ExternalInvokeTransaction::V3(tx) => &tx.calldata,
-            },
+            ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
+                &tx.constructor_calldata
+            }
+            ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => &tx.calldata,
         };
 
         let calldata_length = calldata.0.len();
@@ -88,11 +86,35 @@ impl StatelessTransactionValidator {
 
         Ok(())
     }
+
+    fn validate_tx_signature_size(
+        &self,
+        tx: &ExternalTransaction,
+    ) -> TransactionValidatorResult<()> {
+        let signature = match tx {
+            ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => &tx.signature,
+
+            ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
+                &tx.signature
+            }
+            ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => &tx.signature,
+        };
+
+        let signature_length = signature.0.len();
+        if signature_length > self.config.max_signature_length {
+            return Err(TransactionValidatorError::SignatureTooLong {
+                signature_length,
+                max_signature_length: self.config.max_signature_length,
+            });
+        }
+
+        Ok(())
+    }
 }
 
 // Utilities.
 
-fn validate_resource_bounds(
+fn validate_resource_is_non_zero(
     resource_bounds_mapping: &ResourceBoundsMapping,
     resource: Resource,
 ) -> TransactionValidatorResult<()> {

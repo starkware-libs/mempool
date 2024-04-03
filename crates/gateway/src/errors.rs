@@ -32,6 +32,14 @@ pub enum TransactionValidatorError {
         calldata_length: usize,
         max_calldata_length: usize,
     },
+    #[error(
+        "Signature length exceeded maximum: length {signature_length}
+        (allowed length: {max_signature_length})."
+    )]
+    SignatureTooLong {
+        signature_length: usize,
+        max_signature_length: usize,
+    },
 }
 
 pub type TransactionValidatorResult<T> = Result<T, TransactionValidatorError>;
