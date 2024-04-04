@@ -1,4 +1,3 @@
-use std::panic;
 use std::sync::OnceLock;
 
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
@@ -8,7 +7,6 @@ use cairo_lang_starknet_classes::casm_contract_class::{
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::RPCDeclareTransaction;
 use starknet_sierra_compile::compile::compile_sierra_to_casm;
-use starknet_sierra_compile::errors::CompilationUtilError;
 use starknet_sierra_compile::utils::into_contract_class_for_compilation;
 
 use crate::config::GatewayCompilerConfig;
@@ -39,15 +37,8 @@ impl GatewayCompiler {
             into_contract_class_for_compilation(starknet_api_contract_class);
 
         // Compile Sierra to Casm.
-        let catch_unwind_result =
-            panic::catch_unwind(|| compile_sierra_to_casm(cairo_lang_contract_class));
-        let casm_contract_class = match catch_unwind_result {
-            Ok(compilation_result) => compilation_result?,
-            Err(_) => {
-                // TODO(Arni): Log the panic.
-                return Err(GatewayError::CompilationError(CompilationUtilError::CompilationPanic));
-            }
-        };
+        let casm_contract_class = compile_sierra_to_casm(cairo_lang_contract_class)?;
+
         self.validate_casm_class(&casm_contract_class)?;
 
         let hash_result = CompiledClassHash(casm_contract_class.compiled_class_hash());

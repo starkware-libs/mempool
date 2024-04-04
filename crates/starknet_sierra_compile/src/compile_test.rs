@@ -2,7 +2,6 @@ use std::env;
 use std::path::Path;
 
 use assert_matches::assert_matches;
-use cairo_lang_starknet_classes::allowed_libfuncs::AllowedLibfuncsError;
 use mempool_test_utils::{get_absolute_path, FAULTY_ACCOUNT_CLASS_FILE, TEST_FILES_FOLDER};
 
 use crate::compile::{compile_sierra_to_casm, CompilationUtilError};
@@ -34,6 +33,7 @@ fn test_negative_flow_compile_sierra_to_casm() {
     let result = compile_sierra_to_casm(contract_class);
     assert_matches!(
         result,
-        Err(CompilationUtilError::AllowedLibfuncsError(AllowedLibfuncsError::SierraProgramError))
+        Err(CompilationUtilError::CompilationError(string))
+        if string.contains("Error: Invalid Sierra program.")
     );
 }

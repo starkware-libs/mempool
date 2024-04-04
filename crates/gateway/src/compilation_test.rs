@@ -1,6 +1,5 @@
 use assert_matches::assert_matches;
 use blockifier::execution::contract_class::ContractClass;
-use cairo_lang_starknet_classes::allowed_libfuncs::AllowedLibfuncsError;
 use mempool_test_utils::starknet_api_test_utils::declare_tx;
 use rstest::{fixture, rstest};
 use starknet_api::core::CompiledClassHash;
@@ -48,9 +47,10 @@ fn test_compile_contract_class_bad_sierra(gateway_compiler: GatewayCompiler) {
     let result = gateway_compiler.compile_contract_class(&declare_tx);
     assert_matches!(
         result.unwrap_err(),
-        GatewayError::CompilationError(CompilationUtilError::AllowedLibfuncsError(
-            AllowedLibfuncsError::SierraProgramError
+        GatewayError::CompilationError(CompilationUtilError::CompilationError(
+            string
         ))
+        if string.contains("Error: Invalid Sierra program.")
     )
 }
 
