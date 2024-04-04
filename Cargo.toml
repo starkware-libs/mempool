@@ -29,3 +29,4 @@ serde_json = "1.0"
 starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", branch = "mohammad/transaction/implement-external-transactions" }
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
+tower = "0.4.13"
