@@ -2188,8 +2188,12 @@ dependencies = [
 name = "starknet_gateway"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "assert_matches",
  "axum",
+ "cairo-lang-sierra",
+ "cairo-lang-starknet-classes",
+ "cairo-lang-utils",
  "clap",
  "hyper 1.2.0",
  "papyrus_config",

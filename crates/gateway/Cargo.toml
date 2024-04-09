@@ -9,7 +9,11 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+anyhow.workspace = true
 axum.workspace = true
+cairo-lang-sierra.workspace = true
+cairo-lang-starknet-classes.workspace = true
+cairo-lang-utils.workspace = true
 clap.workspace = true
 hyper.workspace = true
 serde.workspace = true

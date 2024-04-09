@@ -19,8 +19,12 @@ unused = "deny"
 as_conversions = "deny"
 
 [workspace.dependencies]
+anyhow = "1.0.75"
 assert_matches = "1.5.0"
 axum = "0.6.12"
+cairo-lang-sierra = "2.6.3"
+cairo-lang-starknet-classes = "2.6.3"
+cairo-lang-utils = "2.6.3"
 clap = { version = "4.3.10" }
 hyper = "1.2.0"
 pretty_assertions = "1.4.0"
