@@ -21,6 +21,8 @@ as_conversions = "deny"
 [workspace.dependencies]
 assert_matches = "1.5.0"
 axum = "0.6.12"
+# TODO(YaelD, 1/5/2024): Use a fixed version once the StarkNet API is stable.
+blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "d6bafcbb"}
 clap = { version = "4.3.10" }
 hyper = "1.2.0"
 pretty_assertions = "1.4.0"
@@ -28,7 +30,7 @@ rstest = "0.17.0"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0"
 # TODO(Arni, 1/5/2024): Use a fixed version once the StarkNet API is stable.
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", rev = "6b14aaf" }
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", rev = "98153e9" }
 papyrus_config = "0.3.0"
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
