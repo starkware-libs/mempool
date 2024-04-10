@@ -4,7 +4,7 @@ use starknet_api::external_transaction::{
 };
 use starknet_api::transaction::Resource;
 
-use crate::errors::{TransactionValidatorError, TransactionValidatorResult};
+use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionValidatorResult};
 
 #[cfg(test)]
 #[path = "stateless_transaction_validator_test.rs"]
@@ -22,7 +22,7 @@ pub struct StatelessTransactionValidator {
 }
 
 impl StatelessTransactionValidator {
-    pub fn validate(&self, tx: &ExternalTransaction) -> TransactionValidatorResult<()> {
+    pub fn validate(&self, tx: &ExternalTransaction) -> StatelessTransactionValidatorResult<()> {
         // TODO(Arni, 1/5/2024): Add a mechanism that validate the sender address is not blocked.
         // TODO(Arni, 1/5/2024): Validate transaction version.
         // TODO(Arni, 4/4/2024): Validate tx signature and calldata are not too long.
@@ -32,7 +32,7 @@ impl StatelessTransactionValidator {
         Ok(())
     }
 
-    fn validate_fee(&self, tx: &ExternalTransaction) -> TransactionValidatorResult<()> {
+    fn validate_fee(&self, tx: &ExternalTransaction) -> StatelessTransactionValidatorResult<()> {
         let resource_bounds_mapping = match tx {
             ExternalTransaction::Declare(tx) => match tx {
                 ExternalDeclareTransaction::V3(tx) => &tx.resource_bounds,
@@ -48,16 +48,16 @@ impl StatelessTransactionValidator {
         fn validate_reousrce_bounds(
             resource_bounds_mapping: &starknet_api::transaction::ResourceBoundsMapping,
             resource: Resource,
-        ) -> TransactionValidatorResult<()> {
+        ) -> StatelessTransactionValidatorResult<()> {
             if let Some(resource_bounds) = resource_bounds_mapping.0.get(&resource) {
                 if resource_bounds.max_amount == 0 || resource_bounds.max_price_per_unit == 0 {
-                    return Err(TransactionValidatorError::ZeroFee {
+                    return Err(StatelessTransactionValidatorError::ZeroFee {
                         resource,
                         resource_bounds: *resource_bounds,
                     });
                 }
             } else {
-                return Err(TransactionValidatorError::MissingResource { resource });
+                return Err(StatelessTransactionValidatorError::MissingResource { resource });
             }
 
             Ok(())
