@@ -1,7 +1,9 @@
 pub mod errors;
 pub mod gateway;
 pub mod starknet_api_test_utils;
+pub mod stateful_transaction_validator;
 pub mod stateless_transaction_validator;
+pub mod utils;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
