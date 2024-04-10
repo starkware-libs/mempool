@@ -1,4 +1,11 @@
-use starknet_api::transaction::{Resource, ResourceBounds};
+use blockifier::{
+    blockifier::stateful_validator::StatefulValidatorError,
+    transaction::errors::TransactionExecutionError,
+};
+use starknet_api::{
+    block::BlockNumber,
+    transaction::{Resource, ResourceBounds},
+};
 
 use thiserror::Error;
 
@@ -15,8 +22,9 @@ pub enum GatewayError {
 }
 
 #[derive(Debug, Error)]
-#[cfg_attr(test, derive(PartialEq))]
 pub enum TransactionValidatorError {
+    #[error("Block number {block_number:?} is out of range.")]
+    BlockNumberOutOfRange { block_number: BlockNumber },
     #[error("Expected a positive amount of {resource:?}. Got {resource_bounds:?}.")]
     ZeroFee {
         resource: Resource,
@@ -24,6 +32,10 @@ pub enum TransactionValidatorError {
     },
     #[error("The resource bounds mapping is missing a resource {resource:?}.")]
     MissingResource { resource: Resource },
+    #[error(transparent)]
+    StatefulValidatorError(#[from] StatefulValidatorError),
+    #[error(transparent)]
+    TransactionExecutionError(#[from] TransactionExecutionError),
 }
 
 pub type TransactionValidatorResult<T> = Result<T, TransactionValidatorError>;
