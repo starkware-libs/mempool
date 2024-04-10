@@ -8,7 +8,7 @@ use crate::starknet_api_test_utils::{
     create_external_invoke_tx_for_testing, non_zero_l1_resource_bounds_mapping,
     non_zero_l2_resource_bounds_mapping, zero_resource_bounds_mapping,
 };
-use crate::transaction_validator::{
+use crate::stateless_transaction_validator::{
     TransactionValidator, TransactionValidatorConfig, TransactionValidatorError,
     TransactionValidatorResult,
 };
@@ -83,7 +83,7 @@ fn test_transaction_validator(
     #[case] expected_result: TransactionValidatorResult<()>,
 ) {
     let tx_validator = TransactionValidator { config };
-    let result = tx_validator.validate(tx);
+    let result = tx_validator.validate(&tx);
 
     assert_eq!(result, expected_result);
 }
