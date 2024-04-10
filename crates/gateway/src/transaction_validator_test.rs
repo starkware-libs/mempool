@@ -85,5 +85,5 @@ fn test_transaction_validator(
     let tx_validator = TransactionValidator { config };
     let result = tx_validator.validate(tx);
 
-    assert_eq!(result, expected_result);
+    assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }
