@@ -14,6 +14,8 @@ pub enum GatewayError {
     InvalidTransactionFormat(#[from] serde_json::Error),
     #[error("Error while starting the server")]
     ServerStartError(#[from] hyper::Error),
+    #[error(transparent)]
+    StatelessTransactionValidatorError(#[from] StatelessTransactionValidatorError),
 }
 
 impl IntoResponse for GatewayError {
