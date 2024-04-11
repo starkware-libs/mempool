@@ -1,3 +1,4 @@
+use axum::response::{IntoResponse, Response};
 use starknet_api::transaction::{Resource, ResourceBounds};
 
 use thiserror::Error;
@@ -43,3 +44,9 @@ pub enum StatelessTransactionValidatorError {
 }
 
 pub type StatelessTransactionValidatorResult<T> = Result<T, StatelessTransactionValidatorError>;
+
+impl IntoResponse for StatelessTransactionValidatorError {
+    fn into_response(self) -> Response {
+        self.to_string().into_response()
+    }
+}
