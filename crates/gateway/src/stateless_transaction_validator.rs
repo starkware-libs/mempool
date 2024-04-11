@@ -3,6 +3,7 @@ use starknet_api::external_transaction::{
 };
 use starknet_api::transaction::{Resource, ResourceBoundsMapping};
 
+use crate::config::StatelessTransactionValidatorConfig;
 use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionValidatorResult};
 use crate::utils::ExternalTransactionExt;
 
@@ -10,16 +11,7 @@ use crate::utils::ExternalTransactionExt;
 #[path = "stateless_transaction_validator_test.rs"]
 mod stateless_transaction_validator_test;
 
-#[derive(Default)]
-pub struct StatelessTransactionValidatorConfig {
-    // If true, validates that the resource bounds are not zero.
-    pub validate_non_zero_l1_gas_fee: bool,
-    pub validate_non_zero_l2_gas_fee: bool,
-
-    pub max_calldata_length: usize,
-    pub max_signature_length: usize,
-}
-
+#[derive(Clone)]
 pub struct StatelessTransactionValidator {
     pub config: StatelessTransactionValidatorConfig,
 }
