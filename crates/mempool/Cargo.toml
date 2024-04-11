@@ -10,8 +10,11 @@ workspace = true
 
 [dependencies]
 derive_more.workspace = true
-starknet_api.workspace = true
+starknet_api = { workspace = true, features = ["testing"] }
+thiserror.workspace = true
+
 
 [dev-dependencies]
 assert_matches.workspace = true
+rstest.workspace = true
 tokio.workspace = true
