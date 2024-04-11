@@ -13,7 +13,6 @@ use starknet_api::{
 pub struct PriorityQueue(BTreeSet<PQTransaction>);
 
 impl PriorityQueue {
-    #[cfg(test)]
     pub fn push(&mut self, tx: InternalTransaction) {
         let mempool_tx = PQTransaction(tx);
         self.insert(mempool_tx);
