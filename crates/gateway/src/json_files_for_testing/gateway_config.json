@@ -8,5 +8,25 @@
         "description": "The gateway server port.",
         "value": 8080,
         "privacy": "Public"
+    },
+    "stateless_transaction_validator_config.max_calldata_length": {
+        "description": "Validates transactions have signature length less than or equal to this value.",
+        "value": 0,
+        "privacy": "Public"
+    },
+    "stateless_transaction_validator_config.max_signature_length": {
+        "description": "Validates transactions have calldata length less than or equal to this value.",
+        "value": 0,
+        "privacy": "Public"
+    },
+    "stateless_transaction_validator_config.validate_non_zero_l1_gas_fee": {
+        "description": "If true, validates transactions have non zero L1 resource bounds.",
+        "value": false,
+        "privacy": "Public"
+    },
+    "stateless_transaction_validator_config.validate_non_zero_l2_gas_fee": {
+      "description": "If true, validates transactions have non zero L2 resource bounds.",
+      "value": false,
+      "privacy": "Public"
     }
 }
