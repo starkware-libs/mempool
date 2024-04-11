@@ -51,12 +51,12 @@ async fn test_priority_queue() {
     let tx1 = create_tx_for_testing(Tip(100), tx_hash_100);
     let tx3 = create_tx_for_testing(Tip(10), tx_hash_10);
 
-    let mut pq = PriorityQueue::new();
-    pq.push(tx1);
-    pq.push(tx2);
-    pq.push(tx3);
+    let mut pq = PriorityQueue::default();
+    pq.push(tx1.clone());
+    pq.push(tx2.clone());
+    pq.push(tx3.clone());
 
-    assert_eq!(pq.pop().unwrap(), tx_hash_100);
-    assert_eq!(pq.pop().unwrap(), tx_hash_50);
-    assert_eq!(pq.pop().unwrap(), tx_hash_10);
+    assert_eq!(pq.pop().unwrap(), tx1);
+    assert_eq!(pq.pop().unwrap(), tx2);
+    assert_eq!(pq.pop().unwrap(), tx3);
 }

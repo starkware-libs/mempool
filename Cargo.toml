@@ -21,15 +21,15 @@ as_conversions = "deny"
 [workspace.dependencies]
 assert_matches = "1.5.0"
 axum = "0.6.12"
-clap = { version = "4.3.10" }
+clap = "4.3.10"
+derive_more = "0.99"
 hyper = "1.2.0"
+papyrus_config = "0.3.0"
 pretty_assertions = "1.4.0"
 rstest = "0.17.0"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = "1.0"
-starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", rev = "48d61bb" }
-papyrus_config = "0.3.0"
+starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", rev = "016ff6c" }
 thiserror = "1.0"
 tokio = { version = "1", features = ["full"] }
 validator = "0.12"
-

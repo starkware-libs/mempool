@@ -9,6 +9,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+derive_more.workspace = true
 starknet_api.workspace = true
 
 [dev-dependencies]

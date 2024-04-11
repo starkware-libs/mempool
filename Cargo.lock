@@ -2166,7 +2166,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.12.0-dev.1"
-source = "git+https://github.com/starkware-libs/starknet-api.git?rev=48d61bb#48d61bbc525bcfc96c88190e53142fb15dd41b6c"
+source = "git+https://github.com/starkware-libs/starknet-api.git?rev=016ff6c#016ff6c26b75b2a2b8a46d6e7100776d5b65a59f"
 dependencies = [
  "cairo-lang-starknet-classes",
  "derive_more",
@@ -2208,6 +2208,7 @@ name = "starknet_mempool"
 version = "0.0.0"
 dependencies = [
  "assert_matches",
+ "derive_more",
  "starknet_api",
  "tokio",
 ]
