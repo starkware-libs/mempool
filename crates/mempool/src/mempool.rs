@@ -1,22 +1,27 @@
 use starknet_api::{internal_transaction::InternalTransaction, transaction::TransactionHash};
 
-use crate::errors::MempoolError;
+use crate::{errors::MempoolError, priority_queue::PriorityQueue};
+
+#[cfg(test)]
+#[path = "mempool_test.rs"]
+pub mod mempool_test;
 
 pub type MempoolResult<T> = Result<T, MempoolError>;
 
-pub struct Mempool;
-
+pub struct Mempool {
+    priority_queue: PriorityQueue,
+}
 impl Mempool {
     /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push back.
-    pub fn get_txs(n_txs: u8) -> MempoolResult<Vec<InternalTransaction>> {
-        todo!();
+    pub fn get_tx(&mut self, n_txs: usize) -> MempoolResult<Vec<InternalTransaction>> {
+        Ok(self.priority_queue.pop(n_txs))
     }
 
     /// Adds a new transaction to the mempool.
     /// TODO: support fee escalation and transactions with future nonces.
-    pub fn add_tx(&mut self, tx: InternalTransaction) -> MempoolResult<()> {
+    pub fn add_tx(&mut self, _tx: InternalTransaction) -> MempoolResult<()> {
         todo!();
     }
 
@@ -26,9 +31,9 @@ impl Mempool {
     // push back.
     pub fn commit_block(
         &mut self,
-        block_number: u64,
-        txs_in_block: &[TransactionHash],
-        state_changes: StateChanges,
+        _block_number: u64,
+        _txs_in_block: &[TransactionHash],
+        _state_changes: StateChanges,
     ) -> MempoolResult<()> {
         todo!()
     }
