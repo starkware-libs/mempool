@@ -1,4 +1,7 @@
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum MempoolError {}
+pub enum MempoolError {
+    #[error("Duplicate transaction")]
+    DuplicateTransaction,
+}

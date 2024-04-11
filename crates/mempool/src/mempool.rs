@@ -53,10 +53,16 @@ impl Mempool {
     /// TODO: support fee escalation and transactions with future nonces.
     pub fn add_tx(
         &mut self,
-        _tx: InternalTransaction,
-        _account_state: AccountState,
+        tx: InternalTransaction,
+        account_state: &AccountState,
     ) -> MempoolResult<()> {
-        todo!();
+        if self.state.contains_key(&account_state.contract_address) {
+            return Err(MempoolError::DuplicateTransaction);
+        }
+        self.state
+            .insert(account_state.contract_address, account_state.nonce);
+        self.priority_queue.push(tx);
+        Ok(())
     }
 
     /// Update the mempool's internal state according to the committed block's transactions.
@@ -73,7 +79,7 @@ impl Mempool {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct AccountState {
     pub contract_address: ContractAddress,
     pub nonce: Nonce,
