@@ -2,6 +2,7 @@ use axum::body::{Body, Bytes, HttpBody};
 use axum::http::{Request, StatusCode};
 use pretty_assertions::assert_str_eq;
 use rstest::rstest;
+use starknet_gateway::config::{GatewayConfig, StatelessTransactionValidatorConfig};
 use starknet_gateway::gateway::app;
 use std::fs;
 use std::path::Path;
@@ -41,7 +42,16 @@ async fn test_is_alive() {
 }
 
 async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes {
-    let response = app().oneshot(request).await.unwrap();
+    let gateway_config = GatewayConfig {
+        ip: std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)),
+        port: 8080,
+        stateless_transaction_validator_config: StatelessTransactionValidatorConfig {
+            max_calldata_length: 1000,
+            max_signature_length: 2,
+            ..Default::default()
+        },
+    };
+    let response = app(gateway_config).oneshot(request).await.unwrap();
     assert_eq!(response.status(), status_code);
 
     response.into_body().collect().await.unwrap().to_bytes()
