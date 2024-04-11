@@ -21,6 +21,9 @@ const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 #[tokio::test]
 async fn test_routes(#[case] json_file_path: &Path, #[case] expected_response: &str) {
     let tx_json = fs::read_to_string(json_file_path).unwrap();
+    // Note: The function add transaction is becoming non-trivial.
+    //  This is the resaon for the change in the default value of
+    //  StatelessTransactionValidatorConfig.
     let request = Request::post("/add_transaction")
         .header("content-type", "application/json")
         .body(Body::from(tx_json))
@@ -41,7 +44,7 @@ async fn test_is_alive() {
 }
 
 async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes {
-    let response = app().oneshot(request).await.unwrap();
+    let response = app(Default::default()).oneshot(request).await.unwrap();
     assert_eq!(response.status(), status_code);
 
     response.into_body().collect().await.unwrap().to_bytes()

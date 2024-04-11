@@ -10,13 +10,23 @@ use crate::errors::{TransactionValidatorError, TransactionValidatorResult};
 #[path = "stateless_transaction_validator_test.rs"]
 mod transaction_validator_test;
 
-#[derive(Default)]
+#[derive(Clone)]
 pub struct StatelessTransactionValidatorConfig {
     // If true, validates that the resource bounds are not zero.
     pub validate_non_zero_l1_gas_fee: bool,
     pub validate_non_zero_l2_gas_fee: bool,
 
     pub max_calldata_length: usize,
+}
+
+impl Default for StatelessTransactionValidatorConfig {
+    fn default() -> Self {
+        Self {
+            validate_non_zero_l1_gas_fee: false,
+            validate_non_zero_l2_gas_fee: false,
+            max_calldata_length: 1000,
+        }
+    }
 }
 
 pub struct StatelessTransactionValidator {

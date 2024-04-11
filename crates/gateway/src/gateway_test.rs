@@ -1,4 +1,3 @@
-use crate::gateway::add_transaction;
 use axum::{
     body::{Bytes, HttpBody},
     response::{IntoResponse, Response},
@@ -8,6 +7,9 @@ use rstest::rstest;
 use starknet_api::external_transaction::ExternalTransaction;
 use std::fs::File;
 use std::path::Path;
+
+use crate::gateway::add_transaction;
+use crate::stateless_transaction_validator::StatelessTransactionValidatorConfig;
 
 const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 
@@ -25,7 +27,35 @@ async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_re
     let json_file = File::open(json_file_path).unwrap();
     let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
 
-    let response = add_transaction(tx.into()).await.into_response();
+    // Negative flow.
+    let stateless_transaction_validator_config = StatelessTransactionValidatorConfig {
+        validate_non_zero_l1_gas_fee: true,
+        validate_non_zero_l2_gas_fee: true,
+        ..Default::default()
+    };
+
+    let response = add_transaction(stateless_transaction_validator_config, tx.clone().into())
+        .await
+        .into_response();
+    let response_bytes = &to_bytes(response).await;
+
+    let negative_flow_expected_response = "Expected a positive amount of L2Gas. \
+        Got ResourceBounds { max_amount: 0, max_price_per_unit: 0 }.";
+    assert_str_eq!(
+        &String::from_utf8_lossy(response_bytes),
+        negative_flow_expected_response
+    );
+
+    // Positive flow.
+    let stateless_transaction_validator_config = StatelessTransactionValidatorConfig {
+        validate_non_zero_l1_gas_fee: true,
+        max_calldata_length: 10,
+        ..Default::default()
+    };
+
+    let response = add_transaction(stateless_transaction_validator_config, tx.into())
+        .await
+        .into_response();
     let response_bytes = &to_bytes(response).await;
 
     assert_str_eq!(&String::from_utf8_lossy(response_bytes), expected_response);
