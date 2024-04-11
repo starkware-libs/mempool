@@ -5,11 +5,8 @@ use starknet_api::external_transaction::ExternalTransaction;
 use std::net::SocketAddr;
 
 use crate::config::GatewayConfig;
-
 use crate::errors::GatewayError;
-use crate::stateless_transaction_validator::{
-    StatelessTransactionValidator, StatelessTransactionValidatorConfig,
-};
+use crate::stateless_transaction_validator::StatelessTransactionValidator;
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -19,8 +16,6 @@ pub type GatewayResult<T> = Result<T, GatewayError>;
 
 pub struct Gateway {
     pub config: GatewayConfig,
-    // TODO(Arni, 7/5/2024): Move the stateless transaction validator config into the gateway config.
-    pub stateless_transaction_validator_config: StatelessTransactionValidatorConfig,
 }
 
 #[derive(Clone)]
@@ -32,7 +27,7 @@ impl Gateway {
     pub async fn build_server(self) {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let addr = SocketAddr::new(self.config.ip, self.config.port);
-        let app = app(self.stateless_transaction_validator_config);
+        let app = app(self.config);
 
         // Create a server that runs forever.
         axum::Server::bind(&addr)
@@ -42,11 +37,12 @@ impl Gateway {
     }
 }
 
-// TODO(Arni, 7/5/2024): Change this function to accept GatewayConfig.
 /// Sets up the router with the specified routes for the server.
-pub fn app(config: StatelessTransactionValidatorConfig) -> Router {
+pub fn app(config: GatewayConfig) -> Router {
     let gateway_state = GatewayState {
-        stateless_transaction_validator: StatelessTransactionValidator { config },
+        stateless_transaction_validator: StatelessTransactionValidator {
+            config: config.stateless_transaction_validator_config,
+        },
     };
 
     Router::new()
