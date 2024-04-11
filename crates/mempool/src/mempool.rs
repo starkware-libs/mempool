@@ -16,25 +16,26 @@ pub type MempoolResult<T> = Result<T, MempoolError>;
 
 #[derive(Default)]
 pub struct Mempool {
-    priority_queue: PriorityQueue,
-    state: HashMap<ContractAddress, Nonce>,
+    txs_queue: PriorityQueue,
+    state: HashMap<ContractAddress, AccountState>,
 }
 
 impl Mempool {
     pub fn new(inputs: Vec<MempoolInput>) -> Self {
         let mut mempool = Mempool::default();
-        let mut new_transactions = Vec::new();
+        let mut new_txs = Vec::new();
+
         for input in inputs {
-            let account_state = &input.account_state;
-            let tx = input.tx;
-            if mempool.state.get(&account_state.contract_address).is_none() {
-                mempool
-                    .state
-                    .insert(account_state.contract_address, account_state.nonce);
-                new_transactions.push(tx);
+            if !mempool.state.contains_key(&input.account.address) {
+                new_txs.push(input.tx);
             }
+            mempool
+                .state
+                .entry(input.account.address)
+                .or_insert(input.account.state);
         }
-        mempool.priority_queue = PriorityQueue::from(new_transactions);
+        mempool.txs_queue = PriorityQueue::from(new_txs);
+
         mempool
     }
 
@@ -42,21 +43,25 @@ impl Mempool {
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push back.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<InternalTransaction>> {
-        let txs = self.priority_queue.pop_last_chunk(n_txs);
+        let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
             self.state.remove(&tx.contract_address());
         }
+
         Ok(txs)
     }
 
     /// Adds a new transaction to the mempool.
     /// TODO: support fee escalation and transactions with future nonces.
-    pub fn add_tx(
-        &mut self,
-        _tx: InternalTransaction,
-        _account_state: AccountState,
-    ) -> MempoolResult<()> {
-        todo!();
+    pub fn add_tx(&mut self, tx: InternalTransaction, account: &Account) -> MempoolResult<()> {
+        if self.state.contains_key(&account.address) {
+            return Err(MempoolError::DuplicateTransaction {
+                tx_hash: tx.tx_hash(),
+            });
+        }
+        self.state.insert(account.address, account.state);
+        self.txs_queue.push(tx);
+        Ok(())
     }
 
     /// Update the mempool's internal state according to the committed block's transactions.
@@ -72,14 +77,19 @@ impl Mempool {
         todo!()
     }
 }
-
-#[derive(Default, Clone)]
+#[derive(Clone, Copy, Default)]
 pub struct AccountState {
-    pub contract_address: ContractAddress,
     pub nonce: Nonce,
+    // TODO: add balance field when needed.
+}
+
+#[derive(Default)]
+pub struct Account {
+    pub address: ContractAddress,
+    pub state: AccountState,
 }
 
 pub struct MempoolInput {
     pub tx: InternalTransaction,
-    pub account_state: AccountState,
+    pub account: Account,
 }
