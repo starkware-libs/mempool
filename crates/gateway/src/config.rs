@@ -6,11 +6,15 @@ use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
 use std::net::IpAddr;
 use validator::Validate;
 
+use crate::stateless_transaction_validator::StatelessTransactionValidatorConfig;
+
 /// The gateway configuration.
 #[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
 pub struct GatewayConfig {
     pub ip: IpAddr,
     pub port: u16,
+
+    pub stateless_transaction_validator_config: StatelessTransactionValidatorConfig,
 }
 
 impl SerializeConfig for GatewayConfig {
@@ -37,6 +41,7 @@ impl Default for GatewayConfig {
         Self {
             ip: "0.0.0.0".parse().unwrap(),
             port: 8080,
+            stateless_transaction_validator_config: Default::default(),
         }
     }
 }

@@ -32,6 +32,7 @@ fn test_valid_config() {
         gateway_config: GatewayConfig {
             ip: "0.0.0.0".parse().unwrap(),
             port: 8080,
+            stateless_transaction_validator_config: Default::default(),
         },
     };
     let loaded_config = get_config_file(CONFIG_FILE).unwrap();
