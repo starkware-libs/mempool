@@ -1,7 +1,3 @@
-#[cfg(test)]
-#[path = "priority_queue_test.rs"]
-pub mod priority_queue_test;
-
 use std::{cmp::Ordering, collections::BTreeSet};
 
 use starknet_api::{
@@ -17,14 +13,28 @@ use starknet_api::{
 pub struct PriorityQueue(BTreeSet<Transaction>);
 
 impl PriorityQueue {
+    #[cfg(test)]
     pub fn push(&mut self, tx: InternalTransaction) {
         let mempool_tx = Transaction(tx);
         self.insert(mempool_tx);
     }
 
-    // Removes and returns the transaction with the highest tip.
-    pub fn pop(&mut self) -> Option<InternalTransaction> {
-        self.pop_last().map(|tx| tx.0)
+    pub fn split_off(&mut self, n_txs: usize) -> Vec<InternalTransaction> {
+        let mut txs = Vec::new();
+        for _ in 0..n_txs {
+            match self.pop_last().map(|tx| tx.0) {
+                Some(tx) => txs.push(tx),
+                None => break,
+            }
+        }
+        txs
+    }
+}
+
+// TODO(Ayelet): Implement a from function and use it in tests.
+impl From<Vec<InternalTransaction>> for PriorityQueue {
+    fn from(_transactions: Vec<InternalTransaction>) -> Self {
+        unimplemented!()
     }
 }
 
