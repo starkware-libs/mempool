@@ -3,6 +3,7 @@ use crate::config::GatewayConfig;
 use clap::Command;
 
 use papyrus_config::loading::load_and_process_config;
+// use serde_json::{Map, Value};
 use std::fs::File;
 use std::path::Path;
 use validator::Validate;
@@ -21,6 +22,7 @@ fn test_valid_config() {
     let expected_config = GatewayConfig {
         ip: "0.0.0.0".parse().unwrap(),
         port: 8080,
+        stateless_transaction_validator_config: Default::default(),
     };
 
     let loaded_config = get_config_file(CONFIG_FILE).unwrap();
