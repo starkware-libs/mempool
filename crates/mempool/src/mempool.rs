@@ -21,8 +21,9 @@ impl Mempool {
 
     /// Adds a new transaction to the mempool.
     /// TODO: support fee escalation and transactions with future nonces.
-    pub fn add_tx(&mut self, _tx: InternalTransaction) -> MempoolResult<()> {
-        todo!();
+    pub fn add_tx(&mut self, tx: InternalTransaction) -> MempoolResult<()> {
+        self.priority_queue.push(tx);
+        Ok(())
     }
 
     /// Update the mempool's internal state according to the committed block's transactions.

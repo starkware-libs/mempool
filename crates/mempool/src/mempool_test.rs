@@ -74,3 +74,21 @@ fn test_get_txs(#[case] requested_txs: usize, #[case] expected_txs: usize) {
         assert_eq!(txs[2], tx3);
     }
 }
+
+#[test]
+fn test_add_tx() {
+    let tx1 = create_internal_invoke_tx_for_testing(Tip(50), TransactionHash(StarkFelt::ONE));
+    let tx2 = create_internal_invoke_tx_for_testing(Tip(100), TransactionHash(StarkFelt::TWO));
+
+    let mut mempool = Mempool {
+        priority_queue: PriorityQueue::new(),
+    };
+
+    assert!(mempool.add_tx(tx1.clone()).is_ok());
+    assert!(mempool.add_tx(tx2.clone()).is_ok());
+
+    let popped_txs = mempool.priority_queue.pop(2);
+    assert_eq!(popped_txs.len(), 2);
+    assert!(popped_txs.contains(&tx1));
+    assert!(popped_txs.contains(&tx2));
+}
