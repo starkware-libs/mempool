@@ -41,7 +41,7 @@ async fn test_is_alive() {
 }
 
 async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes {
-    let response = app().oneshot(request).await.unwrap();
+    let response = app(Default::default()).oneshot(request).await.unwrap();
     assert_eq!(response.status(), status_code);
 
     response.into_body().collect().await.unwrap().to_bytes()
