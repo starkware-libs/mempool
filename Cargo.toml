@@ -37,9 +37,10 @@ cairo-lang-sierra = "2.6.0"
 cairo-lang-starknet-classes = "2.6.0"
 cairo-lang-utils = "2.6.0"
 clap = "4.3.10"
-derive_more = "0.99"
 const_format = "0.2.30"
+derive_more = "0.99"
 hyper = { version = "0.14", features = ["client", "http1"] }
+futures = "0.3.30"
 papyrus_config = "0.3.0"
 pretty_assertions = "1.4.0"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
