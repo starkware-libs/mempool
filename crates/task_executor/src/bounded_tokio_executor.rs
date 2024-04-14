@@ -4,6 +4,10 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio::task::{self, spawn_blocking};
 
+#[cfg(test)]
+#[path = "bounded_tokio_executor_test.rs"]
+pub mod test;
+
 #[derive(Clone)]
 pub struct BoundedTokioExecutor {
     blocking_tasks_semaphore: Arc<Semaphore>,
