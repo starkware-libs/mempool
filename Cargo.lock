@@ -3271,6 +3271,8 @@ dependencies = [
 name = "starknet_task_executor"
 version = "0.0.0"
 dependencies = [
+ "futures",
+ "rstest",
  "tokio",
  "tokio-test",
 ]
