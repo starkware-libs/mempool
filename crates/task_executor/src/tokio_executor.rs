@@ -3,6 +3,9 @@ use std::future::Future;
 use tokio::runtime::Handle;
 
 use crate::executor::TaskExecutor;
+#[cfg(test)]
+#[path = "tokio_executor_test.rs"]
+pub mod test;
 
 #[derive(Clone)]
 pub struct TokioExecutor {
