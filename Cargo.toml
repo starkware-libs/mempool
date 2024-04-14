@@ -34,9 +34,10 @@ axum = "0.6.12"
 blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "fc62b8b8", features = ["testing"] }
 cairo-lang-starknet-classes = "2.6.0"
 clap = "4.3.10"
-derive_more = "0.99"
 const_format = "0.2.30"
 hyper = { version = "0.14", features = ["client", "http1"] }
+derive_more = "0.99"
+futures = "0.3.30"
 papyrus_config = "0.3.0"
 pretty_assertions = "1.4.0"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
