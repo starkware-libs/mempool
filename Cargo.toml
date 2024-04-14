@@ -17,6 +17,7 @@ unused = "deny"
 
 [workspace.lints.clippy]
 as_conversions = "deny"
+iter_over_hash_type = "deny"
 
 [workspace.dependencies]
 assert_matches = "1.5.0"
