@@ -31,14 +31,17 @@ impl PriorityQueue {
     }
 }
 
-// TODO(Ayelet): Implement a from function and use it in tests.
 impl From<Vec<InternalTransaction>> for PriorityQueue {
-    fn from(_transactions: Vec<InternalTransaction>) -> Self {
-        unimplemented!()
+    fn from(transactions: Vec<InternalTransaction>) -> Self {
+        let mut pq = PriorityQueue::default();
+        for tx in transactions {
+            pq.insert(tx.into());
+        }
+        pq
     }
 }
 
-#[derive(Clone, Debug, derive_more::Deref)]
+#[derive(Clone, Debug, derive_more::Deref, derive_more::From)]
 pub struct Transaction(pub InternalTransaction);
 
 impl Transaction {
