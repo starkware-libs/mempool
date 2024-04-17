@@ -424,6 +424,7 @@ dependencies = [
  "num-traits 0.2.18",
  "once_cell",
  "phf",
+ "rstest",
  "serde",
  "serde_json",
  "sha3",
