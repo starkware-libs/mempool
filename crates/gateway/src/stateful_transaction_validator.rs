@@ -16,6 +16,10 @@ use crate::errors::StatefulTransactionValidatorError;
 use crate::errors::StatefulTransactionValidatorResult;
 use crate::utils::external_tx_to_account_tx;
 
+#[cfg(test)]
+#[path = "stateful_transaction_validator_test.rs"]
+mod stateful_transaction_validator_test;
+
 pub struct StatefulTransactionValidatorConfig {
     pub max_nonce_for_validation_skip: Nonce,
     pub validate_max_n_steps: u32,
