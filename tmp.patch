@@ -1,0 +1,115 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index a10913a..f1430b5 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -399,7 +399,7 @@ dependencies = [
+ [[package]]
+ name = "blockifier"
+ version = "0.7.0-dev.1"
+-source = "git+https://github.com/starkware-libs/blockifier.git?rev=b33515e0#b33515e04341a7a934b2b0e033fd8d556b7aeb4e"
++source = "git+https://github.com/starkware-libs/blockifier.git?rev=ba72c863#ba72c8631da01711d785d0b69981301bbb6e6507"
+ dependencies = [
+  "anyhow",
+  "ark-ec",
+@@ -2934,7 +2934,7 @@ dependencies = [
+ [[package]]
+ name = "starknet_api"
+ version = "0.12.0-dev.1"
+-source = "git+https://github.com/starkware-libs/starknet-api.git?rev=98153e9#98153e99ffe881c93fdc2846485223d4973ead30"
++source = "git+https://github.com/starkware-libs/starknet-api.git?rev=1b46b42#1b46b42086f3161738a71f87efb49b62dde4b841"
+ dependencies = [
+  "cairo-lang-starknet-classes",
+  "derive_more",
+diff --git a/Cargo.toml b/Cargo.toml
+index aeeee7c..acf7d93 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -23,7 +23,7 @@ assert_matches = "1.5.0"
+ async-trait = "0.1.79"
+ axum = "0.6.12"
+ # TODO(YaelD, 1/5/2024): Use a fixed version once the StarkNet API is stable.
+-blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "b33515e0", features = ["testing"] }
++blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "ba72c863", features = ["testing"] }
+ clap = "4.3.10"
+ derive_more = "0.99"
+ const_format = "0.2.30"
+@@ -34,7 +34,7 @@ rstest = "0.17.0"
+ serde = { version = "1.0.193", features = ["derive"] }
+ serde_json = "1.0"
+ # TODO(Arni, 1/5/2024): Use a fixed version once the StarkNet API is stable.
+-starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", rev = "98153e9" }
++starknet_api = { git = "https://github.com/starkware-libs/starknet-api.git", rev = "1b46b42" }
+ thiserror = "1.0"
+ tokio = { version = "1", features = ["full"] }
+ tower = "0.4.13"
+diff --git a/crates/gateway/src/stateful_transaction_validator.rs b/crates/gateway/src/stateful_transaction_validator.rs
+index b287044..9cb357f 100644
+--- a/crates/gateway/src/stateful_transaction_validator.rs
++++ b/crates/gateway/src/stateful_transaction_validator.rs
+@@ -62,7 +62,7 @@ impl StatefulTransactionValidator {
+             self.config.max_nonce_for_validation_skip,
+             BouncerConfig::max(),
+         );
+-        let account_tx = external_tx_to_account_tx(external_tx, optional_class_info)?;
++        let account_tx = external_tx_to_account_tx(external_tx, optional_class_info, &self.config.chain_info.chain_id)?;
+         validator.perform_validations(account_tx, deploy_account_tx_hash)?;
+         Ok(())
+     }
+diff --git a/crates/gateway/src/utils.rs b/crates/gateway/src/utils.rs
+index b880543..8c1f7b9 100644
+--- a/crates/gateway/src/utils.rs
++++ b/crates/gateway/src/utils.rs
+@@ -4,15 +4,17 @@ use blockifier::transaction::account_transaction::AccountTransaction;
+ use blockifier::transaction::transactions::DeclareTransaction as BlockifierDeclareTransaction;
+ use blockifier::transaction::transactions::DeployAccountTransaction as BlockifierDeployAccountTransaction;
+ use blockifier::transaction::transactions::InvokeTransaction as BlockifierInvokeTransaction;
++use starknet_api::core::ChainId;
+ use starknet_api::core::{calculate_contract_address, ClassHash, ContractAddress};
+ use starknet_api::external_transaction::{
+     ExternalDeclareTransaction, ExternalDeployAccountTransaction, ExternalInvokeTransaction,
+     ExternalTransaction,
+ };
+ use starknet_api::transaction::DeclareTransaction;
++use starknet_api::transaction::TransactionHasher;
+ use starknet_api::transaction::{
+     DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3, InvokeTransaction,
+-    InvokeTransactionV3, TransactionHash,
++    InvokeTransactionV3,
+ };
+ use starknet_api::transaction::{ResourceBoundsMapping, TransactionSignature};
+ 
+@@ -51,8 +53,8 @@ pub fn external_tx_to_account_tx(
+     external_tx: &ExternalTransaction,
+     //FIXME(yael 15/4/24): calculate class_info inside the function once compilation code is ready
+     optional_class_info: Option<ClassInfo>,
++    chain_id: &ChainId,
+ ) -> StatefulTransactionValidatorResult<AccountTransaction> {
+-    let tx_hash = TransactionHash::default(); //FIXME(yael 15/4/24): make TransactionHasher public in starknet-api
+     match external_tx {
+         ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => {
+             let declare_tx = DeclareTransaction::V3(DeclareTransactionV3 {
+@@ -68,6 +70,7 @@ pub fn external_tx_to_account_tx(
+                 paymaster_data: tx.paymaster_data.clone(),
+                 account_deployment_data: tx.account_deployment_data.clone(),
+             });
++            let tx_hash = declare_tx.calculate_transaction_hash(chain_id, &declare_tx.version())?;
+             let class_info =
+                 optional_class_info.expect("declare transaction should contain class info");
+             let declare_tx = BlockifierDeclareTransaction::new(declare_tx, tx_hash, class_info)?;
+@@ -92,6 +95,8 @@ pub fn external_tx_to_account_tx(
+                 &deploy_account_tx.constructor_calldata(),
+                 ContractAddress::default(),
+             )?;
++            let tx_hash = deploy_account_tx
++                .calculate_transaction_hash(chain_id, &deploy_account_tx.version())?;
+             let deploy_account_tx = BlockifierDeployAccountTransaction::new(
+                 deploy_account_tx,
+                 tx_hash,
+@@ -112,6 +117,7 @@ pub fn external_tx_to_account_tx(
+                 paymaster_data: tx.paymaster_data.clone(),
+                 account_deployment_data: tx.account_deployment_data.clone(),
+             });
++            let tx_hash = invoke_tx.calculate_transaction_hash(chain_id, &invoke_tx.version())?;
+             let invoke_tx = BlockifierInvokeTransaction::new(invoke_tx, tx_hash);
+             Ok(AccountTransaction::Invoke(invoke_tx))
+         }
