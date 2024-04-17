@@ -5,8 +5,8 @@ use starknet_api::transaction::{Resource, ResourceBounds, ResourceBoundsMapping}
 
 use crate::errors::StatelessTransactionValidatorError;
 use crate::starknet_api_test_utils::{
-    create_external_declare_tx_for_testing, create_external_deploy_account_tx_for_testing,
-    create_external_invoke_tx_for_testing, non_zero_l1_resource_bounds_mapping,
+    external_declare_tx_for_testing, external_deploy_account_tx_for_testing,
+    external_invoke_tx_for_testing, non_zero_l1_resource_bounds_mapping,
     non_zero_l2_resource_bounds_mapping, zero_resource_bounds_mapping,
 };
 use crate::stateless_transaction_validator::{
@@ -32,51 +32,51 @@ const VALIDATOR_CONFIG_FOR_L2_GAS_TESTING: StatelessTransactionValidatorConfig =
         validate_non_zero_l1_gas_fee: false,
         validate_non_zero_l2_gas_fee: false,
     },
-    create_external_invoke_tx_for_testing(zero_resource_bounds_mapping()),
+    external_invoke_tx_for_testing(zero_resource_bounds_mapping()),
     Ok(())
 )]
 #[case::missing_l1_gas_resource_bounds(
     VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_invoke_tx_for_testing(ResourceBoundsMapping::default()),
+    external_invoke_tx_for_testing(ResourceBoundsMapping::default()),
     Err(StatelessTransactionValidatorError::MissingResource { resource: Resource::L1Gas })
 )]
 #[case::missing_l2_gas_resource_bounds(
     VALIDATOR_CONFIG_FOR_L2_GAS_TESTING,
-    create_external_invoke_tx_for_testing(ResourceBoundsMapping::default()),
+    external_invoke_tx_for_testing(ResourceBoundsMapping::default()),
     Err(StatelessTransactionValidatorError::MissingResource { resource: Resource::L2Gas })
 )]
 #[case::zero_l1_gas_resource_bounds(
     VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_invoke_tx_for_testing(zero_resource_bounds_mapping()),
+    external_invoke_tx_for_testing(zero_resource_bounds_mapping()),
     Err(StatelessTransactionValidatorError::ZeroFee{
         resource: Resource::L1Gas, resource_bounds: ResourceBounds::default()
     })
 )]
 #[case::zero_l2_gas_resource_bounds(
     VALIDATOR_CONFIG_FOR_L2_GAS_TESTING,
-    create_external_invoke_tx_for_testing(non_zero_l1_resource_bounds_mapping()),
+    external_invoke_tx_for_testing(non_zero_l1_resource_bounds_mapping()),
     Err(StatelessTransactionValidatorError::ZeroFee{
         resource: Resource::L2Gas, resource_bounds: ResourceBounds::default()
     })
 )]
 #[case::valid_declare_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_declare_tx_for_testing(non_zero_l1_resource_bounds_mapping()),
+    external_declare_tx_for_testing(non_zero_l1_resource_bounds_mapping()),
     Ok(())
 )]
 #[case::valid_deploy_account_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_deploy_account_tx_for_testing(non_zero_l1_resource_bounds_mapping(),),
+    external_deploy_account_tx_for_testing(non_zero_l1_resource_bounds_mapping(),),
     Ok(())
 )]
 #[case::valid_invoke_tx(
     VALIDATOR_CONFIG_FOR_TESTING,
-    create_external_invoke_tx_for_testing(non_zero_l1_resource_bounds_mapping()),
+    external_invoke_tx_for_testing(non_zero_l1_resource_bounds_mapping()),
     Ok(())
 )]
 #[case::valid_l2_gas_invoke_tx(
     VALIDATOR_CONFIG_FOR_L2_GAS_TESTING,
-    create_external_invoke_tx_for_testing(non_zero_l2_resource_bounds_mapping()),
+    external_invoke_tx_for_testing(non_zero_l2_resource_bounds_mapping()),
     Ok(())
 )]
 fn test_transaction_validator(

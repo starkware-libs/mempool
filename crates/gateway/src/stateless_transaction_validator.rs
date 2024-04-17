@@ -8,7 +8,7 @@ use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionVali
 
 #[cfg(test)]
 #[path = "stateless_transaction_validator_test.rs"]
-mod transaction_validator_test;
+mod stateless_transaction_validator_test;
 
 #[derive(Default)]
 pub struct StatelessTransactionValidatorConfig {
