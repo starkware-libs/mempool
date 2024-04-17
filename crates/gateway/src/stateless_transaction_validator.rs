@@ -2,7 +2,7 @@ use starknet_api::external_transaction::{
     ExternalDeclareTransaction, ExternalDeployAccountTransaction, ExternalInvokeTransaction,
     ExternalTransaction,
 };
-use starknet_api::transaction::{Resource, ResourceBoundsMapping};
+use starknet_api::transaction::{Resource, ResourceBoundsMapping, TransactionSignature};
 
 use crate::errors::{TransactionValidatorError, TransactionValidatorResult};
 
@@ -36,13 +36,7 @@ impl StatelessTransactionValidator {
     }
 
     fn validate_resource_bounds(&self, tx: &ExternalTransaction) -> TransactionValidatorResult<()> {
-        let resource_bounds_mapping = match tx {
-            ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => &tx.resource_bounds,
-            ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
-                &tx.resource_bounds
-            }
-            ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => &tx.resource_bounds,
-        };
+        let resource_bounds_mapping = tx.resource_bounds();
 
         if self.config.validate_non_zero_l1_gas_fee {
             validate_resource_is_non_zero(resource_bounds_mapping, Resource::L1Gas)?;
@@ -91,14 +85,7 @@ impl StatelessTransactionValidator {
         &self,
         tx: &ExternalTransaction,
     ) -> TransactionValidatorResult<()> {
-        let signature = match tx {
-            ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => &tx.signature,
-
-            ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
-                &tx.signature
-            }
-            ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => &tx.signature,
-        };
+        let signature = tx.signature();
 
         let signature_length = signature.0.len();
         if signature_length > self.config.max_signature_length {
@@ -130,4 +117,31 @@ fn validate_resource_is_non_zero(
     }
 
     Ok(())
+}
+
+trait ExternalTransactionExt {
+    fn resource_bounds(&self) -> &ResourceBoundsMapping;
+    fn signature(&self) -> &TransactionSignature;
+}
+
+impl ExternalTransactionExt for ExternalTransaction {
+    fn resource_bounds(&self) -> &ResourceBoundsMapping {
+        match self {
+            ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => &tx.resource_bounds,
+            ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
+                &tx.resource_bounds
+            }
+            ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => &tx.resource_bounds,
+        }
+    }
+
+    fn signature(&self) -> &TransactionSignature {
+        match self {
+            ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => &tx.signature,
+            ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
+                &tx.signature
+            }
+            ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => &tx.signature,
+        }
+    }
 }
