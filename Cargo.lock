@@ -399,7 +399,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.7.0-dev.1"
-source = "git+https://github.com/starkware-libs/blockifier.git?rev=d6bafcbb#d6bafcbb42acee8fcfcbd2c601c393376e83965e"
+source = "git+https://github.com/starkware-libs/blockifier.git?rev=b33515e0#b33515e04341a7a934b2b0e033fd8d556b7aeb4e"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -424,6 +424,7 @@ dependencies = [
  "num-traits 0.2.18",
  "once_cell",
  "phf",
+ "rstest",
  "serde",
  "serde_json",
  "sha3",
