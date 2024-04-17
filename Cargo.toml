@@ -23,7 +23,7 @@ assert_matches = "1.5.0"
 async-trait = "0.1.79"
 axum = "0.6.12"
 # TODO(YaelD, 1/5/2024): Use a fixed version once the StarkNet API is stable.
-blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "d6bafcbb"}
+blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "b33515e0", features = ["testing"] }
 clap = "4.3.10"
 derive_more = "0.99"
 const_format = "0.2.30"
