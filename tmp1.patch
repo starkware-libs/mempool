@@ -1,0 +1,91 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index f0079d3..1c1a3d0 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -3212,7 +3212,6 @@ name = "starknet_gateway"
+ version = "0.0.0"
+ dependencies = [
+  "assert_matches",
+- "async-trait",
+  "axum",
+  "blockifier",
+  "clap",
+diff --git a/Cargo.toml b/Cargo.toml
+index 393ffa8..2d8138f 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -20,7 +20,6 @@ as_conversions = "deny"
+ 
+ [workspace.dependencies]
+ assert_matches = "1.5.0"
+-async-trait = "0.1.79"
+ blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "b33515e0" }
+ axum = "0.6.12"
+ clap = { version = "4.3.10" }
+diff --git a/crates/gateway/Cargo.toml b/crates/gateway/Cargo.toml
+index a281672..f8c826d 100644
+--- a/crates/gateway/Cargo.toml
++++ b/crates/gateway/Cargo.toml
+@@ -10,7 +10,6 @@ workspace = true
+ 
+ [dependencies]
+ axum.workspace = true
+-async-trait.workspace = true
+ blockifier.workspace = true
+ clap.workspace = true
+ hyper.workspace = true
+@@ -20,7 +19,6 @@ serde.workspace = true
+ serde_json.workspace = true
+ starknet_api.workspace = true
+ thiserror.workspace = true
+-tokio.workspace = true
+ tower.workspace = true
+ validator.workspace = true
+ 
+diff --git a/crates/gateway/src/rpc_objects.rs b/crates/gateway/src/rpc_objects.rs
+index eb8fadb..6cf097a 100644
+--- a/crates/gateway/src/rpc_objects.rs
++++ b/crates/gateway/src/rpc_objects.rs
+@@ -25,12 +25,6 @@ pub struct GetNonceParams {
+     pub contract_address: ContractAddress,
+ }
+ 
+-#[derive(Serialize, Deserialize)]
+-pub struct GetClassParams {
+-    pub block_id: BlockId,
+-    pub class_hash: ClassHash,
+-}
+-
+ #[derive(Serialize, Deserialize, Debug)]
+ #[serde(untagged)]
+ pub enum RpcResponse {
+diff --git a/crates/gateway/src/rpc_state_reader.rs b/crates/gateway/src/rpc_state_reader.rs
+index fdb2022..26a9849 100644
+--- a/crates/gateway/src/rpc_state_reader.rs
++++ b/crates/gateway/src/rpc_state_reader.rs
+@@ -114,25 +114,6 @@ impl StateReader for RpcStateReader {
+     #[allow(unused_variables)]
+     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
+         todo!()
+-        // FIXME(yael) implement and remove "#[allow(unused_variables)]"
+-        // let get_class_params = GetClassParams {
+-        //     block_id: BlockId::Tag(Tag::Latest),
+-        //     class_hash,
+-        // };
+-        // //TODO spawn_blocking?
+-        // let request_body = json!({
+-        //     "jsonrpc": self.json_rpc_version,
+-        //     "id": self.id,
+-        //     "method": "starknet_getNonce",
+-        //     "params": json!(get_class_params),
+-        // });
+-
+-        // let result = self.send_rpc_request(request_body)?;
+-        // let contract_class: ContractClass = serde_json::from_value(json!(result)).map_err(|_| {
+-        //     StateError::StateReadError("Bad rpc result".to_string())
+-        // })?;
+-
+-        // Ok(contract_class)
+     }
+ 
+     #[allow(unused_variables)]
