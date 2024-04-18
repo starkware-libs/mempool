@@ -43,3 +43,11 @@ pub enum StatelessTransactionValidatorError {
 }
 
 pub type StatelessTransactionValidatorResult<T> = Result<T, StatelessTransactionValidatorError>;
+
+#[derive(Debug, Error)]
+pub enum RpcStateReaderError {
+    #[error(transparent)]
+    UrlParseError(#[from] url::ParseError),
+}
+
+pub type RpcStateReaderResult<T> = Result<T, RpcStateReaderError>;
