@@ -1,3 +1,4 @@
+use axum::{http::StatusCode, response::IntoResponse};
 use starknet_api::transaction::{Resource, ResourceBounds};
 
 use thiserror::Error;
@@ -12,6 +13,13 @@ pub enum GatewayError {
     InvalidTransactionFormat(#[from] serde_json::Error),
     #[error("Error while starting the server")]
     ServerStartError(#[from] hyper::Error),
+}
+
+impl IntoResponse for GatewayError {
+    fn into_response(self) -> axum::response::Response {
+        // TODO(Dafna, 1/6/2024): Map the error codes.
+        (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()).into_response()
+    }
 }
 
 #[derive(Debug, Error)]

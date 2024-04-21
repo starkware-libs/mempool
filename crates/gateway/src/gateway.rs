@@ -35,7 +35,7 @@ impl Gateway {
 pub fn app() -> Router {
     Router::new()
         .route("/is_alive", get(is_alive))
-        .route("/add_transaction", post(add_transaction))
+        .route("/add_transaction", post(async_add_transaction))
     // TODO: when we need to configure the router, like adding banned ips, add it here via
     // `with_state`.
 }
@@ -44,12 +44,18 @@ async fn is_alive() -> impl IntoResponse {
     unimplemented!("Future handling should be implemented here.");
 }
 
-async fn add_transaction(Json(transaction): Json<ExternalTransaction>) -> impl IntoResponse {
+fn add_transaction(transaction: ExternalTransaction) -> impl IntoResponse {
     match transaction {
         ExternalTransaction::Declare(_) => "DECLARE",
         ExternalTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT",
         ExternalTransaction::Invoke(_) => "INVOKE",
     }
+}
+
+async fn async_add_transaction(Json(transaction): Json<ExternalTransaction>) -> impl IntoResponse {
+    tokio::task::spawn_blocking(move || add_transaction(transaction))
+        .await
+        .map_err(|_| GatewayError::InternalServerError)
 }
 
 pub struct GatewayConfig {
