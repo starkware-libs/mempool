@@ -8,7 +8,7 @@ use starknet_api::external_transaction::ExternalTransaction;
 use std::fs::File;
 use std::path::Path;
 
-use crate::gateway::{add_transaction, GatewayState};
+use crate::gateway::GatewayState;
 use crate::stateless_transaction_validator::{
     StatelessTransactionValidator, StatelessTransactionValidatorConfig,
 };
@@ -26,6 +26,8 @@ const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 #[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
 #[tokio::test]
 async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_response: &str) {
+    use crate::gateway::async_add_transaction;
+
     let json_file = File::open(json_file_path).unwrap();
     let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
 
@@ -46,7 +48,7 @@ async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_re
         .config
         .max_signature_length = TOO_SMALL_SIGNATURE_LENGTH;
 
-    let response = add_transaction(State(gateway_state.clone()), tx.clone().into())
+    let response = async_add_transaction(State(gateway_state.clone()), tx.clone().into())
         .await
         .into_response();
 
@@ -63,7 +65,7 @@ async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_re
         .config
         .max_signature_length = 2;
 
-    let response = add_transaction(State(gateway_state), tx.into())
+    let response = async_add_transaction(State(gateway_state), tx.into())
         .await
         .into_response();
 
