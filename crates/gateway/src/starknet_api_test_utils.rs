@@ -9,34 +9,7 @@ use starknet_api::transaction::{
 };
 
 // Utils.
-pub enum TransactionType {
-    Declare,
-    DeployAccount,
-    Invoke,
-}
-
-pub fn external_tx_for_testing(
-    transaction_type: TransactionType,
-    resource_bounds: ResourceBoundsMapping,
-    calldata: Option<Calldata>,
-    signature: TransactionSignature,
-) -> ExternalTransaction {
-    match transaction_type {
-        TransactionType::Declare => external_declare_tx_for_testing(resource_bounds, signature),
-        TransactionType::DeployAccount => external_deploy_account_tx_for_testing(
-            resource_bounds,
-            calldata.expect("Calldata is missing."),
-            signature,
-        ),
-        TransactionType::Invoke => external_invoke_tx_for_testing(
-            resource_bounds,
-            calldata.expect("Calldata is missing."),
-            signature,
-        ),
-    }
-}
-
-fn external_declare_tx_for_testing(
+pub fn external_declare_tx_for_testing(
     resource_bounds: ResourceBoundsMapping,
     signature: TransactionSignature,
 ) -> ExternalTransaction {
@@ -57,7 +30,7 @@ fn external_declare_tx_for_testing(
     ))
 }
 
-fn external_deploy_account_tx_for_testing(
+pub fn external_deploy_account_tx_for_testing(
     resource_bounds: ResourceBoundsMapping,
     constructor_calldata: Calldata,
     signature: TransactionSignature,
@@ -78,7 +51,7 @@ fn external_deploy_account_tx_for_testing(
     ))
 }
 
-fn external_invoke_tx_for_testing(
+pub fn external_invoke_tx_for_testing(
     resource_bounds: ResourceBoundsMapping,
     calldata: Calldata,
     signature: TransactionSignature,
