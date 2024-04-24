@@ -28,6 +28,7 @@ impl ExternalTransactionExt for ExternalTransaction {
 
 // TODO(Arni, 1/5/2025): Remove this trait once it is implemented in StarkNet API.
 pub trait ExternalTransactionExt {
+    //todo delete
     fn resource_bounds(&self) -> &ResourceBoundsMapping;
     fn signature(&self) -> &TransactionSignature;
 }
