@@ -60,7 +60,7 @@ async fn test_end_to_end() {
     // config.
     let (tx_mempool, rx_mempool) =
         channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
-    let mempool = Mempool::empty();
+    let mempool = Mempool::empty().unwrap();
     let mut mempool_server = create_mempool_server(mempool, rx_mempool);
 
     task::spawn(async move {
