@@ -23,6 +23,7 @@ assert_matches = "1.5.0"
 async-trait = "0.1.79"
 axum = "0.6.12"
 blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "b33515e0", features = ["testing"] }
+cairo-lang-casm = { workspace = true, features = ["parity-scale-codec"] }
 clap = "4.3.10"
 derive_more = "0.99"
 const_format = "0.2.30"
