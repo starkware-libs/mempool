@@ -2,8 +2,9 @@ use std::cmp::Ordering;
 use std::collections::{BTreeSet, VecDeque};
 
 use starknet_mempool_types::mempool_types::ThinTransaction;
+
 // Assumption: for the MVP only one transaction from the same contract class can be in the mempool
-// at a time. When this changes, saving the transactions themselves on the queu might no longer be
+// at a time. When this changes, saving the transactions themselves on the queue might no longer be
 // appropriate, because we'll also need to stores transactions without indexing them. For example,
 // transactions with future nonces will need to be stored, and potentially indexed on block commits.
 #[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
@@ -59,15 +60,11 @@ impl PartialOrd for PrioritizedTransaction {
     }
 }
 
-// TODO: remove when is used.
-#[allow(dead_code)]
 // Invariant: Transactions have strictly increasing nonces, without gaps.
 // Assumption: Transactions are provided in the correct order.
 #[derive(Default)]
 pub struct AddressPriorityQueue(VecDeque<ThinTransaction>);
 
-// TODO: remove when is used.
-#[allow(dead_code)]
 impl AddressPriorityQueue {
     pub fn push(&mut self, tx: ThinTransaction) {
         if let Some(last_tx) = self.0.back() {
@@ -95,5 +92,9 @@ impl AddressPriorityQueue {
 
     pub fn contains(&self, tx: &ThinTransaction) -> bool {
         self.0.contains(tx)
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
