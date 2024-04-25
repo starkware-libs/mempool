@@ -1,4 +1,3 @@
-use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 
 use anyhow::Result;
@@ -12,7 +11,9 @@ use starknet_mempool_types::mempool_types::{
 };
 use tokio::select;
 
-use crate::priority_queue::TransactionPriorityQueue;
+use crate::priority_queue::{
+    AddressPriorityQueue, PrioritizedTransaction, PriorityQueueTxResult, TransactionPriorityQueue,
+};
 
 #[cfg(test)]
 #[path = "mempool_test.rs"]
@@ -23,6 +24,7 @@ pub struct Mempool {
     pub gateway_network: MempoolNetworkComponent,
     batcher_network: BatcherToMempoolChannels,
     txs_queue: TransactionPriorityQueue,
+    addresses_to_queues: HashMap<ContractAddress, AddressPriorityQueue>,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -31,54 +33,72 @@ impl Mempool {
         inputs: impl IntoIterator<Item = MempoolInput>,
         gateway_network: MempoolNetworkComponent,
         batcher_network: BatcherToMempoolChannels,
-    ) -> Self {
+    ) -> MempoolResult<Self> {
         let mut mempool = Mempool {
             txs_queue: TransactionPriorityQueue::default(),
+            addresses_to_queues: HashMap::default(),
             state: HashMap::default(),
             gateway_network,
             batcher_network,
         };
 
-        mempool.txs_queue = TransactionPriorityQueue::from(
-            inputs
-                .into_iter()
-                .map(|input| {
-                    // Attempts to insert a key-value pair into the mempool's state. Returns `None`
-                    // if the key was not present, otherwise returns the old value while updating
-                    // the new value.
-                    let prev_value =
-                        mempool.state.insert(input.account.address, input.account.state);
-                    assert!(
-                        prev_value.is_none(),
-                        "Sender address: {:?} already exists in the mempool. Can't add {:?} to \
-                         the mempool.",
-                        input.account.address,
-                        input.tx
-                    );
-                    input.tx
-                })
-                .collect::<Vec<ThinTransaction>>(),
-        );
+        for input in inputs {
+            let address_queue = mempool
+                .addresses_to_queues
+                .entry(input.account.address)
+                .or_insert_with(|| AddressPriorityQueue(Vec::new()));
 
-        mempool
+            let pq_result = address_queue.handle_tx(input.tx.clone());
+
+            match pq_result {
+                PriorityQueueTxResult::Duplicate => {
+                    return Err(MempoolError::DuplicateTransaction { tx_hash: input.tx.tx_hash });
+                }
+                PriorityQueueTxResult::Replace(old_tx) => {
+                    mempool.txs_queue.remove(&PrioritizedTransaction(old_tx));
+                    mempool.txs_queue.push(input.tx);
+                }
+                PriorityQueueTxResult::New => {
+                    mempool.txs_queue.push(input.tx);
+                }
+                PriorityQueueTxResult::Ignore => {}
+            }
+
+            mempool.state.insert(input.account.address, input.account.state);
+        }
+
+        Ok(mempool)
     }
 
     pub fn empty(
         gateway_network: MempoolNetworkComponent,
         batcher_network: BatcherToMempoolChannels,
-    ) -> Self {
+    ) -> MempoolResult<Self> {
         Mempool::new([], gateway_network, batcher_network)
     }
 
     /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push
-    // back. TODO: Consider renaming to `pop_txs` to be more consistent with the standard
-    // library.
+    // back. TODO: Consider renaming to `pop_txs` to be more consistent with the standard library.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
-            self.state.remove(&tx.sender_address);
+            if let Some(address_queue) = self.addresses_to_queues.get_mut(&tx.sender_address) {
+                address_queue.pop();
+                self.state
+                    .insert(tx.sender_address, AccountState { nonce: tx.nonce.try_increment()? });
+
+                if address_queue.is_empty() {
+                    self.addresses_to_queues.remove(&tx.sender_address);
+                } else if let Some(next_tx) = address_queue.top() {
+                    if let Some(sender_state) = self.state.get(&tx.sender_address) {
+                        if sender_state.nonce == next_tx.nonce {
+                            self.txs_queue.push(next_tx.clone());
+                        }
+                    }
+                }
+            }
         }
 
         Ok(txs)
@@ -88,14 +108,25 @@ impl Mempool {
     /// TODO: support fee escalation and transactions with future nonces.
     /// TODO: change input type to `MempoolInput`.
     pub fn add_tx(&mut self, tx: ThinTransaction, account: Account) -> MempoolResult<()> {
-        match self.state.entry(account.address) {
-            Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash }),
-            Vacant(entry) => {
-                entry.insert(account.state);
+        let address_queue = self
+            .addresses_to_queues
+            .entry(tx.sender_address)
+            .or_insert_with(|| AddressPriorityQueue(Vec::new()));
+
+        if address_queue.0.contains(&tx) {
+            return Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash });
+        }
+
+        self.state.insert(tx.sender_address, account.state);
+        address_queue.0.push(tx.clone());
+
+        if let Some(state) = self.state.get(&tx.sender_address) {
+            if state.nonce == tx.nonce {
                 self.txs_queue.push(tx);
-                Ok(())
             }
         }
+
+        Ok(())
     }
 
     /// Update the mempool's internal state according to the committed block's transactions.

@@ -2,8 +2,58 @@ use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 use starknet_mempool_types::mempool_types::ThinTransaction;
+
+pub enum PriorityQueueTxResult {
+    Duplicate,
+    Replace(ThinTransaction),
+    New,
+    Ignore,
+}
+
+// Assumption: there are no gaps, and the transactions are received in order.
+pub struct AddressPriorityQueue(pub Vec<ThinTransaction>);
+
+impl AddressPriorityQueue {
+    #[allow(dead_code)]
+    pub fn push(&mut self, tx: ThinTransaction) {
+        self.0.push(tx);
+    }
+
+    pub fn top(&self) -> Option<ThinTransaction> {
+        self.0.first().cloned()
+    }
+
+    pub fn pop(&mut self) -> Option<ThinTransaction> {
+        Some(self.0.remove(0))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn handle_tx(&mut self, new_tx: ThinTransaction) -> PriorityQueueTxResult {
+        if self.0.contains(&new_tx) {
+            return PriorityQueueTxResult::Duplicate;
+        }
+
+        for (index, tx) in self.0.iter_mut().enumerate() {
+            if new_tx.sender_address == tx.sender_address && new_tx.nonce == tx.nonce {
+                if new_tx.tip < tx.tip {
+                    return PriorityQueueTxResult::Ignore;
+                }
+                let old_tx = self.0.remove(index);
+                self.0.insert(index, new_tx);
+                return PriorityQueueTxResult::Replace(old_tx);
+            }
+        }
+
+        self.0.push(new_tx);
+        PriorityQueueTxResult::New
+    }
+}
+
 // Assumption: for the MVP only one transaction from the same contract class can be in the mempool
-// at a time. When this changes, saving the transactions themselves on the queu might no longer be
+// at a time. When this changes, saving the transactions themselves on the queue might no longer be
 // appropriate, because we'll also need to stores transactions without indexing them. For example,
 // transactions with future nonces will need to be stored, and potentially indexed on block commits.
 #[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
