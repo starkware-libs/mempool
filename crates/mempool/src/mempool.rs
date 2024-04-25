@@ -1,12 +1,13 @@
-use std::collections::HashMap;
-
+use crate::{
+    errors::MempoolError,
+    priority_queue::{ContractAddressPriorityQueue, PriorityQueue},
+};
 use starknet_api::{
     core::{ContractAddress, Nonce},
     internal_transaction::InternalTransaction,
     transaction::TransactionHash,
 };
-
-use crate::{errors::MempoolError, priority_queue::PriorityQueue};
+use std::collections::HashMap;
 
 #[cfg(test)]
 #[path = "mempool_test.rs"]
@@ -17,24 +18,37 @@ pub type MempoolResult<T> = Result<T, MempoolError>;
 #[derive(Default)]
 pub struct Mempool {
     priority_queue: PriorityQueue,
+    contract_addresses_priority_queues: HashMap<ContractAddress, ContractAddressPriorityQueue>,
     state: HashMap<ContractAddress, Nonce>,
 }
 
 impl Mempool {
     pub fn new(inputs: Vec<MempoolInput>) -> Self {
         let mut mempool = Mempool::default();
-        let mut new_transactions = Vec::new();
+        let mut new_txs = Vec::new();
         for input in inputs {
-            let account_state = &input.account_state;
-            let tx = input.tx;
-            if mempool.state.get(&account_state.contract_address).is_none() {
-                mempool
-                    .state
-                    .insert(account_state.contract_address, account_state.nonce);
-                new_transactions.push(tx);
+            mempool.state.insert(
+                input.account_state.contract_address,
+                input.account_state.nonce,
+            );
+            if let Some(contract_address_pq) = mempool
+                .contract_addresses_priority_queues
+                .get_mut(&input.account_state.contract_address)
+            {
+                // avoid duplicates.
+                if !contract_address_pq.0.contains(&input.tx) {
+                    contract_address_pq.push(input.tx.clone());
+                    new_txs.push(input.tx);
+                }
+            } else {
+                mempool.contract_addresses_priority_queues.insert(
+                    input.account_state.contract_address,
+                    ContractAddressPriorityQueue(vec![input.tx.clone()]),
+                );
+                new_txs.push(input.tx);
             }
         }
-        mempool.priority_queue = PriorityQueue::from(new_transactions);
+        mempool.priority_queue = PriorityQueue::from(new_txs);
         mempool
     }
 
@@ -44,7 +58,21 @@ impl Mempool {
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<InternalTransaction>> {
         let txs = self.priority_queue.pop_last_chunk(n_txs);
         for tx in &txs {
-            self.state.remove(&tx.contract_address());
+            let contract_address = tx.contract_address();
+            if let Some(contract_address_pq) = self
+                .contract_addresses_priority_queues
+                .get_mut(&contract_address)
+            {
+                self.state
+                    .insert(contract_address, tx.nonce().try_increment()?);
+                contract_address_pq.pop();
+                if contract_address_pq.is_empty() {
+                    self.contract_addresses_priority_queues
+                        .remove(&contract_address);
+                } else if let Some(next_tx) = contract_address_pq.top() {
+                    self.priority_queue.push(next_tx);
+                }
+            }
         }
         Ok(txs)
     }
@@ -56,12 +84,26 @@ impl Mempool {
         tx: InternalTransaction,
         account_state: &AccountState,
     ) -> MempoolResult<()> {
-        if self.state.contains_key(&account_state.contract_address) {
-            return Err(MempoolError::DuplicateTransaction);
-        }
         self.state
             .insert(account_state.contract_address, account_state.nonce);
-        self.priority_queue.push(tx);
+
+        if let Some(contract_address_pq) = self
+            .contract_addresses_priority_queues
+            .get_mut(&account_state.contract_address)
+        {
+            if contract_address_pq.0.contains(&tx) {
+                return Err(MempoolError::DuplicateTransaction);
+            }
+            contract_address_pq.0.push(tx);
+        } else {
+            self.contract_addresses_priority_queues.insert(
+                account_state.contract_address,
+                ContractAddressPriorityQueue(vec![tx.clone()]),
+            );
+            if self.state.get(&account_state.contract_address) == Some(&tx.nonce()) {
+                self.priority_queue.push(tx);
+            }
+        }
         Ok(())
     }
 
@@ -79,12 +121,13 @@ impl Mempool {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct AccountState {
     pub contract_address: ContractAddress,
     pub nonce: Nonce,
 }
 
+#[derive(Clone)]
 pub struct MempoolInput {
     pub tx: InternalTransaction,
     pub account_state: AccountState,

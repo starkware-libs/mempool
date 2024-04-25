@@ -3,8 +3,30 @@ use starknet_api::{
     transaction::{DeclareTransaction, DeployAccountTransaction, InvokeTransaction, Tip},
 };
 use std::{cmp::Ordering, collections::BTreeSet};
+
+#[derive(Default)]
+pub struct ContractAddressPriorityQueue(pub Vec<InternalTransaction>);
+
+impl ContractAddressPriorityQueue {
+    pub fn push(&mut self, tx: InternalTransaction) {
+        self.0.push(tx);
+    }
+
+    pub fn top(&self) -> Option<InternalTransaction> {
+        self.0.first().cloned()
+    }
+
+    pub fn pop(&mut self) -> Option<InternalTransaction> {
+        Some(self.0.remove(0))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 // Assumption: for the MVP only one transaction from the same contract class can be in the mempool
-// at a time. When this changes, saving the transactions themselves on the queu might no longer be
+// at a time. When this changes, saving the transactions themselves on the queue might no longer be
 // appropriate, because we'll also need to stores transactions without indexing them. For example,
 // transactions with future nonces will need to be stored, and potentially indexed on block commits.
 #[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
