@@ -1,4 +1,3 @@
-use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 
 use async_trait::async_trait;
@@ -13,61 +12,60 @@ use starknet_mempool_types::mempool_types::{
 };
 use tokio::sync::mpsc::Receiver;
 
-use crate::priority_queue::TransactionPriorityQueue;
+use crate::priority_queue::{AddressPriorityQueue, TransactionPriorityQueue};
 
 #[cfg(test)]
 #[path = "mempool_test.rs"]
 pub mod mempool_test;
 
-#[derive(Debug)]
 pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
     txs_queue: TransactionPriorityQueue,
+    address_to_queue: HashMap<ContractAddress, AddressPriorityQueue>,
     state: HashMap<ContractAddress, AccountState>,
 }
 
 impl Mempool {
-    pub fn new(inputs: impl IntoIterator<Item = MempoolInput>) -> Self {
-        let mut mempool =
-            Mempool { txs_queue: TransactionPriorityQueue::default(), state: HashMap::default() };
+    pub fn new(inputs: impl IntoIterator<Item = MempoolInput>) -> MempoolResult<Self> {
+        let mut mempool = Mempool {
+            txs_queue: TransactionPriorityQueue::default(),
+            address_to_queue: HashMap::default(),
+            state: HashMap::default(),
+        };
 
-        mempool.txs_queue = TransactionPriorityQueue::from(
-            inputs
-                .into_iter()
-                .map(|input| {
-                    // Attempts to insert a key-value pair into the mempool's state. Returns `None`
-                    // if the key was not present, otherwise returns the old value while updating
-                    // the new value.
-                    let prev_value =
-                        mempool.state.insert(input.account.sender_address, input.account.state);
-                    assert!(
-                        prev_value.is_none(),
-                        "Sender address: {:?} already exists in the mempool. Can't add {:?} to \
-                         the mempool.",
-                        input.account.sender_address,
-                        input.tx
-                    );
-                    input.tx
-                })
-                .collect::<Vec<ThinTransaction>>(),
-        );
+        for input in inputs {
+            mempool.handle_tx(input.tx, input.account)?;
+        }
 
-        mempool
+        Ok(mempool)
     }
 
-    pub fn empty() -> Self {
+    pub fn empty() -> MempoolResult<Self> {
         Mempool::new([])
     }
 
     /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push
-    // back. TODO: Consider renaming to `pop_txs` to be more consistent with the standard
-    // library.
+    // back. TODO: Consider renaming to `pop_txs` to be more consistent with the standard library.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
-            self.state.remove(&tx.sender_address);
+            if let Some(address_queue) = self.address_to_queue.get_mut(&tx.sender_address) {
+                address_queue.pop_front();
+                self.state
+                    .insert(tx.sender_address, AccountState { nonce: tx.nonce.try_increment()? });
+
+                if address_queue.is_empty() {
+                    self.address_to_queue.remove(&tx.sender_address);
+                } else if let Some(next_tx) = address_queue.top() {
+                    if let Some(sender_state) = self.state.get(&tx.sender_address) {
+                        if sender_state.nonce == next_tx.nonce {
+                            self.txs_queue.push(next_tx.clone());
+                        }
+                    }
+                }
+            }
         }
 
         Ok(txs)
@@ -77,14 +75,8 @@ impl Mempool {
     /// TODO: support fee escalation and transactions with future nonces.
     /// TODO: change input type to `MempoolInput`.
     pub fn add_tx(&mut self, tx: ThinTransaction, account: Account) -> MempoolResult<()> {
-        match self.state.entry(account.sender_address) {
-            Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash }),
-            Vacant(entry) => {
-                entry.insert(account.state);
-                self.txs_queue.push(tx);
-                Ok(())
-            }
-        }
+        self.handle_tx(tx, account)?;
+        Ok(())
     }
 
     /// Update the mempool's internal state according to the committed block's transactions.
@@ -98,6 +90,28 @@ impl Mempool {
         _state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
         todo!()
+    }
+
+    fn handle_tx(&mut self, tx: ThinTransaction, account: Account) -> MempoolResult<()> {
+        let address_queue = self
+            .address_to_queue
+            .entry(tx.sender_address)
+            .or_insert_with(|| AddressPriorityQueue(Vec::new()));
+
+        if address_queue.contains(&tx) {
+            return Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash });
+        }
+
+        address_queue.push(tx.clone());
+        self.state.insert(account.sender_address, account.state);
+
+        if let Some(state) = self.state.get(&tx.sender_address) {
+            if state.nonce == tx.nonce {
+                self.txs_queue.push(tx);
+            }
+        }
+
+        Ok(())
     }
 }
 

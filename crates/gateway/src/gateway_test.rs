@@ -48,7 +48,7 @@ pub fn app_state(mempool_client: Arc<dyn MempoolClient>) -> AppState {
 async fn test_add_tx() {
     // TODO: Add fixture.
 
-    let mempool = Mempool::new([]);
+    let mempool = Mempool::new([]).unwrap();
     // TODO(Tsabary): wrap creation of channels in dedicated functions, take channel capacity from
     // config.
     let (tx_mempool, rx_mempool) =
