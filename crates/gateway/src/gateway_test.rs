@@ -6,6 +6,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use blockifier::context::ChainInfo;
+use rstest::fixture;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
@@ -24,6 +25,11 @@ use crate::stateless_transaction_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 const MEMPOOL_INVOCATIONS_QUEUE_SIZE: usize = 32;
+
+#[fixture]
+fn mempool() -> Mempool {
+    Mempool::empty()
+}
 
 pub fn app_state(mempool_client: Arc<dyn MempoolClient>) -> AppState {
     AppState {
@@ -46,14 +52,11 @@ pub fn app_state(mempool_client: Arc<dyn MempoolClient>) -> AppState {
 // TODO(Ayelet): add test cases for declare and deploy account transactions.
 #[tokio::test]
 async fn test_add_tx() {
-    // TODO: Add fixture.
-
-    let mempool = Mempool::new([]);
     // TODO(Tsabary): wrap creation of channels in dedicated functions, take channel capacity from
     // config.
     let (tx_mempool, rx_mempool) =
         channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
-    let mut mempool_server = create_mempool_server(mempool, rx_mempool);
+    let mut mempool_server = create_mempool_server(mempool(), rx_mempool);
     task::spawn(async move {
         mempool_server.start().await;
     });
