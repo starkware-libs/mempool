@@ -7,9 +7,10 @@ use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_api::{contract_address, patricia_key};
 use starknet_mempool_types::errors::MempoolError;
-use starknet_mempool_types::mempool_types::ThinTransaction;
+use starknet_mempool_types::mempool_types::{Account, MempoolInput, ThinTransaction};
 
-use crate::mempool::{Account, Mempool, MempoolInput};
+use crate::mempool::Mempool;
+use crate::priority_queue::PrioritizedTransaction;
 
 /// Creates a valid input for mempool's `add_tx` with optional default value for
 /// `sender_address`.
@@ -18,8 +19,6 @@ use crate::mempool::{Account, Mempool, MempoolInput};
 /// 2. add_tx_input!(tip, tx_hash, address)
 /// 3. add_tx_input!(tip, tx_hash)
 // TODO: Return MempoolInput once it's used in `add_tx`.
-// TODO: remove unused macro_rules warning when the macro is used.
-#[allow(unused_macro_rules)]
 macro_rules! add_tx_input {
     // Pattern for all four arguments
     ($tip:expr, $tx_hash:expr, $sender_address:expr, $nonce:expr) => {{
@@ -44,7 +43,50 @@ macro_rules! add_tx_input {
 
 #[fixture]
 fn mempool() -> Mempool {
-    Mempool::new([])
+    Mempool::empty()
+}
+
+#[test]
+fn test_new_with_duplicate_tx() {
+    let (tx, account) = add_tx_input!(Tip(0), TransactionHash(StarkFelt::ONE));
+    let same_tx = tx.clone();
+
+    let inputs = vec![MempoolInput { tx, account }, MempoolInput { tx: same_tx, account }];
+
+    assert!(matches!(
+        Mempool::new(inputs),
+        Err(MempoolError::DuplicateTransaction { tx_hash: TransactionHash(StarkFelt::ONE) })
+    ));
+}
+
+#[test]
+fn test_new_success() {
+    let (tx0, account0) =
+        add_tx_input!(Tip(50), TransactionHash(StarkFelt::ZERO), contract_address!("0x0"));
+    let (tx1, account1) =
+        add_tx_input!(Tip(60), TransactionHash(StarkFelt::ONE), contract_address!("0x1"));
+    let (tx3, _) = add_tx_input!(
+        Tip(80),
+        TransactionHash(StarkFelt::THREE),
+        contract_address!("0x0"),
+        Nonce(StarkFelt::ONE)
+    );
+
+    let inputs = vec![
+        MempoolInput { tx: tx0.clone(), account: account0 },
+        MempoolInput { tx: tx1.clone(), account: account1 },
+        MempoolInput { tx: tx3.clone(), account: account0 },
+    ];
+
+    let mempool = Mempool::new(inputs).unwrap();
+
+    assert!(mempool.address_to_store.get(&account0.sender_address).unwrap().contains(&tx0));
+    assert!(mempool.address_to_store.get(&account1.sender_address).unwrap().contains(&tx1));
+    assert!(mempool.address_to_store.get(&account0.sender_address).unwrap().contains(&tx3));
+
+    assert!(mempool.txs_queue.contains(&PrioritizedTransaction(tx0)));
+    assert!(mempool.txs_queue.contains(&PrioritizedTransaction(tx1)));
+    assert!(!mempool.txs_queue.contains(&PrioritizedTransaction(tx3)));
 }
 
 #[rstest]
@@ -57,23 +99,36 @@ fn test_get_txs(#[case] requested_txs: usize) {
         add_tx_input!(Tip(100), TransactionHash(StarkFelt::TWO), contract_address!("0x1"));
     let (tx_tip_10_address_2, account3) =
         add_tx_input!(Tip(10), TransactionHash(StarkFelt::THREE), contract_address!("0x2"));
+    let (tx2_address_0, _) = add_tx_input!(
+        Tip(50),
+        TransactionHash(StarkFelt::ZERO),
+        contract_address!("0x0"),
+        Nonce(StarkFelt::ONE)
+    );
 
-    let mut mempool = Mempool::new([
+    let inputs = [
         MempoolInput { tx: tx_tip_50_address_0.clone(), account: account1 },
         MempoolInput { tx: tx_tip_100_address_1.clone(), account: account2 },
         MempoolInput { tx: tx_tip_10_address_2.clone(), account: account3 },
-    ]);
+        MempoolInput { tx: tx2_address_0.clone(), account: account1 },
+    ];
 
-    let expected_addresses =
-        vec![contract_address!("0x0"), contract_address!("0x1"), contract_address!("0x2")];
-    // checks that the transactions were added to the mempool.
-    for address in &expected_addresses {
-        assert!(mempool.state.contains_key(address));
-    }
+    let mut mempool = Mempool::new(inputs).unwrap();
+
+    assert!(mempool.txs_queue.contains(&PrioritizedTransaction(tx_tip_50_address_0.clone())));
+    assert!(mempool.txs_queue.contains(&PrioritizedTransaction(tx_tip_100_address_1.clone())));
+    assert!(mempool.txs_queue.contains(&PrioritizedTransaction(tx_tip_10_address_2.clone())));
+    assert!(!mempool.txs_queue.contains(&PrioritizedTransaction(tx2_address_0.clone())));
 
     let sorted_txs = vec![tx_tip_100_address_1, tx_tip_50_address_0, tx_tip_10_address_2];
 
     let txs = mempool.get_txs(requested_txs).unwrap();
+
+    // check that the account1's queue and the mempool's txs_queue are updated.
+    assert!(
+        mempool.address_to_store.get(&account1.sender_address).unwrap().contains(&tx2_address_0)
+    );
+    assert!(mempool.txs_queue.contains(&PrioritizedTransaction(tx2_address_0)));
 
     // This ensures we do not exceed the priority queue's limit of 3 transactions.
     let max_requested_txs = requested_txs.min(3);
@@ -83,25 +138,10 @@ fn test_get_txs(#[case] requested_txs: usize) {
     assert_eq!(txs, sorted_txs[..max_requested_txs].to_vec());
 
     // checks that the transactions that were not returned are still in the mempool.
-    let actual_addresses: Vec<&ContractAddress> = mempool.state.keys().collect();
-    let expected_remaining_addresses: Vec<&ContractAddress> =
-        expected_addresses[max_requested_txs..].iter().collect();
-    assert_eq!(actual_addresses, expected_remaining_addresses,);
-}
-
-#[rstest]
-#[should_panic(expected = "Sender address: \
-                           ContractAddress(PatriciaKey(StarkFelt(\"\
-                           0x0000000000000000000000000000000000000000000000000000000000000000\"\
-                           ))) already exists in the mempool. Can't add")]
-fn test_mempool_initialization_with_duplicate_sender_addresses() {
-    let (tx, account) = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
-    let same_tx = tx.clone();
-
-    let inputs = vec![MempoolInput { tx, account }, MempoolInput { tx: same_tx, account }];
-
-    // This call should panic because of duplicate sender addresses
-    let _mempool = Mempool::new(inputs.into_iter());
+    let expected_remaining_txs: Vec<&ThinTransaction> = txs[max_requested_txs..].iter().collect();
+    for tx in expected_remaining_txs {
+        assert!(mempool.txs_queue.contains(&PrioritizedTransaction(tx.clone())));
+    }
 }
 
 #[rstest]
@@ -111,15 +151,29 @@ fn test_add_tx(mut mempool: Mempool) {
         add_tx_input!(Tip(100), TransactionHash(StarkFelt::TWO), contract_address!("0x1"));
     let (tx_tip_80_address_2, account3) =
         add_tx_input!(Tip(80), TransactionHash(StarkFelt::THREE), contract_address!("0x2"));
+    let (tx2_address_0, _) = add_tx_input!(
+        Tip(50),
+        TransactionHash(StarkFelt::ZERO),
+        contract_address!("0x0"),
+        Nonce(StarkFelt::ONE)
+    );
 
-    assert_matches!(mempool.add_tx(tx_tip_50_address_0.clone(), account1), Ok(()));
-    assert_matches!(mempool.add_tx(tx_tip_100_address_1.clone(), account2), Ok(()));
-    assert_matches!(mempool.add_tx(tx_tip_80_address_2.clone(), account3), Ok(()));
+    assert_matches!(mempool.add_tx(tx_tip_50_address_0.clone()), Ok(()));
+    assert_matches!(mempool.add_tx(tx_tip_100_address_1.clone()), Ok(()));
+    assert_matches!(mempool.add_tx(tx_tip_80_address_2.clone()), Ok(()));
+    assert_matches!(mempool.add_tx(tx2_address_0.clone()), Ok(()));
 
-    assert_eq!(mempool.state.len(), 3);
-    mempool.state.contains_key(&account1.sender_address);
-    mempool.state.contains_key(&account2.sender_address);
-    mempool.state.contains_key(&account3.sender_address);
+    assert_eq!(mempool.txs_queue.len(), 3);
+
+    let account_0_queue = mempool.address_to_store.get(&account1.sender_address).unwrap();
+    assert_eq!(&tx_tip_50_address_0, account_0_queue.0.first().unwrap());
+    assert_eq!(&tx2_address_0, account_0_queue.0.last().unwrap());
+
+    let account_1_queue = mempool.address_to_store.get(&account2.sender_address).unwrap();
+    assert_eq!(&tx_tip_100_address_1, account_1_queue.0.first().unwrap());
+
+    let account_2_queue = mempool.address_to_store.get(&account3.sender_address).unwrap();
+    assert_eq!(&tx_tip_80_address_2, account_2_queue.0.first().unwrap());
 
     check_mempool_txs_eq(
         &mempool,
@@ -128,13 +182,13 @@ fn test_add_tx(mut mempool: Mempool) {
 }
 
 #[rstest]
-fn test_add_same_tx(mut mempool: Mempool) {
-    let (tx, account) = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
+fn test_add_tx_with_duplicate_tx(mut mempool: Mempool) {
+    let (tx, _account) = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
     let same_tx = tx.clone();
 
-    assert_matches!(mempool.add_tx(tx.clone(), account), Ok(()));
+    assert_matches!(mempool.add_tx(tx.clone()), Ok(()));
     assert_matches!(
-        mempool.add_tx(same_tx, account),
+        mempool.add_tx(same_tx),
         Err(MempoolError::DuplicateTransaction { tx_hash: TransactionHash(StarkFelt::ONE) })
     );
     // Assert that the original tx remains in the pool after the failed attempt.
@@ -156,15 +210,15 @@ fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
 
 #[rstest]
 fn test_add_tx_with_identical_tip_succeeds(mut mempool: Mempool) {
-    let (tx1, account1) = add_tx_input!(Tip(1), TransactionHash(StarkFelt::TWO));
+    let (tx1, _account1) = add_tx_input!(Tip(1), TransactionHash(StarkFelt::TWO));
 
     // Create a transaction with identical tip, it should be allowed through since the priority
     // queue tie-breaks identical tips by other tx-unique identifiers (for example tx hash).
-    let (tx2, account2) =
+    let (tx2, _account2) =
         add_tx_input!(Tip(1), TransactionHash(StarkFelt::ONE), contract_address!("0x1"));
 
-    assert!(mempool.add_tx(tx1.clone(), account1).is_ok());
-    assert!(mempool.add_tx(tx2.clone(), account2).is_ok());
+    assert!(mempool.add_tx(tx1.clone()).is_ok());
+    assert!(mempool.add_tx(tx2.clone()).is_ok());
 
     // TODO: currently hash comparison tie-breaks the two. Once more robust tie-breaks are added
     // replace this assertion with a dedicated test.
@@ -173,14 +227,14 @@ fn test_add_tx_with_identical_tip_succeeds(mut mempool: Mempool) {
 
 #[rstest]
 fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
-    let (tx_big_tip_small_hash, account1) = add_tx_input!(Tip(2), TransactionHash(StarkFelt::ONE));
+    let (tx_big_tip_small_hash, _account1) = add_tx_input!(Tip(2), TransactionHash(StarkFelt::ONE));
 
     // Create a transaction with identical tip, it should be allowed through since the priority
     // queue tie-breaks identical tips by other tx-unique identifiers (for example tx hash).
-    let (tx_small_tip_big_hash, account2) =
+    let (tx_small_tip_big_hash, _account2) =
         add_tx_input!(Tip(1), TransactionHash(StarkFelt::TWO), contract_address!("0x1"));
 
-    assert!(mempool.add_tx(tx_big_tip_small_hash.clone(), account1).is_ok());
-    assert!(mempool.add_tx(tx_small_tip_big_hash.clone(), account2).is_ok());
+    assert!(mempool.add_tx(tx_big_tip_small_hash.clone()).is_ok());
+    assert!(mempool.add_tx(tx_small_tip_big_hash.clone()).is_ok());
     check_mempool_txs_eq(&mempool, &[tx_small_tip_big_hash, tx_big_tip_small_hash])
 }
