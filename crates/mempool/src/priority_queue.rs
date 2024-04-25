@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 
 use starknet_mempool_types::mempool_types::ThinTransaction;
 // Assumption: for the MVP only one transaction from the same contract class can be in the mempool
-// at a time. When this changes, saving the transactions themselves on the queu might no longer be
+// at a time. When this changes, saving the transactions themselves on the queue might no longer be
 // appropriate, because we'll also need to stores transactions without indexing them. For example,
 // transactions with future nonces will need to be stored, and potentially indexed on block commits.
 #[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
@@ -61,6 +61,7 @@ impl PartialOrd for PrioritizedTransaction {
 
 // TODO: remove when is used.
 #[allow(dead_code)]
+#[derive(Debug)]
 // Assumption: there are no gaps, and the transactions are received in order.
 pub struct AddressPriorityQueue(pub Vec<ThinTransaction>);
 
@@ -81,5 +82,9 @@ impl AddressPriorityQueue {
 
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    pub fn contains(&self, tx: &ThinTransaction) -> bool {
+        self.0.contains(tx)
     }
 }
