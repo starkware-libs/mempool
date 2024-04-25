@@ -1,22 +1,23 @@
-use crate::errors::GatewayError;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use starknet_api::external_transaction::ExternalTransaction;
 use std::net::{IpAddr, SocketAddr};
 
+use crate::errors::GatewayError;
+
 #[cfg(test)]
 #[path = "gateway_test.rs"]
 pub mod gateway_test;
 
-pub type GatewayResult = Result<(), GatewayError>;
+pub type GatewayResult<T> = Result<T, GatewayError>;
 
 pub struct Gateway {
     pub config: GatewayConfig,
 }
 
 impl Gateway {
-    pub async fn build_server(self) -> GatewayResult {
+    pub async fn build_server(self) {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let addr = SocketAddr::new(self.config.ip, self.config.port);
         let app = app();
@@ -26,8 +27,6 @@ impl Gateway {
             .serve(app.into_make_service())
             .await
             .unwrap();
-
-        Ok(())
     }
 }
 
@@ -44,12 +43,14 @@ async fn is_alive() -> impl IntoResponse {
     unimplemented!("Future handling should be implemented here.");
 }
 
-async fn add_transaction(Json(transaction): Json<ExternalTransaction>) -> impl IntoResponse {
-    match transaction {
+async fn add_transaction(
+    Json(transaction): Json<ExternalTransaction>,
+) -> GatewayResult<&'static str> {
+    Ok(match transaction {
         ExternalTransaction::Declare(_) => "DECLARE",
         ExternalTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT",
         ExternalTransaction::Invoke(_) => "INVOKE",
-    }
+    })
 }
 
 pub struct GatewayConfig {
