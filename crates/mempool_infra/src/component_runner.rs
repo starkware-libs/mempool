@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use papyrus_config::dumping::SerializeConfig;
 use std::fmt::Debug;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
@@ -11,7 +12,8 @@ pub enum ComponentStartError {
 
 /// Interface to start memepool components.
 #[async_trait]
-pub trait ComponentRunner {
+pub trait ComponentRunner<T: SerializeConfig + Sync + Send> {
     /// Start the component. Normally this function should never return.
-    async fn start(&self) -> Result<(), ComponentStartError>;
+    async fn start(config: T) -> Result<(), ComponentStartError>;
 }
+
