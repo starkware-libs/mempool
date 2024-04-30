@@ -2,21 +2,18 @@
 #[path = "priority_queue_test.rs"]
 pub mod priority_queue_test;
 
-use starknet_api::{
-    internal_transaction::InternalTransaction,
-    transaction::{DeclareTransaction, DeployAccountTransaction, InvokeTransaction, Tip},
-};
+use starknet_api::internal_transaction::InternalTransaction;
 use std::{cmp::Ordering, collections::BTreeSet};
 // Assumption: for the MVP only one transaction from the same contract class can be in the mempool
 // at a time. When this changes, saving the transactions themselves on the queu might no longer be
 // appropriate, because we'll also need to stores transactions without indexing them. For example,
 // transactions with future nonces will need to be stored, and potentially indexed on block commits.
 #[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
-pub struct PriorityQueue(BTreeSet<PQTransaction>);
+pub struct TransactionPriorityQueue(BTreeSet<PrioritizedTransaction>);
 
-impl PriorityQueue {
+impl TransactionPriorityQueue {
     pub fn push(&mut self, tx: InternalTransaction) {
-        let mempool_tx = PQTransaction(tx);
+        let mempool_tx = PrioritizedTransaction(tx);
         self.insert(mempool_tx);
     }
 
@@ -26,55 +23,38 @@ impl PriorityQueue {
     }
 }
 
-impl From<Vec<InternalTransaction>> for PriorityQueue {
+impl From<Vec<InternalTransaction>> for TransactionPriorityQueue {
     fn from(transactions: Vec<InternalTransaction>) -> Self {
-        PriorityQueue(BTreeSet::from_iter(
-            transactions.into_iter().map(PQTransaction),
+        TransactionPriorityQueue(BTreeSet::from_iter(
+            transactions.into_iter().map(PrioritizedTransaction),
         ))
     }
 }
 
 #[derive(Clone, Debug, derive_more::Deref, derive_more::From)]
-pub struct PQTransaction(pub InternalTransaction);
+pub struct PrioritizedTransaction(pub InternalTransaction);
 
-impl PQTransaction {
-    fn tip(&self) -> Tip {
-        match &self.0 {
-            InternalTransaction::Declare(declare_tx) => match &declare_tx.tx {
-                DeclareTransaction::V3(tx_v3) => tx_v3.tip,
-                _ => unimplemented!(),
-            },
-            InternalTransaction::DeployAccount(deploy_account_tx) => match &deploy_account_tx.tx {
-                DeployAccountTransaction::V3(tx_v3) => tx_v3.tip,
-                _ => unimplemented!(),
-            },
-            InternalTransaction::Invoke(invoke_tx) => match &invoke_tx.tx {
-                InvokeTransaction::V3(tx_v3) => tx_v3.tip,
-                _ => unimplemented!(),
-            },
-        }
-    }
-}
-
-// Compare transactions based on their tip only, which implies `Eq`, because `tip` is uint.
-impl PartialEq for PQTransaction {
-    fn eq(&self, other: &PQTransaction) -> bool {
+// Compare transactions based on their tip, which is a uint, using the Eq trait. This is because
+// uint types allow for precise and straightforward equality comparisons, ensuring that two tips
+// are either exactly equal or not.
+impl PartialEq for PrioritizedTransaction {
+    fn eq(&self, other: &PrioritizedTransaction) -> bool {
         self.tip() == other.tip()
     }
 }
 
-/// Marks PQTransaction as capable of strict equality comparisons, signaling to the compiler it
+/// Marks this struct as capable of strict equality comparisons, signaling to the compiler it
 /// adheres to equality semantics.
 // Note: this depends on the implementation of `PartialEq`, see its docstring.
-impl Eq for PQTransaction {}
+impl Eq for PrioritizedTransaction {}
 
-impl Ord for PQTransaction {
+impl Ord for PrioritizedTransaction {
     fn cmp(&self, other: &Self) -> Ordering {
         self.tip().cmp(&other.tip())
     }
 }
 
-impl PartialOrd for PQTransaction {
+impl PartialOrd for PrioritizedTransaction {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
