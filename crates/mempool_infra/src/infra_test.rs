@@ -1,5 +1,5 @@
-#![allow(unused_imports)]
-#![allow(dead_code)]
+// #![allow(unused_imports)]
+// #![allow(dead_code)]
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::BTreeMap;
 
-use crate::{get_config, ComponentRunner, ComponentStartError, ExtendConfig};
+use crate::{ComponentRunner, ComponentStartError};
 use papyrus_config::dumping::{ser_param, SerializeConfig};
 use papyrus_config::loading::load_and_process_config;
 use papyrus_config::ParamPrivacyInput;
@@ -62,156 +62,93 @@ impl SerializeConfig for TestConfig3 {
     }
 }
 
-struct TestComponent1 {}
+trait ExtendedConfigTrait: SerializeConfig + std::fmt::Debug + Send + Sync  {}
+
+impl ExtendedConfigTrait for TestConfig1 {}
+impl ExtendedConfigTrait for TestConfig2 {}
 
 #[async_trait]
-impl ComponentRunner for TestComponent1 {
-    async fn start_component(
-        &self,
-        config: Option<Box<&(dyn ExtendConfig + Sync + Send)>>,
-    ) -> Result<(), ComponentStartError> {
-        let config = match config {
-            Some(config) => config,
-            None => return Err(ComponentStartError::ComponentConfigError),
-        };
-        let component_config: &TestConfig1 = match config.as_any().downcast_ref() {
-            Some(config) => config,
-            None => return Err(ComponentStartError::ComponentConfigError),
-        };
-        println!("TestComponent1::start_component(): {:#?}", component_config);
+impl ComponentRunner for TestComponent1
+{
+    async fn start_component(&self) -> Result<(), ComponentStartError>
+    {
+        println!("TestComponent1::start_component(): {:#?}", self.config);
         Ok(())
     }
 }
 
-struct TestComponent2 {}
-
 #[async_trait]
-impl ComponentRunner for TestComponent2 {
-    async fn start_component(
-        &self,
-        config: Option<Box<&(dyn ExtendConfig + Sync + Send)>>,
-    ) -> Result<(), ComponentStartError> {
-        let component_config: &TestConfig2;
-        if let Some(config) = get_config(config) {
-            component_config = config;
+impl ComponentRunner for TestComponent2
+{
+    async fn start_component(&self) -> Result<(), ComponentStartError>
+    {
+        println!("TestComponent2::start_component(): {:#?}", self.config);
+        if self.config.config2 == 42 {
+            return Err(ComponentStartError::InternalComponentError);
         } else {
-            return Err(ComponentStartError::ComponentConfigError);
-        }
-        println!("TestComponent2::start_component(): {:#?}", component_config);
-
-        if component_config.config2 != 42 {
-            Err(ComponentStartError::InternalComponentError)
-        } else {
-            Ok(())
-        }
+            return         Ok(())
+        };
     }
 }
 
-struct TestComponent3 {}
-
-#[async_trait]
-impl ComponentRunner for TestComponent3 {
-    async fn start_component(
-        &self,
-        config: Option<Box<&(dyn ExtendConfig + Sync + Send)>>,
-    ) -> Result<(), ComponentStartError> {
-        let component_config: &TestConfig3;
-        if let Some(config) = get_config(config) {
-            component_config = config;
-        } else {
-            return Err(ComponentStartError::ComponentConfigError);
-        }
-
-        println!("TestComponent3::start_component(): {:#?}", component_config);
-
-        Ok(())
-    }
+pub struct TestComponent1 {
+    pub config: TestConfig1
 }
 
-static TEST_COMPONENT_1: TestComponent1 = TestComponent1 {};
-static TEST_COMPONENT_2: TestComponent2 = TestComponent2 {};
-static TEST_COMPONENT_3: TestComponent3 = TestComponent3 {};
+pub struct TestComponent2 {
+    pub config: TestConfig2
+}
+
+
 
 #[tokio::test]
 async fn test_testruner1() {
     let test_config = TestConfig1 { config1: true };
-    assert_matches!(
-        TEST_COMPONENT_1
-            .start_component(Some(Box::new(&test_config)))
-            .await,
-        Ok(())
-    );
+    let test_component = TestComponent1 { config: test_config };
+    assert_matches!(test_component.start_component().await, Ok(()));
 }
 
 #[tokio::test]
 async fn test_testruner2() {
-    let test_config = TestConfig2 { config2: 42 };
-    assert_matches!(
-        TEST_COMPONENT_2
-            .start_component(Some(Box::new(&test_config)))
-            .await,
-        Ok(())
-    );
-
-    let test_config = TestConfig2 { config2: 43 };
-    assert_matches!(TEST_COMPONENT_2.start_component(Some(Box::new(&test_config))).await, Err(e) => {
-        assert_eq!(e, ComponentStartError::InternalComponentError);
-    });
-
-    let test_config = TestConfig1 { config1: true };
-    assert_matches!(TEST_COMPONENT_2.start_component(Some(Box::new(&test_config))).await, Err(e) => {
-        assert_eq!(e, ComponentStartError::ComponentConfigError);
-    });
+    let test_config = TestConfig2 { config2: 16 };
+    let test_component = TestComponent2 { config: test_config };
+    assert_matches!(test_component.start_component().await, Ok(()));
 }
 
-#[tokio::test]
-async fn test_testruner3() {
-    let test_config = TestConfig3 { config3: 1.1 };
-    assert_matches!(
-        TEST_COMPONENT_3
-            .start_component(Some(Box::new(&test_config)))
-            .await,
-        Ok(())
-    );
-}
-
-pub struct CommonTestConfig {
-    test_config_1: TestConfig1,
-    test_config_2: TestConfig2,
-    test_config_3: TestConfig3,
-}
 
 #[tokio::test]
 async fn test_run_from_vector() {
-    let common_config = CommonTestConfig {
-        test_config_1: TestConfig1 { config1: true },
-        test_config_2: TestConfig2 { config2: 43 },
-        test_config_3: TestConfig3 { config3: 1.1 },
-    };
 
-    let components: Vec<Box<&dyn ComponentRunner>> = vec![
-        Box::new(&TEST_COMPONENT_1),
-        Box::new(&TEST_COMPONENT_2),
-        Box::new(&TEST_COMPONENT_2),
-        Box::new(&TEST_COMPONENT_3),
+
+    let test_config_1 = TestConfig1 { config1: true };
+    let test_config_2 = TestConfig2 { config2: 17 } ;
+    let erroneous_test_config_2 = TestConfig2 { config2: 42 } ;
+
+    let test_component_1 = TestComponent1 { config: test_config_1 };
+    let test_component_2 = TestComponent2 { config: test_config_2 };
+    let erroneous_test_component_2 = TestComponent2 { config: erroneous_test_config_2 };
+
+
+
+    let components : Vec::<Box<dyn ComponentRunner>> = vec![
+        Box::new(test_component_1),
+        Box::new(test_component_2),
+        Box::new(erroneous_test_component_2),
     ];
 
-    let configs: Vec<Box<&(dyn ExtendConfig + Send + Sync)>> = vec![
-        Box::new(&common_config.test_config_1),
-        Box::new(&common_config.test_config_1),
-        Box::new(&common_config.test_config_2),
-        Box::new(&common_config.test_config_3),
-    ];
 
-    let ret_value = [
+    let expected_results : Vec::<Result<(), ComponentStartError>> = vec![
         Ok(()),
-        Err(ComponentStartError::ComponentConfigError),
+        Ok(()),
         Err(ComponentStartError::InternalComponentError),
-        Ok(()),
     ];
 
-    for (i, (component, config)) in components.into_iter().zip(configs.into_iter()).enumerate() {
-        let ret_val = component.start_component(Some(config)).await;
-        assert_eq!(ret_val, ret_value[i]);
+
+    for (component, expected_result) in components.iter().zip(expected_results.iter()) {
+        let ret_val = component.start_component().await;
+        assert_eq!(ret_val, *expected_result);    
     }
+
+
+    
 }
