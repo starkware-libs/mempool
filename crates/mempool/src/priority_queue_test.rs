@@ -8,7 +8,7 @@ use starknet_api::{
     },
 };
 
-use crate::priority_queue::PriorityQueue;
+use crate::priority_queue::TransactionPriorityQueue;
 
 pub fn create_tx_for_testing(tip: Tip, tx_hash: TransactionHash) -> InternalTransaction {
     let tx = InvokeTransactionV3 {
@@ -51,7 +51,7 @@ async fn test_priority_queue() {
     let tx_tip_100 = create_tx_for_testing(Tip(100), tx_hash_100);
     let tx_tip_10 = create_tx_for_testing(Tip(10), tx_hash_10);
 
-    let mut pq = PriorityQueue::default();
+    let mut pq = TransactionPriorityQueue::default();
     pq.push(tx_tip_50.clone());
     pq.push(tx_tip_100.clone());
     pq.push(tx_tip_10.clone());

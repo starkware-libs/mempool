@@ -12,9 +12,9 @@ use std::{cmp::Ordering, collections::BTreeSet};
 // appropriate, because we'll also need to stores transactions without indexing them. For example,
 // transactions with future nonces will need to be stored, and potentially indexed on block commits.
 #[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
-pub struct PriorityQueue(BTreeSet<PQTransaction>);
+pub struct TransactionPriorityQueue(BTreeSet<PQTransaction>);
 
-impl PriorityQueue {
+impl TransactionPriorityQueue {
     pub fn push(&mut self, tx: InternalTransaction) {
         let mempool_tx = PQTransaction(tx);
         self.insert(mempool_tx);
@@ -26,9 +26,9 @@ impl PriorityQueue {
     }
 }
 
-impl From<Vec<InternalTransaction>> for PriorityQueue {
+impl From<Vec<InternalTransaction>> for TransactionPriorityQueue {
     fn from(transactions: Vec<InternalTransaction>) -> Self {
-        PriorityQueue(BTreeSet::from_iter(
+        TransactionPriorityQueue(BTreeSet::from_iter(
             transactions.into_iter().map(PQTransaction),
         ))
     }
@@ -38,6 +38,7 @@ impl From<Vec<InternalTransaction>> for PriorityQueue {
 pub struct PQTransaction(pub InternalTransaction);
 
 impl PQTransaction {
+    // TODO(Ayelet): Move to SN API and delete.
     fn tip(&self) -> Tip {
         match &self.0 {
             InternalTransaction::Declare(declare_tx) => match &declare_tx.tx {
@@ -63,7 +64,7 @@ impl PartialEq for PQTransaction {
     }
 }
 
-/// Marks PQTransaction as capable of strict equality comparisons, signaling to the compiler it
+/// Marks this struct as capable of strict equality comparisons, signaling to the compiler it
 /// adheres to equality semantics.
 // Note: this depends on the implementation of `PartialEq`, see its docstring.
 impl Eq for PQTransaction {}
