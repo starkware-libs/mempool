@@ -64,25 +64,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test
 
-  # udeps:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: dtolnay/rust-toolchain@master
-  #       name: "Rust Toolchain Setup"
-  #       with:
-  #         toolchain: nightly-2024-01-12
-  #     - uses: Swatinem/rust-cache@v2
-  #       id: "cache-cargo"
-  #     - if: ${{ steps.cache-cargo.outputs.cache-hit != 'true' }}
-  #       name: "Download and run cargo-udeps"
-  #       run: |
-  #         wget -O - -c https://github.com/est31/cargo-udeps/releases/download/v0.1.35/cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz | tar -xz
-  #         cargo-udeps-*/cargo-udeps udeps
-  #       env:
-  #         RUSTUP_TOOLCHAIN: nightly-2024-01-12
-  
-
   udeps:
     runs-on: ubuntu-latest
     steps:
@@ -92,13 +73,11 @@ jobs:
         with:
           toolchain: nightly-2024-01-12
       - uses: Swatinem/rust-cache@v2
-      - uses: Noelware/setup-protoc@1.1.0
-        with:
-          version: v25.1
-
-      - name: "Download and run cargo-udeps"
+        id: "cache-cargo"
+      - if: ${{ steps.cache-cargo.outputs.cache-hit != 'true' }}
+        name: "Download and run cargo-udeps"
         run: |
-          wget -O - -c https://github.com/est31/cargo-udeps/releases/download/v0.1.35/cargo-udeps-v0.1.35-x86_64-unknown-linux-gnu.tar.gz | tar -xz
+          wget -O - -c https://github.com/est31/cargo-udeps/releases/download/v0.1.45/cargo-udeps-v0.1.45-x86_64-unknown-linux-gnu.tar.gz | tar -xz
           cargo-udeps-*/cargo-udeps udeps
         env:
           RUSTUP_TOOLCHAIN: nightly-2024-01-12

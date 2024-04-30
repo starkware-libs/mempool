@@ -399,7 +399,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.7.0-dev.1"
-source = "git+https://github.com/starkware-libs/blockifier.git?rev=b33515e0#b33515e04341a7a934b2b0e033fd8d556b7aeb4e"
+source = "git+https://github.com/starkware-libs/blockifier.git?rev=7ff7fc97#7ff7fc97908f6a4963da765caca9ba8d5ab6b544"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -955,7 +955,6 @@ dependencies = [
  "itertools 0.11.0",
  "num-bigint",
  "num-traits 0.2.18",
- "parity-scale-codec",
  "schemars",
  "serde",
 ]
@@ -2933,7 +2932,7 @@ dependencies = [
 [[package]]
 name = "starknet_api"
 version = "0.12.0-dev.1"
-source = "git+https://github.com/starkware-libs/starknet-api.git?rev=98153e9#98153e99ffe881c93fdc2846485223d4973ead30"
+source = "git+https://github.com/starkware-libs/starknet-api.git?rev=1b46b42#1b46b42086f3161738a71f87efb49b62dde4b841"
 dependencies = [
  "cairo-lang-starknet-classes",
  "derive_more",
@@ -2958,7 +2957,6 @@ dependencies = [
  "assert_matches",
  "axum",
  "blockifier",
- "cairo-lang-casm",
  "clap",
  "hyper 1.3.1",
  "papyrus_config",

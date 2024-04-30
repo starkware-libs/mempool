@@ -12,7 +12,6 @@ workspace = true
 axum.workspace = true
 blockifier = { workspace = true, features = ["testing"] }
 clap.workspace = true
-cairo-lang-casm = { workspace = true, features = ["parity-scale-codec"] }
 hyper.workspace = true
 papyrus_config.workspace = true
 serde.workspace = true
