@@ -2,6 +2,7 @@ use crate::errors::GatewayError;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use starknet_api::external_transaction::ExternalTransaction;
 use std::net::{IpAddr, SocketAddr};
 
@@ -20,6 +21,7 @@ impl Gateway {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let addr = SocketAddr::new(self.config.ip, self.config.port);
         let app = app();
+        let _state: blockifier::blockifier::stateful_validator::StatefulValidator<DictStateReader>;
 
         // Create a server that runs forever.
         axum::Server::bind(&addr)
