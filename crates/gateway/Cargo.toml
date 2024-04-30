@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 axum.workspace = true
+blockifier = { workspace = true, features = ["testing"] }
 clap.workspace = true
 hyper.workspace = true
 papyrus_config.workspace = true
