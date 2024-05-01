@@ -9,7 +9,7 @@ use starknet_api::state::StorageKey;
 use url::Url;
 
 use crate::rpc_objects::{
-    BlockId, BlockTag, GetNonceParams, RpcResponse, RPC_ERROR_BLOCK_NOT_FOUND,
+    BlockId, BlockTag, GetNonceParams, GetStorageAtParams, RpcResponse, RPC_ERROR_BLOCK_NOT_FOUND,
     RPC_ERROR_CONTRACT_ADDRESS_NOT_FOUND,
 };
 
@@ -25,7 +25,18 @@ pub struct RpcStateReader {
 impl RpcStateReader {
     // Note: This function is blocking though it is sending a request to the rpc server and waiting
     // for the response.
-    pub fn send_rpc_request(&self, request_body: serde_json::Value) -> Result<String, StateError> {
+    pub fn send_rpc_request(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<String, StateError> {
+        let request_body = json!({
+            "jsonrpc": self.json_rpc_version,
+            "id": 0,
+            "method": method,
+            "params": params,
+        });
+
         let client = BlockingClient::new();
         let response = client
             .post(self.url.clone())
@@ -70,13 +81,22 @@ impl RpcStateReader {
 }
 
 impl StateReader for RpcStateReader {
-    #[allow(unused_variables)]
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
-        todo!()
+        let get_storage_at_params = GetStorageAtParams {
+            block_id: BlockId::Tag(BlockTag::Latest),
+            contract_address,
+            key,
+        };
+
+        let result =
+            self.send_rpc_request("starknet_getStorageAt", json!(get_storage_at_params))?;
+        let value: StarkFelt = serde_json::from_value(json!(result))
+            .map_err(|_| StateError::StateReadError("Bad rpc result".to_string()))?;
+        Ok(value)
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
@@ -84,14 +104,8 @@ impl StateReader for RpcStateReader {
             block_id: BlockId::Tag(BlockTag::Latest),
             contract_address,
         };
-        let request_body = json!({
-            "jsonrpc": self.json_rpc_version,
-            "id": 0,
-            "method": "starknet_getNonce",
-            "params": json!(get_nonce_params),
-        });
 
-        let result = self.send_rpc_request(request_body)?;
+        let result = self.send_rpc_request("starknet_getNonce", json!(get_nonce_params))?;
         let nonce: Nonce = serde_json::from_value(json!(result))
             .map_err(|_| StateError::StateReadError("Bad rpc result".to_string()))?;
         Ok(nonce)
