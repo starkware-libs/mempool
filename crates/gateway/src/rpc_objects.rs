@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use starknet_api::core::ContractAddress;
+use starknet_api::{core::ContractAddress, state::StorageKey};
 
 // Starknet Spec error codes:
 // TODO(yael 30/4/2024): consider turning these into an enum.
@@ -27,6 +27,13 @@ pub enum BlockId {
 pub struct GetNonceParams {
     pub block_id: BlockId,
     pub contract_address: ContractAddress,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetStorageAtParams {
+    pub contract_address: ContractAddress,
+    pub key: StorageKey,
+    pub block_id: BlockId,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
