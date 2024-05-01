@@ -12,6 +12,7 @@ workspace = true
 axum.workspace = true
 clap.workspace = true
 hyper.workspace = true
+starknet_mempool = { path = "../mempool" }
 papyrus_config.workspace = true
 serde.workspace = true
 serde_json.workspace = true
