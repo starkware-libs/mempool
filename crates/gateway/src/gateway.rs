@@ -3,9 +3,7 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use starknet_api::external_transaction::ExternalTransaction;
-use std::net::SocketAddr;
-
-use crate::config::GatewayConfig;
+use std::net::{IpAddr, SocketAddr};
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -52,4 +50,9 @@ async fn add_transaction(Json(transaction): Json<ExternalTransaction>) -> impl I
         ExternalTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT",
         ExternalTransaction::Invoke(_) => "INVOKE",
     }
+}
+
+pub struct GatewayConfig {
+    pub ip: IpAddr,
+    pub port: u16,
 }

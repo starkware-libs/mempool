@@ -1,7 +1,8 @@
-pub mod network_component;
+pub mod mempool;
+pub mod mempool_proxy;
 
 #[cfg(test)]
-mod network_component_test;
+mod mempool_proxy_test;
 
 #[tokio::main]
 async fn main() {
