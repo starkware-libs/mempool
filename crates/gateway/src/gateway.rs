@@ -54,7 +54,7 @@ pub fn app(config: GatewayConfig) -> Router {
     // `with_state`.
 }
 
-async fn is_alive() -> impl IntoResponse {
+async fn is_alive() -> GatewayResult<String> {
     unimplemented!("Future handling should be implemented here.");
 }
 
