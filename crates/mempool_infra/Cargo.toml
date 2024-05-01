@@ -1,0 +1,27 @@
+[package]
+name = "mempool_infra"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["tokio"]
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+papyrus_config.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+validator.workspace = true
+
+[dev-dependencies]
+assert_matches.workspace = true
+pretty_assertions.workspace = true
+

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/gateway", "crates/mempool", "crates/mempool_node"]
+members = ["crates/gateway", "crates/mempool", "crates/mempool_node", "crates/mempool_infra"]
 
 [workspace.package]
 version = "0.0.0"
@@ -19,6 +19,7 @@ unused = "deny"
 as_conversions = "deny"
 
 [workspace.dependencies]
+anyhow = "1.0.44"
 assert_matches = "1.5.0"
 async-trait = "0.1.79"
 axum = "0.6.12"
