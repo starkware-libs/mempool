@@ -1,4 +1,3 @@
-use crate::errors::GatewayError;
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -9,14 +8,12 @@ use std::net::{IpAddr, SocketAddr};
 #[path = "gateway_test.rs"]
 pub mod gateway_test;
 
-pub type GatewayResult = Result<(), GatewayError>;
-
 pub struct Gateway {
     pub config: GatewayConfig,
 }
 
 impl Gateway {
-    pub async fn build_server(self) -> GatewayResult {
+    pub async fn build_server(self) {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let addr = SocketAddr::new(self.config.ip, self.config.port);
         let app = app();
@@ -26,8 +23,6 @@ impl Gateway {
             .serve(app.into_make_service())
             .await
             .unwrap();
-
-        Ok(())
     }
 }
 
