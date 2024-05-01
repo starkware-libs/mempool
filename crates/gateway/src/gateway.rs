@@ -11,6 +11,7 @@ pub mod gateway_test;
 
 pub type GatewayResult = Result<(), GatewayError>;
 
+#[derive(Clone, Debug)]
 pub struct Gateway {
     pub config: GatewayConfig,
 }
@@ -19,7 +20,7 @@ impl Gateway {
     pub async fn build_server(self) -> GatewayResult {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let addr = SocketAddr::new(self.config.ip, self.config.port);
-        let app = app();
+        let app = app(self.config);
 
         // Create a server that runs forever.
         axum::Server::bind(&addr)
@@ -32,12 +33,11 @@ impl Gateway {
 }
 
 /// Sets up the router with the specified routes for the server.
-pub fn app() -> Router {
+pub fn app(config: GatewayConfig) -> Router {
     Router::new()
         .route("/is_alive", get(is_alive))
         .route("/add_transaction", post(add_transaction))
-    // TODO: when we need to configure the router, like adding banned ips, add it here via
-    // `with_state`.
+        .with_state(config)
 }
 
 async fn is_alive() -> impl IntoResponse {
@@ -52,6 +52,7 @@ async fn add_transaction(Json(transaction): Json<ExternalTransaction>) -> impl I
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct GatewayConfig {
     pub ip: IpAddr,
     pub port: u16,
