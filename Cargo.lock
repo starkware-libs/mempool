@@ -2969,12 +2969,14 @@ dependencies = [
  "blockifier",
  "clap",
  "hyper 1.3.1",
+ "mempool_infra",
  "papyrus_config",
  "pretty_assertions",
  "rstest",
  "serde",
  "serde_json",
  "starknet_api",
+ "starknet_mempool_common",
  "thiserror",
  "tokio",
  "tower",
@@ -2988,8 +2990,30 @@ dependencies = [
  "assert_matches",
  "derive_more",
  "starknet_api",
+ "starknet_mempool_common",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "starknet_mempool_common"
+version = "0.0.0"
+dependencies = [
+ "assert_matches",
+ "axum",
+ "clap",
+ "hyper 1.3.1",
+ "mempool_infra",
+ "papyrus_config",
+ "pretty_assertions",
+ "rstest",
+ "serde",
+ "serde_json",
+ "starknet_api",
+ "thiserror",
+ "tokio",
+ "tower",
+ "validator",
 ]
 
 [[package]]
