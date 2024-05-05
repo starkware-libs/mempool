@@ -6,11 +6,20 @@ use starknet_api::{
 
 use crate::errors::MempoolError;
 
+use starknet_mempool_common::mempool_common::AccountState;
+use starknet_mempool_common::mempool_common::MempoolNetworkComponent;
+
 pub type MempoolResult<T> = Result<T, MempoolError>;
 
-pub struct Mempool;
+pub struct Mempool {
+    pub network: MempoolNetworkComponent,
+}
 
 impl Mempool {
+    pub fn new(network: MempoolNetworkComponent) -> Self {
+        Self { network }
+    }
+
     /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push back.
@@ -41,5 +50,3 @@ impl Mempool {
         todo!()
     }
 }
-
-pub struct AccountState;

@@ -1,0 +1,14 @@
+[package]
+name = "starknet_mempool_common"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+starknet_api.workspace = true
+mempool_infra = { path = "../mempool_infra"}
+
