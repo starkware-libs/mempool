@@ -36,3 +36,12 @@ pub enum MempoolMessage {
 
 pub type GatewayNetworkComponent = NetworkComponent<GatewayMessage, MempoolMessage>;
 pub type MempoolNetworkComponent = NetworkComponent<MempoolMessage, GatewayMessage>;
+
+impl From<GatewayMessage> for MempoolMessage {
+    fn from(item: GatewayMessage) -> Self {
+        match item {
+            GatewayMessage::AddTx(tx, state) => MempoolMessage::AddTx(tx, state),
+            _ => unreachable!("Conversion not possible."),
+        }
+    }
+}
