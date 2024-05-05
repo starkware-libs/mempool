@@ -83,7 +83,7 @@ fn test_get_txs(#[case] requested_txs: usize) {
         account3.address,
     );
 
-    let mut mempool = Mempool::new(vec![
+    let mut mempool = Mempool::create_for_testing(vec![
         MempoolInput {
             tx: tx_tip_50_address_0.clone(),
             account: account1,
@@ -155,7 +155,7 @@ fn test_mempool_initialization_with_duplicate_contract_addresses() {
     ];
 
     // This call should panic because of duplicate contract addresses
-    let _mempool = Mempool::new(inputs.into_iter());
+    let _mempool = Mempool::create_for_testing(inputs.into_iter());
 }
 
 #[test]
@@ -185,7 +185,7 @@ fn test_add_tx() {
         account3.address,
     );
 
-    let mut mempool = Mempool::default();
+    let mut mempool = Mempool::create_empty_mempool();
     assert!(mempool
         .add_tx(tx_tip_50_address_0.clone(), account1)
         .is_ok());
@@ -225,7 +225,7 @@ fn test_add_same_tx() {
     );
     let same_tx = tx.clone();
 
-    let mut mempool = Mempool::default();
+    let mut mempool = Mempool::create_empty_mempool();
 
     assert!(mempool.add_tx(tx, account).is_ok());
     assert_matches!(
