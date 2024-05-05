@@ -25,14 +25,23 @@ pub struct MempoolInput {
 
 #[derive(Debug)]
 pub enum GatewayMessage {
-    None,                                     // Input.
-    AddTx(InternalTransaction, AccountState), // Output.
+    None,                                // Input.
+    AddTx(InternalTransaction, Account), // Output.
 }
 
 pub enum MempoolMessage {
-    AddTx(InternalTransaction, AccountState), // Input.
-    GetTxs(u8),                               // Output.
+    AddTx(InternalTransaction, Account), // Input.
+    GetTxs(u8),                          // Output.
 }
 
 pub type GatewayNetworkComponent = NetworkComponent<GatewayMessage, MempoolMessage>;
 pub type MempoolNetworkComponent = NetworkComponent<MempoolMessage, GatewayMessage>;
+
+impl From<GatewayMessage> for MempoolMessage {
+    fn from(item: GatewayMessage) -> Self {
+        match item {
+            GatewayMessage::AddTx(tx, state) => MempoolMessage::AddTx(tx, state),
+            _ => unreachable!("Conversion not possible."),
+        }
+    }
+}
