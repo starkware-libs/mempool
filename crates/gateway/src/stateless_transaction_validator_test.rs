@@ -6,13 +6,13 @@ use starknet_api::transaction::{
     Calldata, Resource, ResourceBounds, ResourceBoundsMapping, TransactionSignature,
 };
 
+use crate::config::StatelessTransactionValidatorConfig;
 use crate::starknet_api_test_utils::{
     create_resource_bounds_mapping, external_tx_for_testing, non_zero_resource_bounds_mapping,
     zero_resource_bounds_mapping, TransactionType, NON_EMPTY_RESOURCE_BOUNDS,
 };
 use crate::stateless_transaction_validator::{
-    StatelessTransactionValidator, StatelessTransactionValidatorConfig,
-    StatelessTransactionValidatorError,
+    StatelessTransactionValidator, StatelessTransactionValidatorError,
 };
 
 const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig =

@@ -8,10 +8,9 @@ use starknet_api::external_transaction::ExternalTransaction;
 use std::fs::File;
 use std::path::Path;
 
+use crate::config::StatelessTransactionValidatorConfig;
 use crate::gateway::{add_transaction, GatewayState};
-use crate::stateless_transaction_validator::{
-    StatelessTransactionValidator, StatelessTransactionValidatorConfig,
-};
+use crate::stateless_transaction_validator::StatelessTransactionValidator;
 
 const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 
