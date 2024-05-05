@@ -3210,6 +3210,7 @@ dependencies = [
  "axum",
  "blockifier",
  "clap",
+ "mempool_infra",
  "papyrus_config",
  "pretty_assertions",
  "reqwest",
@@ -3217,6 +3218,7 @@ dependencies = [
  "serde",
  "serde_json",
  "starknet_api",
+ "starknet_mempool_common",
  "thiserror",
  "tokio",
  "tower",
@@ -3231,8 +3233,17 @@ dependencies = [
  "assert_matches",
  "derive_more",
  "starknet_api",
+ "starknet_mempool_common",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "starknet_mempool_common"
+version = "0.0.0"
+dependencies = [
+ "mempool_infra",
+ "starknet_api",
 ]
 
 [[package]]

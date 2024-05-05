@@ -17,6 +17,8 @@ reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 starknet_api.workspace = true
+starknet_mempool_common = { path = "../mempool_common", version = "0.0" }
+mempool_infra = { path = "../mempool_infra", version = "0.0" }
 thiserror.workspace = true
 tower.workspace = true
 url.workspace = true

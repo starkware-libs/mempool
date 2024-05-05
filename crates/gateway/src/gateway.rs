@@ -3,6 +3,8 @@ use axum::{Json, Router};
 use starknet_api::external_transaction::ExternalTransaction;
 use std::net::SocketAddr;
 
+use starknet_mempool_common::mempool_common::GatewayNetworkComponent;
+
 use crate::config::GatewayConfig;
 
 use crate::errors::GatewayError;
@@ -15,9 +17,14 @@ pub type GatewayResult<T> = Result<T, GatewayError>;
 
 pub struct Gateway {
     pub config: GatewayConfig,
+    pub network: GatewayNetworkComponent,
 }
 
 impl Gateway {
+    pub fn new(config: GatewayConfig, network: GatewayNetworkComponent) -> Self {
+        Self { config, network }
+    }
+
     pub async fn build_server(self) {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let addr = SocketAddr::new(self.config.ip, self.config.port);
