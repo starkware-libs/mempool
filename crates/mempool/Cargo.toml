@@ -11,6 +11,7 @@ workspace = true
 [dependencies]
 derive_more.workspace = true
 starknet_api.workspace = true
+starknet_mempool_common = { path = "../mempool_common", version = "0.0" }
 thiserror.workspace = true
 
 [dev-dependencies]
