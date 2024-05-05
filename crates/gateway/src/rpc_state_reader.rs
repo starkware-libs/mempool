@@ -1,27 +1,30 @@
+use blockifier::blockifier::block::BlockInfo;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::{StateReader, StateResult};
+use blockifier::state::state_api::StateReader as BlockifierStateReader;
+use blockifier::state::state_api::StateResult;
 use reqwest::blocking::Client as BlockingClient;
 use serde::Serialize;
 use serde_json::{json, Value};
-use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use url::Url;
 
+use crate::rpc_objects::BlockWithTxHashes;
+use crate::rpc_objects::GetBlockWithTxHashesParams;
 use crate::rpc_objects::{
     BlockId, GetClassHashAtParams, GetNonceParams, GetStorageAtParams, RpcResponse,
     RPC_ERROR_BLOCK_NOT_FOUND, RPC_ERROR_CONTRACT_ADDRESS_NOT_FOUND,
 };
 
-pub struct RpcStateReader {
+pub struct RpcReader {
     pub url: Url,
     pub json_rpc_version: String,
-    pub block_number: BlockNumber,
+    pub block_id: BlockId,
 }
 
-impl RpcStateReader {
+impl RpcReader {
     // Note: This function is blocking though it is sending a request to the rpc server and waiting
     // for the response.
     pub fn send_rpc_request<T: Serialize>(
@@ -75,16 +78,31 @@ impl RpcStateReader {
             },
         }
     }
+
+    pub fn get_block_info(&self) -> Result<BlockInfo, StateError> {
+        let get_block_params = GetBlockWithTxHashesParams {
+            block_id: self.block_id,
+        };
+
+        let block: BlockWithTxHashes = serde_json::from_value(
+            self.send_rpc_request("starknet_getBlockWithTxHashes", get_block_params)?,
+        )
+        .map_err(|e| {
+            StateError::StateReadError(format!("Couldn't parse block with tx hashes {}", e))
+        })?;
+        let block_info = block.header.try_into()?;
+        Ok(block_info)
+    }
 }
 
-impl StateReader for RpcStateReader {
+impl BlockifierStateReader for RpcReader {
     fn get_storage_at(
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
         let get_storage_at_params = GetStorageAtParams {
-            block_id: BlockId::Number(self.block_number),
+            block_id: self.block_id,
             contract_address,
             key,
         };
@@ -97,7 +115,7 @@ impl StateReader for RpcStateReader {
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let get_nonce_params = GetNonceParams {
-            block_id: BlockId::Number(self.block_number),
+            block_id: self.block_id,
             contract_address,
         };
 
@@ -115,7 +133,7 @@ impl StateReader for RpcStateReader {
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
         let get_class_hash_at_params = GetClassHashAtParams {
             contract_address,
-            block_id: BlockId::Number(self.block_number),
+            block_id: self.block_id,
         };
 
         let result = self.send_rpc_request("starknet_getClassHashAt", get_class_hash_at_params)?;
