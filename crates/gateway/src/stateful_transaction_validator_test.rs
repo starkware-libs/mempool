@@ -17,6 +17,7 @@ use blockifier::test_utils::initial_test_state::test_state_reader;
 use blockifier::transaction::errors::TransactionFeeError;
 use blockifier::transaction::errors::TransactionPreValidationError;
 use starknet_api::hash::StarkFelt;
+use url::Url;
 
 #[rstest]
 #[case::valid_invoke_tx(
@@ -61,6 +62,8 @@ fn test_stateful_transaction_validator(
             validate_max_n_steps: block_context.versioned_constants().validate_max_n_steps,
             max_recursion_depth: block_context.versioned_constants().max_recursion_depth,
             chain_info: block_context.chain_info().clone(),
+            rpc_url: Url::parse("https://dummy_url").unwrap(),
+            json_rpc_version: Default::default(),
         },
     };
 

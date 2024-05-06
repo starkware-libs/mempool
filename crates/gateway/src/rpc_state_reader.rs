@@ -6,11 +6,13 @@ use blockifier::state::state_api::StateResult;
 use reqwest::blocking::Client as BlockingClient;
 use serde::Serialize;
 use serde_json::{json, Value};
+use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use url::Url;
 
+use crate::rpc_objects::BlockHashOrNumber;
 use crate::rpc_objects::BlockWithTxHashes;
 use crate::rpc_objects::GetBlockWithTxHashesParams;
 use crate::rpc_objects::{
@@ -25,6 +27,22 @@ pub struct RpcReader {
 }
 
 impl RpcReader {
+    pub fn new(url: Url, json_rpc_version: String, block_number: BlockNumber) -> Self {
+        RpcReader {
+            url,
+            json_rpc_version,
+            block_id: BlockId::HashOrNumber(BlockHashOrNumber::Number(block_number)),
+        }
+    }
+
+    pub fn new_latest(url: Url, json_rpc_version: String) -> Self {
+        RpcReader {
+            url,
+            json_rpc_version,
+            block_id: BlockId::Tag(crate::rpc_objects::Tag::Latest),
+        }
+    }
+
     // Note: This function is blocking though it is sending a request to the rpc server and waiting
     // for the response.
     pub fn send_rpc_request<T: Serialize>(

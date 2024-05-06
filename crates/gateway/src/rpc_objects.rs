@@ -7,10 +7,9 @@ use blockifier::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use starknet_api::state::StorageKey;
-use starknet_api::{block::BlockNumber, core::ContractAddress};
 use starknet_api::{
-    block::{BlockHash, BlockTimestamp, GasPrice},
-    core::GlobalRoot,
+    block::{BlockHash, BlockNumber, BlockTimestamp, GasPrice},
+    core::{ContractAddress, GlobalRoot},
     data_availability::L1DataAvailabilityMode,
     transaction::TransactionHash,
 };
