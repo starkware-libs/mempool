@@ -5,8 +5,8 @@ use blockifier::context::BlockContext;
 use blockifier::context::ChainInfo;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::state::cached_state::CachedState;
-use blockifier::state::state_api::StateReader;
 
+use blockifier::state::state_api::StateReader as BlockifierStateReader;
 use blockifier::versioned_constants::VersionedConstants;
 use starknet_api::core::Nonce;
 use starknet_api::external_transaction::ExternalTransaction;
@@ -14,6 +14,9 @@ use starknet_api::transaction::TransactionHash;
 
 use crate::errors::StatefulTransactionValidatorError;
 use crate::errors::StatefulTransactionValidatorResult;
+use crate::rpc_objects::BlockId;
+use crate::rpc_state_reader::RpcReader;
+use crate::rpc_state_reader::RpcReaderConfig;
 use crate::utils::external_tx_to_account_tx;
 
 #[cfg(test)]
@@ -25,17 +28,37 @@ pub struct StatefulTransactionValidator {
 }
 
 impl StatefulTransactionValidator {
-    pub fn run_validate(
+    pub fn validate(
         &self,
-        // TODO(yael 17/4/24): the state_reader should be created inside the function taking
-        // latest_block_number.
-        state_reader: impl StateReader,
-        //TODO(yael 17/4/24): the latest_block_info should be read from the storage.
-        latest_block_info: BlockInfo,
+        rpc_config: &RpcReaderConfig,
         external_tx: &ExternalTransaction,
         deploy_account_tx_hash: Option<TransactionHash>,
         optional_class_info: Option<ClassInfo>,
     ) -> StatefulTransactionValidatorResult<()> {
+        // TODO(yael 6/5/2024): consider storing the block_info as part of the
+        // StatefulTransactionValidator and update it only once a new block is created.
+        let latest_block_info = get_latest_block_info(rpc_config)?;
+        let state_reader = RpcReader {
+            config: rpc_config.clone(),
+            block_id: BlockId::Number(latest_block_info.block_number),
+        };
+        self.run_validate(
+            state_reader,
+            latest_block_info,
+            external_tx,
+            optional_class_info,
+            deploy_account_tx_hash,
+        )
+    }
+
+    fn run_validate(
+        &self,
+        state_reader: impl BlockifierStateReader,
+        latest_block_info: BlockInfo,
+        external_tx: &ExternalTransaction,
+        optional_class_info: Option<ClassInfo>,
+        deploy_account_tx_hash: Option<TransactionHash>,
+    ) -> Result<(), StatefulTransactionValidatorError> {
         let state = CachedState::new(state_reader);
         let versioned_constants = VersionedConstants::latest_constants_with_overrides(
             self.config.validate_max_n_steps,
@@ -66,6 +89,16 @@ impl StatefulTransactionValidator {
         validator.perform_validations(account_tx, deploy_account_tx_hash)?;
         Ok(())
     }
+}
+
+pub fn get_latest_block_info(
+    config: &RpcReaderConfig,
+) -> StatefulTransactionValidatorResult<BlockInfo> {
+    let rpc_reader = RpcReader {
+        config: config.clone(),
+        block_id: BlockId::Latest,
+    };
+    Ok(rpc_reader.get_block_info()?)
 }
 
 pub struct StatefulTransactionValidatorConfig {
