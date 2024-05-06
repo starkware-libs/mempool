@@ -11,29 +11,27 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
 use url::Url;
 
-use crate::rpc_objects::BlockHeader;
-use crate::rpc_objects::GetBlockWithTxHashesParams;
 use crate::rpc_objects::{
-    BlockId, GetClassHashAtParams, GetNonceParams, GetStorageAtParams, RpcResponse,
-    RPC_ERROR_BLOCK_NOT_FOUND, RPC_ERROR_CONTRACT_ADDRESS_NOT_FOUND,
+    BlockHeader, BlockId, GetBlockWithTxHashesParams, GetClassHashAtParams, GetNonceParams,
+    GetStorageAtParams, RpcResponse, RPC_ERROR_BLOCK_NOT_FOUND,
+    RPC_ERROR_CONTRACT_ADDRESS_NOT_FOUND,
 };
 
 pub struct RpcReader {
-    pub url: Url,
-    pub json_rpc_version: String,
+    pub config: RpcReaderConfig,
     pub block_id: BlockId,
 }
 
 impl RpcReader {
     // Note: This function is blocking though it is sending a request to the rpc server and waiting
     // for the response.
-    pub fn send_rpc_request<T: Serialize>(
+    pub fn send_rpc_request(
         &self,
         method: &str,
-        params: T,
+        params: impl Serialize,
     ) -> Result<Value, StateError> {
         let request_body = json!({
-            "jsonrpc": self.json_rpc_version,
+            "jsonrpc": self.config.json_rpc_version,
             "id": 0,
             "method": method,
             "params": json!(params),
@@ -41,7 +39,7 @@ impl RpcReader {
 
         let client = BlockingClient::new();
         let response = client
-            .post(self.url.clone())
+            .post(self.config.url.clone())
             .header("Content-Type", "application/json")
             .json(&request_body)
             .send()
@@ -147,4 +145,10 @@ impl BlockifierStateReader for RpcReader {
     fn get_compiled_class_hash(&self, class_hash: ClassHash) -> StateResult<CompiledClassHash> {
         todo!()
     }
+}
+
+#[derive(Clone)]
+pub struct RpcReaderConfig {
+    pub url: Url,
+    pub json_rpc_version: String,
 }
