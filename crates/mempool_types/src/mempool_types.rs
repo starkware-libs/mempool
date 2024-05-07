@@ -34,7 +34,16 @@ pub enum GatewayToMempoolMessage {
     AddTransaction(MempoolInput),
 }
 
+pub enum BatcherToMempoolMessage {
+    GetTxs(usize),
+}
 pub type MempoolToGatewayMessage = ();
+pub type MempoolToBatcherMessage = Vec<ThinTransaction>;
+
+pub type BatcherMempoolNetworkComponent =
+    NetworkComponent<BatcherToMempoolMessage, MempoolToBatcherMessage>;
+pub type MempoolBatcherNetworkComponent =
+    NetworkComponent<MempoolToBatcherMessage, BatcherToMempoolMessage>;
 
 pub type GatewayNetworkComponent =
     NetworkComponent<GatewayToMempoolMessage, MempoolToGatewayMessage>;
