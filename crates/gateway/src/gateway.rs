@@ -4,14 +4,21 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use mempool_infra::network_component::CommunicationInterface;
+use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::external_transaction::ExternalTransaction;
-use starknet_mempool_types::mempool_types::GatewayNetworkComponent;
+use starknet_api::internal_transaction::InternalTransaction;
+use starknet_mempool_types::mempool_types::{
+    Account, AccountState, GatewayNetworkComponent, GatewayToMempoolMessage,
+};
+use tokio::task;
 
 use crate::config::GatewayNetworkConfig;
 use crate::errors::GatewayError;
 use crate::stateless_transaction_validator::{
     StatelessTransactionValidator, StatelessTransactionValidatorConfig,
 };
+use crate::utils::create_tx_for_testing;
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -55,7 +62,7 @@ impl Gateway {
 
         Router::new()
             .route("/is_alive", get(is_alive))
-            .route("/add_transaction", post(async_add_transaction))
+            .route("/add_transaction", post(add_transaction))
             .with_state(app_state)
         // TODO: when we need to configure the router, like adding banned ips, add it here via
         // `with_state`.
@@ -66,30 +73,59 @@ async fn is_alive() -> GatewayResult<String> {
     unimplemented!("Future handling should be implemented here.");
 }
 
-async fn async_add_transaction(
-    State(gateway_state): State<AppState>,
+async fn add_transaction(
+    State(app_state): State<AppState>,
     Json(transaction): Json<ExternalTransaction>,
 ) -> GatewayResult<String> {
-    tokio::task::spawn_blocking(move || add_transaction(gateway_state, transaction)).await?
+    let validation_result = tokio::task::spawn_blocking(move || {
+        validate_transaction(app_state.stateless_transaction_validator, transaction)
+    })
+    .await?;
+
+    match validation_result {
+        Err(e) => Err(e),
+        Ok(res) => {
+            let internal_transaction = res.clone().1;
+            let account = Account {
+                address: ContractAddress::default(),
+                state: AccountState { nonce: Nonce::default() },
+            };
+
+            let message = GatewayToMempoolMessage::AddTx(internal_transaction, account);
+            task::spawn(async move {
+                app_state.network.send(message).await.unwrap();
+            })
+            .await
+            .unwrap();
+            Ok(res.0)
+        }
+    }
 }
 
-fn add_transaction(
-    gateway_state: AppState,
+fn validate_transaction(
+    validator: StatelessTransactionValidator,
     transaction: ExternalTransaction,
-) -> GatewayResult<String> {
+) -> GatewayResult<(String, InternalTransaction)> {
     // TODO(Arni, 1/5/2024): Preform congestion control.
 
     // Perform stateless validations.
-    gateway_state.stateless_transaction_validator.validate(&transaction)?;
+    validator.validate(&transaction)?;
 
     // TODO(Yael, 1/5/2024): Preform state related validations.
     // TODO(Arni, 1/5/2024): Move transaction to mempool.
 
     // TODO(Arni, 1/5/2024): Produce response.
     // Send response.
-    Ok(match transaction {
-        ExternalTransaction::Declare(_) => "DECLARE".into(),
-        ExternalTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT".into(),
-        ExternalTransaction::Invoke(_) => "INVOKE".into(),
-    })
+
+    // TODO(Yael, 15/5/2024): Add tx converter.
+    let internal_transaction = create_tx_for_testing();
+
+    Ok((
+        match transaction {
+            ExternalTransaction::Declare(_) => "DECLARE".into(),
+            ExternalTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT".into(),
+            ExternalTransaction::Invoke(_) => "INVOKE".into(),
+        },
+        internal_transaction,
+    ))
 }

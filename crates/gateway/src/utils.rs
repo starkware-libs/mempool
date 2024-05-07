@@ -6,14 +6,16 @@ use blockifier::transaction::transactions::{
     InvokeTransaction as BlockifierInvokeTransaction,
 };
 use starknet_api::core::{calculate_contract_address, ChainId, ClassHash, ContractAddress};
+use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::external_transaction::{
     ExternalDeclareTransaction, ExternalDeployAccountTransaction, ExternalInvokeTransaction,
     ExternalTransaction,
 };
+use starknet_api::internal_transaction::{InternalInvokeTransaction, InternalTransaction};
 use starknet_api::transaction::{
     DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
-    InvokeTransaction, InvokeTransactionV3, ResourceBoundsMapping, TransactionHasher,
-    TransactionSignature,
+    InvokeTransaction, InvokeTransactionV3, ResourceBounds, ResourceBoundsMapping,
+    TransactionHasher, TransactionSignature,
 };
 
 use crate::errors::StatefulTransactionValidatorResult;
@@ -123,4 +125,30 @@ pub fn external_tx_to_account_tx(
             Ok(AccountTransaction::Invoke(invoke_tx))
         }
     }
+}
+
+// TODO: Change to Thin Transaction.
+pub fn create_tx_for_testing() -> InternalTransaction {
+    let tx = InvokeTransactionV3 {
+        resource_bounds: ResourceBoundsMapping::try_from(vec![
+            (starknet_api::transaction::Resource::L1Gas, ResourceBounds::default()),
+            (starknet_api::transaction::Resource::L2Gas, ResourceBounds::default()),
+        ])
+        .expect("Resource bounds mapping has unexpected structure."),
+        signature: Default::default(),
+        nonce: Default::default(),
+        sender_address: Default::default(),
+        calldata: Default::default(),
+        nonce_data_availability_mode: DataAvailabilityMode::L1,
+        fee_data_availability_mode: DataAvailabilityMode::L1,
+        paymaster_data: Default::default(),
+        account_deployment_data: Default::default(),
+        tip: Default::default(),
+    };
+
+    InternalTransaction::Invoke(InternalInvokeTransaction {
+        tx: InvokeTransaction::V3(tx),
+        tx_hash: Default::default(),
+        only_query: false,
+    })
 }

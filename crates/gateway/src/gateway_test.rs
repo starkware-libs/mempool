@@ -14,7 +14,7 @@ use starknet_mempool_types::mempool_types::{
 };
 use tokio::sync::mpsc::channel;
 
-use crate::gateway::{async_add_transaction, AppState};
+use crate::gateway::{add_transaction, AppState};
 use crate::stateless_transaction_validator::{
     StatelessTransactionValidator, StatelessTransactionValidatorConfig,
 };
@@ -63,8 +63,17 @@ async fn test_add_transaction(
     app_state.stateless_transaction_validator.config.max_signature_length =
         TOO_SMALL_SIGNATURE_LENGTH;
 
+    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+    let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
+
+    let network = GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
+
+    let mut app_state = AppState {
+        stateless_transaction_validator: app_state.stateless_transaction_validator,
+        network: Arc::new(network),
+    };
     let response =
-        async_add_transaction(State(app_state.clone()), tx.clone().into()).await.into_response();
+        add_transaction(State(app_state.clone()), tx.clone().into()).await.into_response();
 
     let status_code = response.status();
     assert_eq!(status_code, StatusCode::INTERNAL_SERVER_ERROR);
@@ -76,7 +85,7 @@ async fn test_add_transaction(
     // Positive flow.
     app_state.stateless_transaction_validator.config.max_signature_length = 2;
 
-    let response = async_add_transaction(State(app_state), tx.into()).await.into_response();
+    let response = add_transaction(State(app_state), tx.into()).await.into_response();
 
     let status_code = response.status();
     assert_eq!(status_code, StatusCode::OK);
