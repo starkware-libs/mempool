@@ -1,6 +1,16 @@
 use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::internal_transaction::InternalTransaction;
+use starknet_api::transaction::{Tip, TransactionHash};
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ThinTransaction {
+    // TODO(Ayelet): Consider removing this field as it is duplicated in Account.
+    pub contract_address: ContractAddress,
+    pub tx_hash: TransactionHash,
+    pub tip: Tip,
+    pub nonce: Nonce,
+}
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct AccountState {
@@ -16,7 +26,7 @@ pub struct Account {
 
 #[derive(Debug)]
 pub struct MempoolInput {
-    pub tx: InternalTransaction,
+    pub tx: ThinTransaction,
     pub account: Account,
 }
 
