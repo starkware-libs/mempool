@@ -1,6 +1,8 @@
 use crate::{errors::MempoolError, priority_queue::PriorityQueue};
-use starknet_api::{
-    core::ContractAddress, internal_transaction::InternalTransaction, transaction::TransactionHash,
+use starknet_api::{core::ContractAddress, transaction::TransactionHash};
+use starknet_mempool_types::mempool_types::{
+    Account, AccountState, MempoolInput,
+    MempoolNetworkComponent, ThinTransaction,
 };
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
@@ -8,10 +10,6 @@ use std::collections::HashMap;
 #[cfg(test)]
 #[path = "mempool_test.rs"]
 pub mod mempool_test;
-
-use starknet_mempool_types::mempool_types::{
-    Account, AccountState, MempoolInput, MempoolNetworkComponent,
-};
 
 pub type MempoolResult<T> = Result<T, MempoolError>;
 
@@ -54,10 +52,10 @@ impl Mempool {
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push back.
     // TODO: Consider renaming to `pop_txs` to be more consistent with the standard library.
-    pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<InternalTransaction>> {
+    pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
-            self.state.remove(&tx.contract_address());
+            self.state.remove(&tx.contract_address);
         }
 
         Ok(txs)
@@ -65,10 +63,10 @@ impl Mempool {
 
     /// Adds a new transaction to the mempool.
     /// TODO: support fee escalation and transactions with future nonces.
-    pub fn add_tx(&mut self, tx: InternalTransaction, account: Account) -> MempoolResult<()> {
+    pub fn add_tx(&mut self, tx: ThinTransaction, account: Account) -> MempoolResult<()> {
         match self.state.entry(account.address) {
             Occupied(_) => Err(MempoolError::DuplicateTransaction {
-                tx_hash: tx.tx_hash(),
+                tx_hash: tx.tx_hash,
             }),
             Vacant(entry) => {
                 entry.insert(account.state);

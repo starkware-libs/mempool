@@ -4,18 +4,17 @@ use assert_matches::assert_matches;
 use rstest::{fixture, rstest};
 use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::internal_transaction::{InternalInvokeTransaction, InternalTransaction};
+use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_api::{contract_address, patricia_key};
 use starknet_api::{
     data_availability::DataAvailabilityMode,
     transaction::{InvokeTransaction, InvokeTransactionV3, ResourceBounds, ResourceBoundsMapping},
 };
-use starknet_api::{
-    internal_transaction::{InternalInvokeTransaction, InternalTransaction},
-    transaction::{Tip, TransactionHash},
-};
 use starknet_mempool_types::mempool_types::{
     Gateway2MempoolMessage, Mempool2GatewayMessage, MempoolNetworkComponent,
 };
+use starknet_mempool_types::utils::create_thin_tx_for_testing;
 use tokio::sync::mpsc::channel;
 
 fn create_for_testing(inputs: impl IntoIterator<Item = MempoolInput>) -> Mempool {
@@ -76,29 +75,20 @@ fn test_get_txs(#[case] requested_txs: usize) {
         address: contract_address!("0x0"),
         ..Default::default()
     };
-    let tx_tip_50_address_0 = create_internal_invoke_tx_for_testing(
-        Tip(50),
-        TransactionHash(StarkFelt::ONE),
-        account1.address,
-    );
+    let tx_tip_50_address_0 =
+        create_thin_tx_for_testing(Tip(50), TransactionHash(StarkFelt::ONE), account1.address);
     let account2 = Account {
         address: contract_address!("0x1"),
         ..Default::default()
     };
-    let tx_tip_100_address_1 = create_internal_invoke_tx_for_testing(
-        Tip(100),
-        TransactionHash(StarkFelt::TWO),
-        account2.address,
-    );
+    let tx_tip_100_address_1 =
+        create_thin_tx_for_testing(Tip(100), TransactionHash(StarkFelt::TWO), account2.address);
     let account3 = Account {
         address: contract_address!("0x2"),
         ..Default::default()
     };
-    let tx_tip_10_address_2 = create_internal_invoke_tx_for_testing(
-        Tip(10),
-        TransactionHash(StarkFelt::THREE),
-        account3.address,
-    );
+    let tx_tip_10_address_2 =
+        create_thin_tx_for_testing(Tip(10), TransactionHash(StarkFelt::THREE), account3.address);
 
     let mut mempool = create_for_testing([
         MempoolInput {
@@ -149,18 +139,14 @@ fn test_get_txs(#[case] requested_txs: usize) {
 
 #[rstest]
 #[should_panic(
-    expected = "Contract address: ContractAddress(PatriciaKey(StarkFelt(\"0x0000000000000000000000000000000000000000000000000000000000000000\"))) already exists in the mempool. Can't add Invoke(InternalInvokeTransaction"
+    expected = "Contract address: ContractAddress(PatriciaKey(StarkFelt(\"0x0000000000000000000000000000000000000000000000000000000000000000\"))) already exists in the mempool. Can't add"
 )]
 fn test_mempool_initialization_with_duplicate_contract_addresses() {
     let account = Account {
         address: contract_address!("0x0"),
         ..Default::default()
     };
-    let tx = create_internal_invoke_tx_for_testing(
-        Tip(50),
-        TransactionHash(StarkFelt::ONE),
-        account.address,
-    );
+    let tx = create_thin_tx_for_testing(Tip(50), TransactionHash(StarkFelt::ONE), account.address);
     let same_tx = tx.clone();
 
     let inputs = vec![
@@ -178,29 +164,20 @@ fn test_mempool_initialization_with_duplicate_contract_addresses() {
 #[rstest]
 fn test_add_tx(mut mempool: Mempool) {
     let account1 = Account::default();
-    let tx_tip_50_address_0 = create_internal_invoke_tx_for_testing(
-        Tip(50),
-        TransactionHash(StarkFelt::ONE),
-        account1.address,
-    );
+    let tx_tip_50_address_0 =
+        create_thin_tx_for_testing(Tip(50), TransactionHash(StarkFelt::ONE), account1.address);
     let account2 = Account {
         address: contract_address!("0x1"),
         ..Default::default()
     };
-    let tx_tip_100_address_1 = create_internal_invoke_tx_for_testing(
-        Tip(100),
-        TransactionHash(StarkFelt::TWO),
-        account2.address,
-    );
+    let tx_tip_100_address_1 =
+        create_thin_tx_for_testing(Tip(100), TransactionHash(StarkFelt::TWO), account2.address);
     let account3 = Account {
         address: contract_address!("0x2"),
         ..Default::default()
     };
-    let tx_tip_80_address_2 = create_internal_invoke_tx_for_testing(
-        Tip(80),
-        TransactionHash(StarkFelt::THREE),
-        account3.address,
-    );
+    let tx_tip_80_address_2 =
+        create_thin_tx_for_testing(Tip(80), TransactionHash(StarkFelt::THREE), account3.address);
 
     assert!(mempool
         .add_tx(tx_tip_50_address_0.clone(), account1)
@@ -234,7 +211,7 @@ fn test_add_tx(mut mempool: Mempool) {
 #[rstest]
 fn test_add_same_tx(mut mempool: Mempool) {
     let account = Account::default();
-    let tx = create_internal_invoke_tx_for_testing(
+    let tx = create_thin_tx_for_testing(
         Tip(50),
         TransactionHash(StarkFelt::ONE),
         contract_address!("0x0"),
