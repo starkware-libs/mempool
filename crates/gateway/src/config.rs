@@ -6,14 +6,14 @@ use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
 use std::net::IpAddr;
 use validator::Validate;
 
-/// The gateway configuration.
+/// The gateway network connection related configuration.
 #[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
-pub struct GatewayConfig {
+pub struct GatewayNetworkConfig {
     pub ip: IpAddr,
     pub port: u16,
 }
 
-impl SerializeConfig for GatewayConfig {
+impl SerializeConfig for GatewayNetworkConfig {
     fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
         BTreeMap::from_iter([
             ser_param(
@@ -32,7 +32,7 @@ impl SerializeConfig for GatewayConfig {
     }
 }
 
-impl Default for GatewayConfig {
+impl Default for GatewayNetworkConfig {
     fn default() -> Self {
         Self {
             ip: "0.0.0.0".parse().unwrap(),
