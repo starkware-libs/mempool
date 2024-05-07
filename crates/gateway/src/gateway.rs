@@ -4,12 +4,17 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::external_transaction::ExternalTransaction;
-use starknet_mempool_types::mempool_types::GatewayNetworkComponent;
+use starknet_mempool_types::mempool_types::{
+    Account, GatewayNetworkComponent, GatewayToMempoolMessage, ThinTransaction,
+};
 
 use crate::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
 use crate::errors::GatewayError;
+use crate::starknet_api_test_utils::get_sender_address;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
+use crate::utils::external_tx_to_thin_tx;
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -54,38 +59,64 @@ impl Gateway {
 
         Router::new()
             .route("/is_alive", get(is_alive))
-            .route("/add_tx", post(async_add_tx))
+            .route("/add_tx", post(add_tx))
             .with_state(app_state)
         // TODO: when we need to configure the router, like adding banned ips, add it here via
         // `with_state`.
     }
 }
 
+// Gateway handlers.
+/// Checks if the gateway is alive.
 async fn is_alive() -> GatewayResult<String> {
     unimplemented!("Future handling should be implemented here.");
 }
 
-async fn async_add_tx(
-    State(gateway_state): State<AppState>,
+/// Processes and adds a transaction received at the gateway.
+async fn add_tx(
+    State(app_state): State<AppState>,
     Json(tx): Json<ExternalTransaction>,
 ) -> GatewayResult<String> {
-    tokio::task::spawn_blocking(move || add_tx(gateway_state, tx)).await?
+    let result = tokio::task::spawn_blocking(move || {
+        process_tx(app_state.stateless_transaction_validator, tx)
+    })
+    .await??;
+
+    let (response, thin_tx, account) = result;
+    let message = GatewayToMempoolMessage::AddTransaction(thin_tx, account);
+    app_state.network_component.send(message).await.map_err(|e| {
+        GatewayError::MessageSendError(format!("Failed to send transaction message: {}", e))
+    })?;
+    Ok(response)
 }
 
-fn add_tx(gateway_state: AppState, tx: ExternalTransaction) -> GatewayResult<String> {
+fn process_tx(
+    validator: StatelessTransactionValidator,
+    transaction: ExternalTransaction,
+) -> GatewayResult<(String, ThinTransaction, Account)> {
     // TODO(Arni, 1/5/2024): Preform congestion control.
 
     // Perform stateless validations.
-    gateway_state.stateless_transaction_validator.validate(&tx)?;
+    validator.validate(&transaction)?;
 
     // TODO(Yael, 1/5/2024): Preform state related validations.
     // TODO(Arni, 1/5/2024): Move transaction to mempool.
 
     // TODO(Arni, 1/5/2024): Produce response.
     // Send response.
-    Ok(match tx {
-        ExternalTransaction::Declare(_) => "DECLARE".into(),
-        ExternalTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT".into(),
-        ExternalTransaction::Invoke(_) => "INVOKE".into(),
-    })
+
+    // TODO(Yael, 15/5/2024): Add tx converter.
+    let thin_transaction = external_tx_to_thin_tx(&transaction);
+
+    let account = Account { address: get_sender_address(&transaction), ..Default::default() };
+
+    Ok((
+        match transaction {
+            ExternalTransaction::Declare(_) => "DECLARE".into(),
+            ExternalTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT".into(),
+            ExternalTransaction::Invoke(_) => "INVOKE".into(),
+        },
+        thin_transaction,
+        account,
+    ))
 }
