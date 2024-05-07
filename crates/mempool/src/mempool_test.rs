@@ -14,14 +14,14 @@ use starknet_api::{
     transaction::{Tip, TransactionHash},
 };
 use starknet_mempool_types::mempool_types::{
-    Gateway2MempoolMessage, Mempool2GatewayMessage, MempoolNetworkComponent,
+    GatewayToMempoolMessage, MempoolNetworkComponent, MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
 
 fn create_for_testing(inputs: impl IntoIterator<Item = MempoolInput>) -> Mempool {
-    let (_, rx_gateway_2_mempool) = channel::<Gateway2MempoolMessage>(1);
-    let (tx_mempool_2_gateway, _) = channel::<Mempool2GatewayMessage>(1);
-    let network = MempoolNetworkComponent::new(tx_mempool_2_gateway, rx_gateway_2_mempool);
+    let (_, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+    let (tx_mempool_to_gateway, _) = channel::<MempoolToGatewayMessage>(1);
+    let network = MempoolNetworkComponent::new(tx_mempool_to_gateway, rx_gateway_to_mempool);
 
     Mempool::new(inputs, network)
 }
