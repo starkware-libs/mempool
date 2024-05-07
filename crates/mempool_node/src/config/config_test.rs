@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use crate::config::{node_command, GatewayConfig};
+use crate::config::{node_command, GatewayNetworkConnectionConfig};
 use crate::config::{ComponentConfig, ComponentExecutionConfig, MempoolNodeConfig};
 use assert_matches::assert_matches;
 use papyrus_config::dumping::SerializeConfig;
@@ -29,7 +29,7 @@ fn test_valid_config() {
             gateway_component: ComponentExecutionConfig { execute: true },
             mempool_component: ComponentExecutionConfig { execute: false },
         },
-        gateway_config: GatewayConfig {
+        gateway_config: GatewayNetworkConnectionConfig {
             ip: "0.0.0.0".parse().unwrap(),
             port: 8080,
         },
