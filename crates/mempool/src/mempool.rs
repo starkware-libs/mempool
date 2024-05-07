@@ -1,6 +1,10 @@
-use tokio::sync::mpsc::channel;
+use tokio::{
+    select,
+    sync::{mpsc::channel, Notify},
+};
 
-use std::collections::HashMap;
+use mempool_infra::network_component::CommunicationInterface;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{errors::MempoolError, priority_queue::PriorityQueue};
 use starknet_api::{
@@ -104,5 +108,39 @@ impl Mempool {
         _state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
         todo!()
+    }
+
+    /// Starts an asynchronous task that listens for network messages and processes them.
+    pub async fn start_network_listener(&mut self, notify: Arc<Notify>) {
+        loop {
+            select! {
+                message = self.network.recv() => {
+                    match message {
+                        Some(msg) => {
+                            // Process the message
+                            self.process_network_message(msg.into()).await;
+                        },
+                        None => break, // Channel is closed, so exit the loop
+                    }
+                }
+                _ = notify.notified() => {
+                    // If notified, break the loop regardless of message state
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Processes a single message received from the network.
+    async fn process_network_message(&mut self, message: MempoolMessage) {
+        // Process the message
+        // Example processing
+        match message {
+            MempoolMessage::AddTx(tx, account_state) => {
+                // Handle new transaction
+                let _ = self.add_tx(tx, account_state);
+            }
+            _ => panic!("Cannot recieve non AddTx messages."),
+        }
     }
 }
