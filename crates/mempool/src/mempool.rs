@@ -6,10 +6,11 @@ use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::mempool_types::{
-    Account, AccountState, GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent,
-    ThinTransaction,
+    Account, AccountState, BatcherToMempoolMessage, GatewayToMempoolMessage, MempoolInput,
+    MempoolNetworkComponent, MempoolToBatcherMessage, ThinTransaction,
 };
 use tokio::select;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::errors::MempoolError;
 use crate::priority_queue::PriorityQueue;
@@ -22,7 +23,9 @@ pub type MempoolResult<T> = Result<T, MempoolError>;
 
 pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
-    pub network: MempoolNetworkComponent,
+    pub gateway_network: MempoolNetworkComponent,
+    pub batcher_rx: Receiver<BatcherToMempoolMessage>,
+    pub batcher_tx: Sender<MempoolToBatcherMessage>,
     txs_queue: PriorityQueue,
     state: HashMap<ContractAddress, AccountState>,
 }
@@ -30,11 +33,17 @@ pub struct Mempool {
 impl Mempool {
     pub fn new(
         inputs: impl IntoIterator<Item = MempoolInput>,
-        network: MempoolNetworkComponent,
+        gateway_network: MempoolNetworkComponent,
+        batcher_rx: Receiver<BatcherToMempoolMessage>,
+        batcher_tx: Sender<MempoolToBatcherMessage>,
     ) -> Self {
-        let mut mempool =
-            Mempool { txs_queue: Default::default(), state: Default::default(), network };
-
+        let mut mempool = Mempool {
+            txs_queue: PriorityQueue::default(),
+            state: HashMap::default(),
+            gateway_network,
+            batcher_rx,
+            batcher_tx,
+        };
         mempool.txs_queue = PriorityQueue::from_iter(inputs.into_iter().map(|input| {
             // Attempts to insert a key-value pair into the mempool's state. Returns `None` if the
             // key was not present, otherwise returns the old value while updating the new value.
@@ -52,6 +61,14 @@ impl Mempool {
         }));
 
         mempool
+    }
+
+    pub fn empty(
+        gateway_network: MempoolNetworkComponent,
+        batcher_rx: Receiver<BatcherToMempoolMessage>,
+        batcher_tx: Sender<MempoolToBatcherMessage>,
+    ) -> Self {
+        Mempool::new([], gateway_network, batcher_rx, batcher_tx)
     }
 
     /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
@@ -99,10 +116,19 @@ impl Mempool {
     pub async fn run(&mut self) -> Result<()> {
         loop {
             select! {
-                optional_message = self.network.recv() => {
-                    match optional_message {
+                optional_gateway_message = self.gateway_network.recv() => {
+                    match optional_gateway_message {
                         Some(message) => {
                             self.process_network_message(message)?;
+                        },
+                        // Channel was closed; exit.
+                        None => break,
+                    }
+                }
+                optional_batcher_message = self.batcher_rx.recv() => {
+                    match optional_batcher_message {
+                        Some(message) => {
+                            self.process_network_message_2(message).await?;
                         },
                         // Channel was closed; exit.
                         None => break,
@@ -117,6 +143,17 @@ impl Mempool {
         match message {
             GatewayToMempoolMessage::AddTransaction(mempool_input) => {
                 self.add_tx(mempool_input.tx, mempool_input.account)?;
+                Ok(())
+            }
+        }
+    }
+
+    async fn process_network_message_2(&mut self, message: BatcherToMempoolMessage) -> Result<()> {
+        match message {
+            BatcherToMempoolMessage::GetTxs(n_txs) => {
+                let res = self.get_txs(n_txs)?;
+                println!("MoNas: {:?}", res);
+                self.batcher_tx.send(res).await?;
                 Ok(())
             }
         }
