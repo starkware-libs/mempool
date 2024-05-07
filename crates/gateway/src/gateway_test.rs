@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::path::Path;
+use std::sync::Arc;
 
 use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
@@ -8,8 +9,12 @@ use axum::response::{IntoResponse, Response};
 use pretty_assertions::assert_str_eq;
 use rstest::rstest;
 use starknet_api::external_transaction::ExternalTransaction;
+use starknet_mempool_types::mempool_types::{
+    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
+};
+use tokio::sync::mpsc::channel;
 
-use crate::gateway::{async_add_transaction, GatewayState};
+use crate::gateway::{add_transaction, AppState, GatewayState};
 use crate::stateless_transaction_validator::{
     StatelessTransactionValidator, StatelessTransactionValidatorConfig,
 };
@@ -45,9 +50,15 @@ async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_re
     gateway_state.stateless_transaction_validator.config.max_signature_length =
         TOO_SMALL_SIGNATURE_LENGTH;
 
-    let response = async_add_transaction(State(gateway_state.clone()), tx.clone().into())
-        .await
-        .into_response();
+    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+    let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
+
+    let network = GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
+
+    let mut app_state =
+        AppState { gateway_state: gateway_state.clone(), network: Arc::new(network) };
+    let response =
+        add_transaction(State(app_state.clone()), tx.clone().into()).await.into_response();
 
     let status_code = response.status();
     assert_eq!(status_code, StatusCode::INTERNAL_SERVER_ERROR);
@@ -57,9 +68,9 @@ async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_re
     assert!(String::from_utf8_lossy(response_bytes).starts_with(negative_flow_expected_response));
 
     // Positive flow.
-    gateway_state.stateless_transaction_validator.config.max_signature_length = 2;
+    app_state.gateway_state.stateless_transaction_validator.config.max_signature_length = 2;
 
-    let response = async_add_transaction(State(gateway_state), tx.into()).await.into_response();
+    let response = add_transaction(State(app_state), tx.into()).await.into_response();
 
     let status_code = response.status();
     assert_eq!(status_code, StatusCode::OK);
