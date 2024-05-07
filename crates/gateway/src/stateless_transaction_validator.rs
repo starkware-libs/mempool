@@ -57,7 +57,6 @@ impl StatelessTransactionValidator {
     ) -> StatelessTransactionValidatorResult<()> {
         self.validate_tx_calldata_size(tx)?;
         self.validate_tx_signature_size(tx)?;
-
         Ok(())
     }
 
@@ -94,6 +93,7 @@ impl StatelessTransactionValidator {
         let signature = tx.signature();
 
         let signature_length = signature.0.len();
+
         if signature_length > self.config.max_signature_length {
             return Err(StatelessTransactionValidatorError::SignatureTooLong {
                 signature_length,

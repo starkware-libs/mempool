@@ -1,9 +1,9 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use blockifier::{
-    blockifier::stateful_validator::StatefulValidatorError,
-    transaction::errors::TransactionExecutionError,
-};
+// use blockifier::{
+//     blockifier::stateful_validator::StatefulValidatorError,
+//     transaction::errors::TransactionExecutionError,
+// };
 use starknet_api::{
     block::BlockNumber,
     transaction::{Resource, ResourceBounds},
@@ -65,10 +65,10 @@ pub enum StatefulTransactionValidatorError {
     OutOfRangeBlockNumber { block_number: BlockNumber },
     #[error(transparent)]
     StarknetApiError(#[from] StarknetApiError),
-    #[error(transparent)]
-    StatefulValidatorError(#[from] StatefulValidatorError),
-    #[error(transparent)]
-    TransactionExecutionError(#[from] TransactionExecutionError),
+    // #[error(transparent)]
+    // StatefulValidatorError(#[from] StatefulValidatorError),
+    // #[error(transparent)]
+    // TransactionExecutionError(#[from] TransactionExecutionError),
 }
 
 pub type StatefulTransactionValidatorResult<T> = Result<T, StatefulTransactionValidatorError>;

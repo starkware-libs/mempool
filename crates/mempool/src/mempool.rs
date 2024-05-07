@@ -1,5 +1,6 @@
 use tokio::sync::mpsc::channel;
 
+use mempool_infra::network_component::CommunicationInterface;
 use std::collections::HashMap;
 
 use crate::{errors::MempoolError, priority_queue::PriorityQueue};
@@ -37,9 +38,9 @@ impl Mempool {
         };
 
         mempool.txs_queue = PriorityQueue::from_iter(inputs.into_iter().map(|input| {
-            // Attempts to insert a key-value pair into the mempool's state. Returns `None` if the
-            // key was not present, otherwise returns the old value while updating the new value.
-            let prev_value = mempool.state.insert(input.account.address, input.account.state);
+            let prev_value = mempool.state.insert(
+                input.account.address, input.account.state
+            );
             // Assert that the contract address does not exist in the mempool's state to ensure that
             // there is only one transaction per contract address.
             assert!(
@@ -104,5 +105,25 @@ impl Mempool {
         _state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
         todo!()
+    }
+
+    /// Starts an asynchronous task that listens for network messages and processes them.
+    pub async fn start_network_listener(&mut self) {
+        while let Some(message) = self.network.recv().await {
+            self.process_network_message(message.into()).await;
+        }
+    }
+
+    /// Processes a single message received from the network.
+    async fn process_network_message(&mut self, message: MempoolMessage) {
+        // Process the message
+        // Example processing
+        match message {
+            MempoolMessage::AddTx(tx, account_state) => {
+                // Handle new transaction
+                let _ = self.add_tx(tx, account_state);
+            }
+            _ => panic!("Cannot recieve non AddTx messages."),
+        }
     }
 }
