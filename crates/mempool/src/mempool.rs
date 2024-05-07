@@ -1,5 +1,6 @@
 use tokio::sync::mpsc::channel;
 
+use mempool_infra::network_component::CommunicationInterface;
 use std::collections::HashMap;
 
 use crate::{errors::MempoolError, priority_queue::PriorityQueue};
@@ -104,5 +105,26 @@ impl Mempool {
         _state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
         todo!()
+    }
+
+    /// Starts an asynchronous task that listens for network messages and processes them.
+    pub async fn start_network_listener(&mut self) {
+        // TODO: change to `while let`.
+        if let Some(message) = self.network.recv().await {
+            self.process_network_message(message.into()).await;
+        }
+    }
+
+    /// Processes a single message received from the network.
+    async fn process_network_message(&mut self, message: MempoolMessage) {
+        // Process the message
+        // Example processing
+        match message {
+            MempoolMessage::AddTx(tx, account_state) => {
+                // Handle new transaction
+                let _ = self.add_tx(tx, account_state);
+            }
+            _ => panic!("Cannot recieve non AddTx messages."),
+        }
     }
 }

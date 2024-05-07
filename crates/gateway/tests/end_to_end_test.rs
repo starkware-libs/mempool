@@ -1,3 +1,21 @@
+use axum::body::{Body, HttpBody};
+use axum::http::{Request, StatusCode};
+use hyper::Client;
+use starknet_api::transaction::Tip;
+use starknet_gateway::stateless_transaction_validator::StatelessTransactionValidatorConfig;
+use starknet_gateway::{config::GatewayConfig, gateway::Gateway};
+use starknet_mempool::mempool::Mempool;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Mutex;
+
+use hyper::Response;
+use rstest::rstest;
+
+use std::fs;
+use std::path::Path;
+
 use starknet_api::{
     core::{ContractAddress, Nonce},
     data_availability::DataAvailabilityMode,
@@ -92,4 +110,82 @@ async fn test_send_and_receive() {
         },
         _ => panic!("Unhandled message type in mempool"),
     }
+}
+
+const TEST_FILES_FOLDER: &str = "./tests/fixtures";
+// TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
+// into JSON for testing.
+#[rstest]
+#[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
+#[tokio::test]
+async fn test_end_to_end(#[case] json_file_path: &Path, #[case] expected_response: &str) {
+    let (tx_gateway_2_mempool, rx_gateway_2_mempool) = channel::<GatewayMessage>(1);
+    let (tx_mempool_2_gateway, rx_mempool_2_gateway) = channel::<MempoolMessage>(1);
+
+    let network_gateway = GatewayNetworkComponent::new(tx_gateway_2_mempool, rx_mempool_2_gateway);
+    let network_mempool = MempoolNetworkComponent::new(tx_mempool_2_gateway, rx_gateway_2_mempool);
+
+    // Initialize Gateway.
+    let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+    let port = 3000;
+    let gateway_config: GatewayConfig = GatewayConfig { ip, port };
+    let stateless_transaction_validator_config = StatelessTransactionValidatorConfig {
+        validate_non_zero_l1_gas_fee: true,
+        max_calldata_length: 10,
+        max_signature_length: 2,
+        ..Default::default()
+    };
+
+    let gateway = Gateway {
+        config: gateway_config.clone(),
+        network: network_gateway,
+        stateless_transaction_validator_config,
+    };
+
+    // Setup server
+    tokio::spawn(async move { gateway.build_server().await });
+
+    // Ensure the server has time to start up
+    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+    let tx_json = fs::read_to_string(json_file_path).unwrap();
+    let request = Request::builder()
+        .method("POST")
+        .uri(format!("http://{}", SocketAddr::from((ip, port))) + "/add_transaction")
+        .header("content-type", "application/json")
+        .body(Body::from(tx_json))
+        .unwrap();
+
+    // Create a client
+    let client = Client::new();
+
+    // Send a POST request with the transaction data as the body
+    let response: Response<Body> = client.request(request).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::default());
+
+    let res = response.into_body().collect().await.unwrap().to_bytes();
+
+    assert_eq!(res, expected_response.as_bytes());
+
+    // Initialize Mempool.
+    let mempool = Arc::new(Mutex::new(Mempool::new([], network_mempool)));
+
+    let mempool_clone = mempool.clone();
+    let listener_task = task::spawn(async move {
+        mempool_clone.lock().await.start_network_listener().await;
+    });
+
+    // Assuming a way to stop the listener or simulate complete conditions
+    let _ = tokio::time::timeout(Duration::from_secs(10), listener_task).await;
+
+    // TODO: uncomment the below code.
+    // assert!(
+    //     result.is_err(),
+    //     "Expected the listener to be still running, but it stopped"
+    // );
+
+    let txs = mempool.lock().await.get_txs(1).unwrap();
+    assert_eq!(txs.len(), 1);
+    assert_eq!(txs[0].tip(), Some(Tip(0)));
 }

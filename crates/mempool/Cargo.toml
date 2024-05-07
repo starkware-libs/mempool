@@ -12,6 +12,7 @@ workspace = true
 derive_more.workspace = true
 starknet_api.workspace = true
 starknet_mempool_types = { path = "../mempool_types", version = "0.0" }
+mempool_infra = { path = "../mempool_infra", version = "0.0" }
 thiserror.workspace = true
 tokio.workspace = true
 
