@@ -1,0 +1,15 @@
+[package]
+name = "test_utils"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+clap.workspace = true
+serde.workspace = true
+papyrus_config.workspace = true
+validator.workspace = true

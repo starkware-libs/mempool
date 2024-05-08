@@ -3223,6 +3223,7 @@ dependencies = [
  "serde",
  "serde_json",
  "starknet_api",
+ "test_utils",
  "thiserror",
  "tokio",
  "tower",
@@ -3387,6 +3388,16 @@ dependencies = [
  "dirs-next",
  "rustversion",
  "winapi",
+]
+
+[[package]]
+name = "test_utils"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "papyrus_config",
+ "serde",
+ "validator",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/gateway", "crates/mempool", "crates/mempool_node", "crates/mempool_infra"]
+members = ["crates/gateway", "crates/mempool", "crates/mempool_node", "crates/mempool_infra", "crates/test_utils"]
 
 [workspace.package]
 version = "0.0.0"
