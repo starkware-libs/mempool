@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package mysender;
+
+service MySender {
+    rpc SendMessage(MyMessage) returns (google.protobuf.Empty) {}
+}
+
+message MyMessage {
+    int32 data_i32 = 1;
+    uint32 data_u32 = 2;
+}
+
+message MyResponse {
+    bool isSuccess = 1;
+}

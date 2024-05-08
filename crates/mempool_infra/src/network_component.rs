@@ -1,11 +1,17 @@
 use async_trait::async_trait;
-use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::{Receiver, Sender};
 
+#[derive(PartialEq, Debug)]
+pub enum NetworkComponentError {
+    SendFailure,
+}
+
 #[async_trait]
-pub trait CommunicationInterface<S, R> {
-    async fn send(&self, message: S) -> Result<(), SendError<S>>;
-    async fn recv(&mut self) -> Option<R>;
+pub trait CommunicationInterface {
+    type SendType;
+    type ReceiveType;
+    async fn send(&mut self, message: Self::SendType) -> Result<(), NetworkComponentError>;
+    async fn recv(&mut self) -> Option<Self::ReceiveType>;
 }
 
 pub struct NetworkComponent<S, R> {
@@ -20,16 +26,22 @@ impl<S, R> NetworkComponent<S, R> {
 }
 
 #[async_trait]
-impl<S, R> CommunicationInterface<S, R> for NetworkComponent<S, R>
+impl<S, R> CommunicationInterface for NetworkComponent<S, R>
 where
     S: Send + Sync,
     R: Send + Sync,
 {
-    async fn send(&self, message: S) -> Result<(), SendError<S>> {
-        self.tx.send(message).await
+    type SendType = S;
+    type ReceiveType = R;
+    async fn send(&mut self, message: Self::SendType) -> Result<(), NetworkComponentError> {
+        if self.tx.send(message).await.is_err() {
+            return Err(NetworkComponentError::SendFailure);
+        }
+
+        Ok(())
     }
 
-    async fn recv(&mut self) -> Option<R> {
+    async fn recv(&mut self) -> Option<Self::ReceiveType> {
         self.rx.recv().await
     }
 }
