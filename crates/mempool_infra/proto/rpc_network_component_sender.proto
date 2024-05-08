@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+package rpcnetworkcomponentsender;
+
+service RpcNetworkComponentSender {
+    rpc SendMessage(RpcNetworkComponentMessage) returns (google.protobuf.Empty) {}
+}
+
+message RpcNetworkComponentMessage {
+    int32 data_i32 = 1;
+    uint32 data_u32 = 2;
+}

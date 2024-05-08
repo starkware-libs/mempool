@@ -1,7 +1,7 @@
-use tokio::sync::mpsc::channel;
 use tokio::task;
 
-use crate::network_component::{CommunicationInterface, NetworkComponent};
+use crate::network_component::CommunicationInterface;
+use crate::rpc_network_component::RpcNetworkComponent;
 
 type AtoB = u32;
 type BtoA = i32;
@@ -15,11 +15,8 @@ struct TestComponentB {
 
 #[tokio::test]
 async fn test_send_and_receive() {
-    let (tx_a2b, rx_a2b) = channel::<AtoB>(1);
-    let (tx_b2a, rx_b2a) = channel::<BtoA>(1);
-
-    let network_a = NetworkComponent::new(tx_a2b, rx_b2a);
-    let network_b = NetworkComponent::new(tx_b2a, rx_a2b);
+    let network_a = RpcNetworkComponent::<u32, i32>::new(10000, 10001);
+    let network_b = RpcNetworkComponent::<i32, u32>::new(10001, 10000);
 
     let mut a = TestComponentA { network: Box::new(network_a) };
     let mut b = TestComponentB { network: Box::new(network_b) };

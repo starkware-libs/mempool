@@ -18,7 +18,7 @@ async fn test_send_and_receive() {
     let (tx_gateway_to_mempool, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
     let (tx_mempool_to_gateway, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
 
-    let gateway_network =
+    let mut gateway_network =
         GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
     let mut mempool_network =
         MempoolNetworkComponent::new(tx_mempool_to_gateway, rx_gateway_to_mempool);

@@ -2,7 +2,7 @@ name: Nightly Latest Dependencies Check
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs at 00:00 UTC every day
+    - cron: "0 0 * * *" # Runs at 00:00 UTC every day
 
 jobs:
   latest_deps:
@@ -12,6 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: arduino/setup-protoc@v3
       - name: Update Dependencies
         run: cargo update --verbose
       - name: Build
