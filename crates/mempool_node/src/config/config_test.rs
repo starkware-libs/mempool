@@ -10,6 +10,7 @@ use papyrus_config::loading::load_and_process_config;
 use papyrus_config::presentation::get_config_presentation;
 use papyrus_config::validators::ParsedValidationErrors;
 use papyrus_config::{SerializationType, SerializedContent, SerializedParam};
+use test_utils::config::{get_config_from_file, test_valid_config_body};
 use validator::Validate;
 
 use crate::config::{
@@ -24,13 +25,6 @@ fn get_config_file_path(file_name: &str) -> PathBuf {
     Path::new(TEST_FILES_FOLDER).join(file_name)
 }
 
-fn get_config_from_file(
-    config_file_path: PathBuf,
-) -> Result<MempoolNodeConfig, papyrus_config::ConfigError> {
-    let config_file = File::open(config_file_path).unwrap();
-    load_and_process_config::<MempoolNodeConfig>(config_file, node_command(), vec![])
-}
-
 #[test]
 /// Read the valid config file and validate its content.
 fn test_valid_config() {
@@ -42,17 +36,32 @@ fn test_valid_config() {
         gateway_config: GatewayNetworkConfig { ip: "0.0.0.0".parse().unwrap(), port: 8080 },
     };
     let config_file_path = get_config_file_path(CONFIG_FILE);
-    let loaded_config = get_config_from_file(config_file_path).unwrap();
+    let fix = false;
+    test_valid_config_body(expected_config, config_file_path, fix);
+}
 
-    assert!(loaded_config.validate().is_ok());
-    assert_eq!(loaded_config, expected_config);
+#[test]
+#[ignore]
+/// Fix the config file for test_valid_config. Run with 'cargo test -- --ignored'.
+fn fix_test_valid_config() {
+    let expected_config = MempoolNodeConfig {
+        components: ComponentConfig {
+            gateway_component: ComponentExecutionConfig { execute: true },
+            mempool_component: ComponentExecutionConfig { execute: false },
+        },
+        gateway_config: GatewayNetworkConfig { ip: "0.0.0.0".parse().unwrap(), port: 8080 },
+    };
+    let config_file_path = get_config_file_path(CONFIG_FILE);
+    let fix = true;
+    test_valid_config_body(expected_config, config_file_path, fix);
 }
 
 #[test]
 fn test_components_config() {
     // Read the valid config file and check that the validator finds no errors.
     let config_file_path = get_config_file_path(CONFIG_FILE);
-    let mut config = get_config_from_file(config_file_path).unwrap();
+    let mut config =
+        get_config_from_file::<MempoolNodeConfig>(config_file_path, node_command()).unwrap();
     assert!(config.validate().is_ok());
 
     // Invalidate the gateway component and check that the validator finds an error.

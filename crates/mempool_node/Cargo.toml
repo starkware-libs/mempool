@@ -24,3 +24,4 @@ validator.workspace = true
 [dev-dependencies]
 assert_matches.workspace = true
 pretty_assertions.workspace = true
+test_utils = { path = "../test_utils", version = "0.0" }

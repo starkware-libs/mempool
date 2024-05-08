@@ -2015,6 +2015,7 @@ dependencies = [
  "serde_json",
  "starknet_api",
  "starknet_gateway",
+ "test_utils",
  "thiserror",
  "tokio",
  "validator",
