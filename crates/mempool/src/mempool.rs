@@ -1,11 +1,12 @@
-use crate::{errors::MempoolError, priority_queue::PriorityQueue};
-use starknet_api::{
-    core::{ContractAddress, Nonce},
-    internal_transaction::InternalTransaction,
-    transaction::TransactionHash,
-};
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
+
+use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::internal_transaction::InternalTransaction;
+use starknet_api::transaction::TransactionHash;
+
+use crate::errors::MempoolError;
+use crate::priority_queue::PriorityQueue;
 
 #[cfg(test)]
 #[path = "mempool_test.rs"]
@@ -25,15 +26,15 @@ impl Mempool {
         let mut mempool = Mempool::default();
 
         mempool.txs_queue = PriorityQueue::from_iter(inputs.into_iter().map(|input| {
-            let prev_value = mempool.state.insert(
-                input.account.address, input.account.state
-            );
+            let prev_value = mempool.state.insert(input.account.address, input.account.state);
             // Assert that the contract address does not exist in the mempool's state to ensure that
             // there is only one transaction per contract address.
             assert!(
                 prev_value.is_none(),
-                "Contract address: {:?} already exists in the mempool. Can't add {:?} to the mempool.",
-                input.account.address, input.tx
+                "Contract address: {:?} already exists in the mempool. Can't add {:?} to the \
+                 mempool.",
+                input.account.address,
+                input.tx
             );
             input.tx
         }));
@@ -43,8 +44,9 @@ impl Mempool {
 
     /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
-    // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push back.
-    // TODO: Consider renaming to `pop_txs` to be more consistent with the standard library.
+    // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push
+    // back. TODO: Consider renaming to `pop_txs` to be more consistent with the standard
+    // library.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<InternalTransaction>> {
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
@@ -58,9 +60,7 @@ impl Mempool {
     /// TODO: support fee escalation and transactions with future nonces.
     pub fn add_tx(&mut self, tx: InternalTransaction, account: Account) -> MempoolResult<()> {
         match self.state.entry(account.address) {
-            Occupied(_) => Err(MempoolError::DuplicateTransaction {
-                tx_hash: tx.tx_hash(),
-            }),
+            Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash() }),
             Vacant(entry) => {
                 entry.insert(account.state);
                 self.txs_queue.push(tx);

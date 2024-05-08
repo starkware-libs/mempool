@@ -1,8 +1,7 @@
 use blockifier::blockifier::block::BlockInfo;
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
-use blockifier::state::state_api::StateReader as BlockifierStateReader;
-use blockifier::state::state_api::StateResult;
+use blockifier::state::state_api::{StateReader as BlockifierStateReader, StateResult};
 use reqwest::blocking::Client as BlockingClient;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -25,16 +24,10 @@ pub struct RpcStateReader {
 
 impl RpcStateReader {
     pub fn from_number(config: &RpcStateReaderConfig, block_number: BlockNumber) -> Self {
-        Self {
-            config: config.clone(),
-            block_id: BlockId::Number(block_number),
-        }
+        Self { config: config.clone(), block_id: BlockId::Number(block_number) }
     }
     pub fn from_latest(config: &RpcStateReaderConfig) -> Self {
-        Self {
-            config: config.clone(),
-            block_id: BlockId::Latest,
-        }
+        Self { config: config.clone(), block_id: BlockId::Latest }
     }
     // Note: This function is blocking though it is sending a request to the rpc server and waiting
     // for the response.
@@ -91,9 +84,7 @@ impl RpcStateReader {
     }
 
     pub fn get_block_info(&self) -> Result<BlockInfo, StateError> {
-        let get_block_params = GetBlockWithTxHashesParams {
-            block_id: self.block_id,
-        };
+        let get_block_params = GetBlockWithTxHashesParams { block_id: self.block_id };
 
         // The response from the rpc is a full block but we only deserialize the header.
         let block_header: BlockHeader = serde_json::from_value(
@@ -113,11 +104,8 @@ impl BlockifierStateReader for RpcStateReader {
         contract_address: ContractAddress,
         key: StorageKey,
     ) -> StateResult<StarkFelt> {
-        let get_storage_at_params = GetStorageAtParams {
-            block_id: self.block_id,
-            contract_address,
-            key,
-        };
+        let get_storage_at_params =
+            GetStorageAtParams { block_id: self.block_id, contract_address, key };
 
         let result = self.send_rpc_request("starknet_getStorageAt", get_storage_at_params)?;
         let value: StarkFelt = serde_json::from_value(result)
@@ -126,10 +114,7 @@ impl BlockifierStateReader for RpcStateReader {
     }
 
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
-        let get_nonce_params = GetNonceParams {
-            block_id: self.block_id,
-            contract_address,
-        };
+        let get_nonce_params = GetNonceParams { block_id: self.block_id, contract_address };
 
         let result = self.send_rpc_request("starknet_getNonce", get_nonce_params)?;
         let nonce: Nonce = serde_json::from_value(result)
@@ -143,10 +128,8 @@ impl BlockifierStateReader for RpcStateReader {
     }
 
     fn get_class_hash_at(&self, contract_address: ContractAddress) -> StateResult<ClassHash> {
-        let get_class_hash_at_params = GetClassHashAtParams {
-            contract_address,
-            block_id: self.block_id,
-        };
+        let get_class_hash_at_params =
+            GetClassHashAtParams { contract_address, block_id: self.block_id };
 
         let result = self.send_rpc_request("starknet_getClassHashAt", get_class_hash_at_params)?;
         let class_hash: ClassHash = serde_json::from_value(result)
