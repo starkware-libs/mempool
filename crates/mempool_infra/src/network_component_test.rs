@@ -6,10 +6,10 @@ type AtoB = u32;
 type BtoA = i32;
 
 struct TestComponentA {
-    pub network: Box<dyn CommunicationInterface<AtoB, BtoA> + Send + Sync>,
+    pub network: Box<dyn CommunicationInterface<SendType = AtoB, ReceiveType = BtoA> + Send + Sync>,
 }
 struct TestComponentB {
-    pub network: Box<dyn CommunicationInterface<BtoA, AtoB> + Send + Sync>,
+    pub network: Box<dyn CommunicationInterface<SendType = BtoA, ReceiveType = AtoB> + Send + Sync>,
 }
 
 #[tokio::test]
