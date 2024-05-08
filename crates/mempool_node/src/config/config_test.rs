@@ -16,14 +16,20 @@ use validator::Validate;
 const TEST_FILES_FOLDER: &str = "./src/test_files";
 const CONFIG_FILE: &str = "mempool_node_config.json";
 
-fn get_config_file(file_name: &str) -> Result<MempoolNodeConfig, papyrus_config::ConfigError> {
-    let config_file = File::open(Path::new(TEST_FILES_FOLDER).join(file_name)).unwrap();
+fn get_config_file_path() -> PathBuf {
+    Path::new(TEST_FILES_FOLDER).join(CONFIG_FILE)
+}
+
+fn get_config_from_file(
+    config_file_path: PathBuf,
+) -> Result<MempoolNodeConfig, papyrus_config::ConfigError> {
+    let config_file = File::open(config_file_path).unwrap();
     load_and_process_config::<MempoolNodeConfig>(config_file, node_command(), vec![])
 }
 
 #[test]
+/// Read the valid config file and validate its content.
 fn test_valid_config() {
-    // Read the valid config file and validate its content.
     let expected_config = MempoolNodeConfig {
         components: ComponentConfig {
             gateway_component: ComponentExecutionConfig { execute: true },
@@ -34,7 +40,8 @@ fn test_valid_config() {
             port: 8080,
         },
     };
-    let loaded_config = get_config_file(CONFIG_FILE).unwrap();
+    let config_file_path = get_config_file_path();
+    let loaded_config = get_config_from_file(config_file_path).unwrap();
 
     assert!(loaded_config.validate().is_ok());
     assert_eq!(loaded_config, expected_config);
@@ -43,7 +50,8 @@ fn test_valid_config() {
 #[test]
 fn test_components_config() {
     // Read the valid config file and check that the validator finds no errors.
-    let mut config = get_config_file(CONFIG_FILE).unwrap();
+    let config_file_path = get_config_file_path();
+    let mut config = get_config_from_file(config_file_path).unwrap();
     assert!(config.validate().is_ok());
 
     // Invalidate the gateway component and check that the validator finds an error.
