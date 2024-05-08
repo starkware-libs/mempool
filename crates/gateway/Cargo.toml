@@ -30,3 +30,4 @@ validator.workspace = true
 assert_matches.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
+test_utils = { path = "../test_utils", version = "0.0" }
