@@ -7,6 +7,14 @@ use std::fs::File;
 use std::path::PathBuf;
 use validator::Validate;
 
+pub fn get_config_from_file<T: for<'a> Deserialize<'a>>(
+    config_file_path: PathBuf,
+    command: Command,
+) -> Result<T, papyrus_config::ConfigError> {
+    let config_file = File::open(config_file_path).unwrap();
+    load_and_process_config(config_file, command, vec![])
+}
+
 pub fn test_valid_config_body<
     T: for<'a> Deserialize<'a> + SerializeConfig + Validate + PartialEq + Debug,
 >(
@@ -20,9 +28,7 @@ pub fn test_valid_config_body<
             .unwrap();
     }
 
-    let config_file = File::open(config_file_path).unwrap();
-    let loaded_config =
-        load_and_process_config::<T>(config_file, Command::new(""), vec![]).unwrap();
+    let loaded_config = get_config_from_file::<T>(config_file_path, Command::new("")).unwrap();
 
     assert!(loaded_config.validate().is_ok());
     assert_eq!(loaded_config, expected_config);
