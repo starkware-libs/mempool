@@ -29,6 +29,7 @@ pub struct Gateway {
 #[derive(Clone)]
 pub struct AppState {
     pub stateless_transaction_validator: StatelessTransactionValidator,
+    // TODO(yael 15/5/24) add stateful_transaction_validator and state_reader_factory.
 }
 
 impl Gateway {
