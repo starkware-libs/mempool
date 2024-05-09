@@ -3239,6 +3239,7 @@ version = "0.0.0"
 dependencies = [
  "assert_matches",
  "derive_more",
+ "mempool_infra",
  "rstest",
  "starknet_api",
  "starknet_mempool_types",
