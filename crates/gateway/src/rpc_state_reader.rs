@@ -80,8 +80,10 @@ impl RpcStateReader {
             },
         }
     }
+}
 
-    pub fn get_block_info(&self) -> Result<BlockInfo, StateError> {
+impl MempoolStateReader for RpcStateReader {
+    fn get_block_info(&self) -> Result<BlockInfo, StateError> {
         let get_block_params = GetBlockWithTxHashesParams { block_id: self.block_id };
 
         // The response from the rpc is a full block but we only deserialize the header.
@@ -151,4 +153,27 @@ fn serde_err_to_state_err(err: SerdeError) -> StateError {
 // Converts a reqwest error to the error type of the state reader.
 fn reqwest_err_to_state_err(err: ReqwestError) -> StateError {
     StateError::StateReadError(format!("Rpc request failed with error {:?}", err.to_string()))
+}
+
+pub trait MempoolStateReader: BlockifierStateReader {
+    fn get_block_info(&self) -> Result<BlockInfo, StateError>;
+}
+
+pub trait StateReaderFactory<T: MempoolStateReader> {
+    fn get_latest_state_reader(&self) -> T;
+    fn get_state_reader(&self, block_number: BlockNumber) -> T;
+}
+
+pub struct RpcStateReaderFactory {
+    config: RpcStateReaderConfig,
+}
+
+impl StateReaderFactory<RpcStateReader> for RpcStateReaderFactory {
+    fn get_latest_state_reader(&self) -> RpcStateReader {
+        RpcStateReader::from_latest(&self.config)
+    }
+
+    fn get_state_reader(&self, block_number: BlockNumber) -> RpcStateReader {
+        RpcStateReader::from_number(&self.config, block_number)
+    }
 }
