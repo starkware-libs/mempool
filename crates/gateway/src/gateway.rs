@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use axum::extract::State;
 use axum::routing::{get, post};
@@ -29,6 +30,7 @@ pub struct Gateway {
 #[derive(Clone)]
 pub struct AppState {
     pub stateless_transaction_validator: StatelessTransactionValidator,
+    pub network: Arc<GatewayNetworkComponent>,
 }
 
 impl Gateway {
@@ -48,6 +50,7 @@ impl Gateway {
             stateless_transaction_validator: StatelessTransactionValidator {
                 config: self.stateless_transaction_validator_config,
             },
+            network: Arc::new(self.network),
         };
 
         Router::new()
