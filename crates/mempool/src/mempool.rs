@@ -1,11 +1,16 @@
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::mempool_types::{
-    Account, AccountState, MempoolInput, MempoolNetworkComponent, ThinTransaction,
+    Account, AccountState, GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent,
+    ThinTransaction,
 };
+use tokio::select;
+use tokio::sync::Notify;
 
 use crate::errors::MempoolError;
 use crate::priority_queue::PriorityQueue;
@@ -88,5 +93,35 @@ impl Mempool {
         _state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
         todo!()
+    }
+
+    /// Listens asynchronously for network messages and processes them.
+    pub async fn run(&mut self, notify: Arc<Notify>) {
+        loop {
+            select! {
+
+                optional_message = self.network.recv() => {
+                    match optional_message {
+                        Some(message) => {
+                            self.process_network_message(message).await;
+                        },
+                        // Channel was closed; exit.
+                        None => break,
+                    }
+                }
+                _ = notify.notified() => {
+                    // If notified, exit the loop regardless of message state
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Processes a single message received from the network.
+    async fn process_network_message(&mut self, message: GatewayToMempoolMessage) {
+        let GatewayToMempoolMessage::AddTx(tx, account_state) = message;
+        if let Err(e) = self.add_tx(tx, account_state) {
+            eprintln!("Failed to add transaction: {:?}", e);
+        }
     }
 }
