@@ -6,15 +6,14 @@ use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
-use url::Url;
 
 use super::{StatefulTransactionValidator, StatefulTransactionValidatorConfig};
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
-use crate::rpc_state_reader::RpcStateReaderConfig;
 use crate::starknet_api_test_utils::{
     executable_external_invoke_tx_for_testing, executable_resource_bounds_mapping,
     VALID_L1_GAS_MAX_AMOUNT, VALID_L1_GAS_MAX_PRICE_PER_UNIT,
 };
+use crate::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
 
 #[rstest]
 #[case::valid_invoke_tx(
@@ -53,17 +52,23 @@ fn test_stateful_transaction_validator(
         &[(account_contract, 1), (test_contract, 1)],
     );
 
+    let state_reader_factory = TestStateReaderFactory {
+        state_reader: TestStateReader {
+            block_info: block_context.block_info().clone(),
+            blockifier_state_reader: state_reader,
+        },
+    };
+
     let stateful_validator = StatefulTransactionValidator {
         config: StatefulTransactionValidatorConfig {
             max_nonce_for_validation_skip: Default::default(),
             validate_max_n_steps: block_context.versioned_constants().validate_max_n_steps,
             max_recursion_depth: block_context.versioned_constants().max_recursion_depth,
             chain_info: block_context.chain_info().clone(),
-            rpc_config: RpcStateReaderConfig {
-                url: Url::parse("https://dummy").unwrap(),
-                json_rpc_version: Default::default(),
-            },
+            state_reader_factory,
+            _marker: Default::default(),
         },
+        _marker: Default::default(),
     };
 
     let calldata = create_trivial_calldata(test_contract_address);
@@ -77,12 +82,6 @@ fn test_stateful_transaction_validator(
         Default::default(),
     );
 
-    let result = stateful_validator.run_validate(
-        state_reader,
-        block_context.block_info().clone(),
-        &external_tx,
-        None,
-        None,
-    );
+    let result = stateful_validator.run_validate(&external_tx, None, None);
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }
