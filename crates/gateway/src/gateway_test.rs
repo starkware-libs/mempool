@@ -1,3 +1,4 @@
+use crate::gateway::AppState;
 use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -9,7 +10,6 @@ use std::fs::File;
 use std::path::Path;
 
 use crate::gateway::async_add_transaction;
-use crate::gateway::GatewayState;
 use crate::stateless_transaction_validator::{
     StatelessTransactionValidator, StatelessTransactionValidatorConfig,
 };
@@ -27,10 +27,22 @@ const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 #[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
 #[tokio::test]
 async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_response: &str) {
+    use std::sync::Arc;
+
+    use starknet_mempool_types::mempool_types::{
+        GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
+    };
+    use tokio::sync::mpsc::channel;
+
     let json_file = File::open(json_file_path).unwrap();
     let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
 
-    let mut gateway_state = GatewayState {
+    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+    let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
+
+    let network = GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
+
+    let mut app_state = AppState {
         stateless_transaction_validator: StatelessTransactionValidator {
             config: StatelessTransactionValidatorConfig {
                 validate_non_zero_l1_gas_fee: true,
@@ -38,16 +50,17 @@ async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_re
                 ..Default::default()
             },
         },
+        network: Arc::new(network),
     };
 
     // Negative flow.
     const TOO_SMALL_SIGNATURE_LENGTH: usize = 0;
-    gateway_state
+    app_state
         .stateless_transaction_validator
         .config
         .max_signature_length = TOO_SMALL_SIGNATURE_LENGTH;
 
-    let response = async_add_transaction(State(gateway_state.clone()), tx.clone().into())
+    let response = async_add_transaction(State(app_state.clone()), tx.clone().into())
         .await
         .into_response();
 
@@ -59,12 +72,12 @@ async fn test_add_transaction(#[case] json_file_path: &Path, #[case] expected_re
     assert!(String::from_utf8_lossy(response_bytes).starts_with(negative_flow_expected_response));
 
     // Positive flow.
-    gateway_state
+    app_state
         .stateless_transaction_validator
         .config
         .max_signature_length = 2;
 
-    let response = async_add_transaction(State(gateway_state), tx.into())
+    let response = async_add_transaction(State(app_state), tx.into())
         .await
         .into_response();
 
