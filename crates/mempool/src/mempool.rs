@@ -1,9 +1,13 @@
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::core::ContractAddress;
 use starknet_api::internal_transaction::InternalTransaction;
 use starknet_api::transaction::TransactionHash;
+use tokio::select;
+use tokio::sync::Notify;
 
 use crate::errors::MempoolError;
 use crate::priority_queue::PriorityQueue;
@@ -13,7 +17,7 @@ use crate::priority_queue::PriorityQueue;
 pub mod mempool_test;
 
 use starknet_mempool_types::mempool_types::{
-    Account, AccountState, MempoolInput, MempoolNetworkComponent,
+    Account, AccountState, GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent,
 };
 
 pub type MempoolResult<T> = Result<T, MempoolError>;
@@ -90,5 +94,38 @@ impl Mempool {
         _state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
         todo!()
+    }
+
+    /// Starts an asynchronous task that listens for network messages and processes them.
+    pub async fn start_network_listener(&mut self, notify: Arc<Notify>) {
+        loop {
+            select! {
+                message = self.network.recv() => {
+                    match message {
+                        Some(msg) => {
+                            // Process the message
+                            self.process_network_message(msg).await;
+                        },
+                        None => break, // Channel is closed, so exit the loop
+                    }
+                }
+                _ = notify.notified() => {
+                    // If notified, break the loop regardless of message state
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Processes a single message received from the network.
+    async fn process_network_message(&mut self, message: GatewayToMempoolMessage) {
+        // Process the message
+        // Example processing
+        match message {
+            GatewayToMempoolMessage::AddTx(tx, account_state) => {
+                // Handle new transaction
+                let _ = self.add_tx(tx, account_state);
+            }
+        }
     }
 }
