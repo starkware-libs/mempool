@@ -6,11 +6,9 @@ use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
-use url::Url;
 
 use super::{StatefulTransactionValidator, StatefulTransactionValidatorConfig};
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
-use crate::rpc_state_reader::RpcStateReaderConfig;
 use crate::starknet_api_test_utils::{
     executable_external_invoke_tx_for_testing, executable_resource_bounds_mapping,
     VALID_L1_GAS_MAX_AMOUNT, VALID_L1_GAS_MAX_PRICE_PER_UNIT,
@@ -59,10 +57,7 @@ fn test_stateful_transaction_validator(
             validate_max_n_steps: block_context.versioned_constants().validate_max_n_steps,
             max_recursion_depth: block_context.versioned_constants().max_recursion_depth,
             chain_info: block_context.chain_info().clone(),
-            rpc_config: RpcStateReaderConfig {
-                url: Url::parse("https://dummy").unwrap(),
-                json_rpc_version: Default::default(),
-            },
+            rpc_config: Default::default(),
         },
     };
 
