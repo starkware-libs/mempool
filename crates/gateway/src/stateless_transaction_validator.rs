@@ -1,7 +1,12 @@
+use papyrus_config::dumping::{ser_param, SerializeConfig};
+use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
+use serde::{Deserialize, Serialize};
 use starknet_api::external_transaction::{
     ExternalDeployAccountTransaction, ExternalInvokeTransaction, ExternalTransaction,
 };
 use starknet_api::transaction::{Resource, ResourceBoundsMapping};
+use std::collections::BTreeMap;
+use validator::Validate;
 
 use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionValidatorResult};
 
@@ -9,7 +14,7 @@ use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionVali
 #[path = "stateless_transaction_validator_test.rs"]
 mod stateless_transaction_validator_test;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Validate, PartialEq)]
 pub struct StatelessTransactionValidatorConfig {
     // If true, validates that the resource bounds are not zero.
     pub validate_non_zero_l1_gas_fee: bool,
@@ -17,6 +22,37 @@ pub struct StatelessTransactionValidatorConfig {
 
     pub max_calldata_length: usize,
     pub max_signature_length: usize,
+}
+
+impl SerializeConfig for StatelessTransactionValidatorConfig {
+    fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
+        BTreeMap::from_iter([
+            ser_param(
+                "validate_non_zero_l1_gas_fee",
+                &self.validate_non_zero_l1_gas_fee,
+                "If true, validates transactions have non zero L1 resource bounds.",
+                ParamPrivacyInput::Public,
+            ),
+            ser_param(
+                "validate_non_zero_l2_gas_fee",
+                &self.validate_non_zero_l2_gas_fee,
+                "If true, validates transactions have non zero L2 resource bounds.",
+                ParamPrivacyInput::Public,
+            ),
+            ser_param(
+                "max_signature_length",
+                &self.max_signature_length,
+                "Validates transactions have calldata length less than or equal to this value.",
+                ParamPrivacyInput::Public,
+            ),
+            ser_param(
+                "max_calldata_length",
+                &self.max_calldata_length,
+                "Validates transactions have signature length less than or equal to this value.",
+                ParamPrivacyInput::Public,
+            ),
+        ])
+    }
 }
 
 #[derive(Clone)]
