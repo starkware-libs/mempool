@@ -4,7 +4,8 @@ use std::collections::HashMap;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::mempool_types::{
-    Account, AccountState, MempoolInput, MempoolNetworkComponent, ThinTransaction,
+    Account, AccountState, BatcherMempoolNetworkComponent, MempoolInput, MempoolNetworkComponent,
+    ThinTransaction,
 };
 
 use crate::errors::MempoolError;
@@ -19,6 +20,7 @@ pub type MempoolResult<T> = Result<T, MempoolError>;
 pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
     pub network: MempoolNetworkComponent,
+    pub batcher_network: BatcherMempoolNetworkComponent,
     txs_queue: PriorityQueue,
     state: HashMap<ContractAddress, AccountState>,
 }
@@ -26,10 +28,15 @@ pub struct Mempool {
 impl Mempool {
     pub fn new(
         inputs: impl IntoIterator<Item = MempoolInput>,
-        network: MempoolNetworkComponent,
+        gateway_network: MempoolNetworkComponent,
+        batcher_network: BatcherMempoolNetworkComponent,
     ) -> Self {
-        let mut mempool =
-            Mempool { txs_queue: Default::default(), state: Default::default(), network };
+        let mut mempool = Mempool {
+            txs_queue: Default::default(),
+            state: Default::default(),
+            network: gateway_network,
+            batcher_network,
+        };
 
         mempool.txs_queue = PriorityQueue::from_iter(inputs.into_iter().map(|input| {
             // Attempts to insert a key-value pair into the mempool's state. Returns `None` if the

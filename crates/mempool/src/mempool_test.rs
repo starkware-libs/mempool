@@ -10,7 +10,8 @@ use starknet_api::transaction::{
 };
 use starknet_api::{contract_address, patricia_key};
 use starknet_mempool_types::mempool_types::{
-    GatewayToMempoolMessage, MempoolNetworkComponent, MempoolToGatewayMessage,
+    BatcherMempoolNetworkComponent, BatcherToMempoolMessage, GatewayToMempoolMessage,
+    MempoolNetworkComponent, MempoolToBatcherMessage, MempoolToGatewayMessage,
 };
 use starknet_mempool_types::utils::create_thin_tx_for_testing;
 use tokio::sync::mpsc::channel;
@@ -24,7 +25,12 @@ fn create_for_testing(inputs: impl IntoIterator<Item = MempoolInput>) -> Mempool
     let (tx_mempool_to_gateway, _) = channel::<MempoolToGatewayMessage>(1);
     let network = MempoolNetworkComponent::new(tx_mempool_to_gateway, rx_gateway_to_mempool);
 
-    Mempool::new(inputs, network)
+    let (_, rx_mempool_to_batcher) = channel::<MempoolToBatcherMessage>(1);
+    let (tx_batcher_to_mempool, _) = channel::<BatcherToMempoolMessage>(1);
+    let batcher_network =
+        BatcherMempoolNetworkComponent::new(tx_batcher_to_mempool, rx_mempool_to_batcher);
+
+    Mempool::new(inputs, network, batcher_network)
 }
 
 #[fixture]
@@ -78,9 +84,9 @@ fn test_get_txs(#[case] requested_txs: usize) {
         create_thin_tx_for_testing(Tip(10), TransactionHash(StarkFelt::THREE), account3.address);
 
     let mut mempool = create_for_testing([
-        MempoolInput { tx: tx_tip_50_address_0.clone(), account: account1 },
-        MempoolInput { tx: tx_tip_100_address_1.clone(), account: account2 },
-        MempoolInput { tx: tx_tip_10_address_2.clone(), account: account3 },
+        MempoolInput { tx: tx_tip_50_address_0, account: account1 },
+        MempoolInput { tx: tx_tip_100_address_1, account: account2 },
+        MempoolInput { tx: tx_tip_10_address_2, account: account3 },
     ]);
 
     let expected_addresses =
@@ -116,7 +122,7 @@ fn test_get_txs(#[case] requested_txs: usize) {
 fn test_mempool_initialization_with_duplicate_contract_addresses() {
     let account = Account { address: contract_address!("0x0"), ..Default::default() };
     let tx = create_thin_tx_for_testing(Tip(50), TransactionHash(StarkFelt::ONE), account.address);
-    let same_tx = tx.clone();
+    let same_tx = tx;
 
     let inputs = vec![MempoolInput { tx, account }, MempoolInput { tx: same_tx, account }];
 
@@ -136,9 +142,9 @@ fn test_add_tx(mut mempool: Mempool) {
     let tx_tip_80_address_2 =
         create_thin_tx_for_testing(Tip(80), TransactionHash(StarkFelt::THREE), account3.address);
 
-    assert!(mempool.add_tx(tx_tip_50_address_0.clone(), account1).is_ok());
-    assert!(mempool.add_tx(tx_tip_100_address_1.clone(), account2).is_ok());
-    assert!(mempool.add_tx(tx_tip_80_address_2.clone(), account3).is_ok());
+    assert!(mempool.add_tx(tx_tip_50_address_0, account1).is_ok());
+    assert!(mempool.add_tx(tx_tip_100_address_1, account2).is_ok());
+    assert!(mempool.add_tx(tx_tip_80_address_2, account3).is_ok());
 
     assert_eq!(mempool.state.len(), 3);
     mempool.state.contains_key(&account1.address);
@@ -158,7 +164,7 @@ fn test_add_same_tx(mut mempool: Mempool) {
         TransactionHash(StarkFelt::ONE),
         contract_address!("0x0"),
     );
-    let same_tx = tx.clone();
+    let same_tx = tx;
 
     assert!(mempool.add_tx(tx, account).is_ok());
     assert_matches!(
