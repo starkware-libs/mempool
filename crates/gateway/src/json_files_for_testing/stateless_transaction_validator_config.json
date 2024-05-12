@@ -1,0 +1,22 @@
+{
+  "max_calldata_length": {
+    "description": "Validates transactions have signature length less than or equal to this value.",
+    "privacy": "Public",
+    "value": 10
+  },
+  "max_signature_length": {
+    "description": "Validates transactions have calldata length less than or equal to this value.",
+    "privacy": "Public",
+    "value": 0
+  },
+  "validate_non_zero_l1_gas_fee": {
+    "description": "If true, validates transactions have non zero L1 resource bounds.",
+    "privacy": "Public",
+    "value": true
+  },
+  "validate_non_zero_l2_gas_fee": {
+    "description": "If true, validates transactions have non zero L2 resource bounds.",
+    "privacy": "Public",
+    "value": false
+  }
+}
