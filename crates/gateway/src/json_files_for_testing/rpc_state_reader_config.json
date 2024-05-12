@@ -1,12 +1,12 @@
 {
   "json_rpc_version": {
     "description": "The json rpc version.",
-    "privacy": "Public",
-    "value": "2.0"
+    "value": "2.0",
+    "privacy": "Public"
   },
   "url": {
     "description": "The url of the rpc server.",
-    "privacy": "Public",
-    "value": "http://localhost:8080"
+    "value": "http://localhost:8080",
+    "privacy": "Public"
   }
 }
