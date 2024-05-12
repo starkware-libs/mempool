@@ -33,3 +33,4 @@ validator.workspace = true
 assert_matches.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
+expect-test.workspace = true
