@@ -1,3 +1,4 @@
+use std::env;
 use std::fmt::Debug;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -10,6 +11,8 @@ use validator::Validate;
 
 use crate::config::GatewayNetworkConfig;
 use crate::stateless_transaction_validator::StatelessTransactionValidatorConfig;
+
+const FIX_CONFIG_TESTS: &str = "FIX_CONFIG_TESTS";
 
 const TEST_FILES_FOLDER: &str = "./src/json_files_for_testing";
 const NETWORK_CONFIG_FILE: &str = "gateway_network_config.json";
@@ -45,26 +48,17 @@ fn test_valid_config_body<
 
 #[test]
 /// Read the network config file and validate its content.
+/// Fix with `FIX_CONFIG_TESTS=1 cargo test`
 fn test_valid_network_config() {
     let expected_config = GatewayNetworkConfig { ip: "0.0.0.0".parse().unwrap(), port: 8080 };
     let file_path = get_config_file_path(NETWORK_CONFIG_FILE);
-    let fix = false;
-    test_valid_config_body(expected_config, file_path, fix);
-}
-
-// TODO(Arni, 7/5/2024): Dedup code with test_valid_config.
-#[test]
-#[ignore]
-/// Fix the config file for test_valid_network_config. Run with 'cargo test -- --ignored'.
-fn fix_test_valid_config() {
-    let expected_config = GatewayNetworkConfig { ip: "0.0.0.0".parse().unwrap(), port: 8080 };
-    let file_path = get_config_file_path(NETWORK_CONFIG_FILE);
-    let fix = true;
+    let fix = env::var(FIX_CONFIG_TESTS).is_ok();
     test_valid_config_body(expected_config, file_path, fix);
 }
 
 #[test]
 /// Read the stateless transaction validator config file and validate its content.
+/// Fix with `FIX_CONFIG_TESTS=1 cargo test`
 fn test_valid_stateless_transaction_validator_config() {
     let expected_config = StatelessTransactionValidatorConfig {
         validate_non_zero_l1_gas_fee: true,
@@ -73,22 +67,6 @@ fn test_valid_stateless_transaction_validator_config() {
         max_signature_length: 0,
     };
     let file_path = get_config_file_path(STATELESS_TRANSACTION_VALIDATOR_CONFIG);
-    let fix = false;
-    test_valid_config_body(expected_config, file_path, fix);
-}
-
-#[test]
-#[ignore]
-/// Fix the config file for test_valid_stateless_transaction_validator_config.
-/// Run with 'cargo test -- --ignored'.
-fn fix_test_valid_stateless_transaction_validator_config() {
-    let expected_config = StatelessTransactionValidatorConfig {
-        validate_non_zero_l1_gas_fee: true,
-        validate_non_zero_l2_gas_fee: false,
-        max_calldata_length: 10,
-        max_signature_length: 0,
-    };
-    let file_path = get_config_file_path(STATELESS_TRANSACTION_VALIDATOR_CONFIG);
-    let fix = true;
+    let fix = env::var(FIX_CONFIG_TESTS).is_ok();
     test_valid_config_body(expected_config, file_path, fix);
 }
