@@ -9,11 +9,13 @@ use serde::Deserialize;
 use validator::Validate;
 
 use crate::config::GatewayNetworkConfig;
+use crate::rpc_state_reader::RpcStateReaderConfig;
 use crate::stateless_transaction_validator::StatelessTransactionValidatorConfig;
 
 const TEST_FILES_FOLDER: &str = "./src/json_files_for_testing";
 const NETWORK_CONFIG_FILE: &str = "gateway_network_config.json";
 const STATELESS_TRANSACTION_VALIDATOR_CONFIG: &str = "stateless_transaction_validator_config.json";
+const RPC_STATE_READER_CONFIG: &str = "rpc_state_reader_config.json";
 
 fn get_config_file_path(file_name: &str) -> PathBuf {
     Path::new(TEST_FILES_FOLDER).join(file_name)
@@ -89,6 +91,31 @@ fn fix_test_valid_stateless_transaction_validator_config() {
         max_signature_length: 0,
     };
     let file_path = get_config_file_path(STATELESS_TRANSACTION_VALIDATOR_CONFIG);
+    let fix = true;
+    test_valid_config_body(expected_config, file_path, fix);
+}
+
+#[test]
+/// Read the rpc state reader config file and validate its content.
+fn test_valid_rpc_state_reader_config() {
+    let expected_config = RpcStateReaderConfig {
+        url: "http://localhost:8080".to_string(),
+        json_rpc_version: "2.0".to_string(),
+    };
+    let file_path = get_config_file_path(RPC_STATE_READER_CONFIG);
+    let fix = false;
+    test_valid_config_body(expected_config, file_path, fix);
+}
+
+#[test]
+#[ignore]
+/// Read the rpc state reader config file and validate its content.
+fn fix_test_valid_rpc_state_reader_config() {
+    let expected_config = RpcStateReaderConfig {
+        url: "http://localhost:8080".to_string(),
+        json_rpc_version: "2.0".to_string(),
+    };
+    let file_path = get_config_file_path(RPC_STATE_READER_CONFIG);
     let fix = true;
     test_valid_config_body(expected_config, file_path, fix);
 }

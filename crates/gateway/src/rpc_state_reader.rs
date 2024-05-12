@@ -1,16 +1,21 @@
+use std::collections::BTreeMap;
+
 use blockifier::blockifier::block::BlockInfo;
 use blockifier::execution::contract_class::{ContractClass, ContractClassV1};
 use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader as BlockifierStateReader, StateResult};
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+use papyrus_config::dumping::{ser_param, SerializeConfig};
+use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
 use reqwest::blocking::Client as BlockingClient;
 use reqwest::Error as ReqwestError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Error as SerdeError, Value};
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::hash::StarkFelt;
 use starknet_api::state::StorageKey;
+use validator::Validate;
 
 use crate::rpc_objects::{
     BlockHeader, BlockId, GetBlockWithTxHashesParams, GetClassHashAtParams,
@@ -150,10 +155,24 @@ impl BlockifierStateReader for RpcStateReader {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Validate, PartialEq)]
 pub struct RpcStateReaderConfig {
     pub url: String,
     pub json_rpc_version: String,
+}
+
+impl SerializeConfig for RpcStateReaderConfig {
+    fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
+        BTreeMap::from_iter([
+            ser_param("url", &self.url, "The url of the rpc server.", ParamPrivacyInput::Public),
+            ser_param(
+                "json_rpc_version",
+                &self.json_rpc_version,
+                "The json rpc version.",
+                ParamPrivacyInput::Public,
+            ),
+        ])
+    }
 }
 
 // Converts a serder error to the error type of the state reader.
