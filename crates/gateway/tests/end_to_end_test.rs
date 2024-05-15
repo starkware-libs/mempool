@@ -1,6 +1,4 @@
-use std::fs;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -11,9 +9,17 @@ use blockifier::test_utils::dict_state_reader::DictStateReader;
 use hyper::{Client, Response};
 use mempool_infra::network_component::CommunicationInterface;
 use rstest::rstest;
-use starknet_api::transaction::{Tip, TransactionHash};
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::external_transaction::ExternalTransaction;
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::transaction::{ResourceBounds, Tip, TransactionHash, TransactionSignature};
+use starknet_api::{patricia_key, stark_felt};
 use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
 use starknet_gateway::gateway::Gateway;
+use starknet_gateway::invoke_tx_args;
+use starknet_gateway::starknet_api_test_utils::{
+    create_resource_bounds_mapping, external_invoke_tx, external_invoke_tx_to_json,
+};
 use starknet_gateway::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
 use starknet_gateway::stateful_transaction_validator::StatefulTransactionValidatorConfig;
 use starknet_mempool::mempool::Mempool;
@@ -25,8 +31,6 @@ use starknet_mempool_types::mempool_types::{
 use tokio::sync::mpsc::channel;
 use tokio::task;
 use tokio::time::sleep;
-
-const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 
 #[tokio::test]
 async fn test_send_and_receive() {
@@ -106,10 +110,10 @@ async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, 
 async fn send_and_verify_transaction(
     ip: IpAddr,
     port: u16,
-    json_file_path: &Path,
+    tx: ExternalTransaction,
     expected_response: &str,
 ) {
-    let tx_json = fs::read_to_string(json_file_path).unwrap();
+    let tx_json = external_invoke_tx_to_json(tx);
     let request = Request::builder()
         .method("POST")
         .uri(format!("http://{}", SocketAddr::from((ip, port))) + "/add_tx")
@@ -146,8 +150,20 @@ async fn test_end_to_end() {
     let (ip, port) = set_up_gateway(gateway_to_mempool_network).await;
 
     // Send a transaction.
-    let invoke_json = &Path::new(TEST_FILES_FOLDER).join("invoke_v3.json");
-    send_and_verify_transaction(ip, port, invoke_json, "INVOKE").await;
+    let external_tx = external_invoke_tx(invoke_tx_args! {
+        signature: TransactionSignature(vec![
+            stark_felt!("0x1132577"),
+            stark_felt!("0x17df53c")
+        ]),
+        contract_address: ContractAddress(
+            patricia_key!(stark_felt!("0x1b34d819720bd84c89bdfb476bc2c4d0de9a41b766efabd20fa292280e4c6d9"))
+        ),
+        resource_bounds: create_resource_bounds_mapping(
+            ResourceBounds {max_amount: 5, max_price_per_unit: 6},
+            ResourceBounds::default()
+        )
+    });
+    send_and_verify_transaction(ip, port, external_tx, "INVOKE").await;
 
     // Initialize Mempool.
     let mut mempool = Mempool::empty(mempool_to_gateway_network, batcher_channels);
