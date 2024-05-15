@@ -1,6 +1,5 @@
 use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
-use starknet_api::internal_transaction::InternalTransaction;
 use starknet_api::transaction::{Tip, TransactionHash};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -32,7 +31,7 @@ pub struct MempoolInput {
 
 #[derive(Debug)]
 pub enum GatewayToMempoolMessage {
-    AddTransaction(InternalTransaction, Account),
+    AddTransaction(ThinTransaction, Account),
 }
 
 pub type MempoolToGatewayMessage = ();
