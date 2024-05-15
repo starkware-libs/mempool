@@ -1,20 +1,25 @@
-use std::fs;
 use std::net::{IpAddr, Ipv4Addr};
-use std::path::Path;
 
 use axum::body::{Body, Bytes, HttpBody};
 use axum::http::{Request, StatusCode};
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::external_transaction::ExternalInvokeTransaction;
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::transaction::{ResourceBounds, TransactionSignature};
+use starknet_api::{patricia_key, stark_felt};
 use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
 use starknet_gateway::gateway::Gateway;
+use starknet_gateway::invoke_tx_args;
+use starknet_gateway::starknet_api_test_utils::{
+    create_resource_bounds_mapping, external_invoke_tx, external_invoke_tx_to_json,
+};
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
 use tower::ServiceExt;
-
-const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 
 #[fixture]
 pub fn gateway() -> Gateway {
@@ -36,22 +41,33 @@ pub fn gateway() -> Gateway {
     Gateway { network_config, stateless_transaction_validator_config, network_component }
 }
 
-// TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
-// into JSON for testing.
+// TODO(Ayelet): add test cases for declare and deploy account transactions.
 #[rstest]
-#[case::declare(&Path::new(TEST_FILES_FOLDER).join("declare_v3.json"), "DECLARE")]
-#[case::deploy_account(
-    &Path::new(TEST_FILES_FOLDER).join("deploy_account_v3.json"),
-    "DEPLOY_ACCOUNT"
+#[case::invoke(
+    external_invoke_tx(invoke_tx_args! {
+        signature: TransactionSignature(vec![
+            stark_felt!("0x1132577"),
+            stark_felt!("0x17df53c")
+        ]),
+        contract_address: ContractAddress(
+            patricia_key!(stark_felt!("0x1b34d819720bd84c89bdfb476bc2c4d0de9a41b766efabd20fa292280e4c6d9"))
+        ),
+        resource_bounds: create_resource_bounds_mapping(
+            ResourceBounds {max_amount: 5, max_price_per_unit: 6},
+            ResourceBounds::default()
+        ),
+    }),
+    "INVOKE"
 )]
-#[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
 #[tokio::test]
 async fn test_routes(
-    #[case] json_file_path: &Path,
+    #[case] external_invoke_tx: ExternalInvokeTransaction,
     #[case] expected_response: &str,
     gateway: Gateway,
 ) {
-    let tx_json = fs::read_to_string(json_file_path).unwrap();
+    let tx_json = external_invoke_tx_to_json(
+        starknet_api::external_transaction::ExternalTransaction::Invoke(external_invoke_tx),
+    );
     let request = Request::post("/add_tx")
         .header("content-type", "application/json")
         .body(Body::from(tx_json))
