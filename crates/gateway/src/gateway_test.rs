@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::path::Path;
 use std::sync::Arc;
 
 use axum::body::{Bytes, HttpBody};
@@ -10,7 +8,11 @@ use blockifier::blockifier::block::BlockInfo;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
 use pretty_assertions::assert_str_eq;
 use rstest::rstest;
+use starknet_api::core::{ContractAddress, PatriciaKey};
 use starknet_api::external_transaction::ExternalTransaction;
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::transaction::{ResourceBounds, TransactionSignature};
+use starknet_api::{patricia_key, stark_felt};
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
@@ -18,23 +20,37 @@ use tokio::sync::mpsc::channel;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
 use crate::gateway::{add_tx, AppState};
+use crate::invoke_tx_args;
+use crate::starknet_api_test_utils::{
+    create_resource_bounds_mapping, external_invoke_tx, external_invoke_tx_to_json,
+};
 use crate::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
 
-const TEST_FILES_FOLDER: &str = "./tests/fixtures";
-
-// TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
-// into JSON for testing.
+// TODO(Ayelet): add test cases for declare and deploy account transactions.
 #[rstest]
-#[case::declare(&Path::new(TEST_FILES_FOLDER).join("declare_v3.json"), "DECLARE")]
-#[case::deploy_account(
-    &Path::new(TEST_FILES_FOLDER).join("deploy_account_v3.json"),
-    "DEPLOY_ACCOUNT"
+#[case::invoke(
+    external_invoke_tx(invoke_tx_args! {
+        signature: TransactionSignature(vec![
+            stark_felt!("0x1132577"),
+            stark_felt!("0x17df53c")
+        ]),
+        contract_address: ContractAddress(
+            patricia_key!(stark_felt!("0x1b34d819720bd84c89bdfb476bc2c4d0de9a41b766efabd20fa292280e4c6d9"))
+        ),
+        resource_bounds: create_resource_bounds_mapping(
+            ResourceBounds {max_amount: 5, max_price_per_unit: 6},
+            ResourceBounds::default()
+        )
+    }),
+    "INVOKE"
 )]
-#[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
 #[tokio::test]
-async fn test_add_tx(#[case] json_file_path: &Path, #[case] expected_response: &str) {
+async fn test_add_tx(
+    #[case] external_invoke_tx: ExternalTransaction,
+    #[case] expected_response: &str,
+) {
     // The  `_rx_gateway_to_mempool`   is retained to keep the channel open, as dropping it would
     // prevent the sender from transmitting messages.
     let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
@@ -44,8 +60,8 @@ async fn test_add_tx(#[case] json_file_path: &Path, #[case] expected_response: &
     let network_component =
         Arc::new(GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway));
 
-    let json_file = File::open(json_file_path).unwrap();
-    let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
+    let json_string = external_invoke_tx_to_json(external_invoke_tx);
+    let tx: ExternalTransaction = serde_json::from_str(&json_string).unwrap();
 
     let mut app_state = AppState {
         stateless_transaction_validator: StatelessTransactionValidator {
