@@ -12,9 +12,9 @@ use starknet_api::external_transaction::ExternalTransaction;
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
-use tokio::sync::mpsc::channel;
+use tokio::sync::mpsc::{channel, Receiver};
 
-use crate::gateway::{async_add_transaction, AppState};
+use crate::gateway::{add_transaction, AppState};
 use crate::stateless_transaction_validator::{
     StatelessTransactionValidator, StatelessTransactionValidatorConfig,
 };
@@ -22,11 +22,14 @@ use crate::stateless_transaction_validator::{
 const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 
 #[fixture]
-pub fn network_component() -> GatewayNetworkComponent {
-    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+pub fn network_component() -> (GatewayNetworkComponent, Receiver<GatewayToMempoolMessage>) {
+    let (tx_gateway_to_mempool, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
     let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
 
-    GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway)
+    (
+        GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway),
+        rx_gateway_to_mempool,
+    )
 }
 
 // TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
@@ -42,7 +45,7 @@ pub fn network_component() -> GatewayNetworkComponent {
 async fn test_add_transaction(
     #[case] json_file_path: &Path,
     #[case] expected_response: &str,
-    network_component: GatewayNetworkComponent,
+    network_component: (GatewayNetworkComponent, Receiver<GatewayToMempoolMessage>),
 ) {
     let json_file = File::open(json_file_path).unwrap();
     let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
@@ -55,7 +58,7 @@ async fn test_add_transaction(
                 ..Default::default()
             },
         },
-        network_component: Arc::new(network_component),
+        network_component: Arc::new(network_component.0),
     };
 
     // Negative flow.
@@ -64,7 +67,7 @@ async fn test_add_transaction(
         TOO_SMALL_SIGNATURE_LENGTH;
 
     let response =
-        async_add_transaction(State(app_state.clone()), tx.clone().into()).await.into_response();
+        add_transaction(State(app_state.clone()), tx.clone().into()).await.into_response();
 
     let status_code = response.status();
     assert_eq!(status_code, StatusCode::INTERNAL_SERVER_ERROR);
@@ -76,7 +79,7 @@ async fn test_add_transaction(
     // Positive flow.
     app_state.stateless_transaction_validator.config.max_signature_length = 2;
 
-    let response = async_add_transaction(State(app_state), tx.into()).await.into_response();
+    let response = add_transaction(State(app_state), tx.into()).await.into_response();
 
     let status_code = response.status();
     assert_eq!(status_code, StatusCode::OK);

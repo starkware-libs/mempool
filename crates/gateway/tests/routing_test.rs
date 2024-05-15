@@ -12,13 +12,13 @@ use starknet_gateway::stateless_transaction_validator::StatelessTransactionValid
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
-use tokio::sync::mpsc::channel;
+use tokio::sync::mpsc::{channel, Receiver};
 use tower::ServiceExt;
 
 const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 
 #[fixture]
-pub fn gateway() -> Gateway {
+pub fn gateway() -> (Gateway, Receiver<GatewayToMempoolMessage>) {
     let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
     let port = 3000;
     let network_config: GatewayNetworkConfig = GatewayNetworkConfig { ip, port };
@@ -29,12 +29,15 @@ pub fn gateway() -> Gateway {
         ..Default::default()
     };
 
-    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+    let (tx_gateway_to_mempool, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
     let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
     let network_component =
         GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
 
-    Gateway { network_config, stateless_transaction_validator_config, network_component }
+    (
+        Gateway { network_config, stateless_transaction_validator_config, network_component },
+        rx_gateway_to_mempool,
+    )
 }
 
 // TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
@@ -50,7 +53,7 @@ pub fn gateway() -> Gateway {
 async fn test_routes(
     #[case] json_file_path: &Path,
     #[case] expected_response: &str,
-    gateway: Gateway,
+    gateway: (Gateway, Receiver<GatewayToMempoolMessage>),
 ) {
     let tx_json = fs::read_to_string(json_file_path).unwrap();
     let request = Request::post("/add_transaction")
@@ -58,7 +61,7 @@ async fn test_routes(
         .body(Body::from(tx_json))
         .unwrap();
 
-    let response = check_request(request, StatusCode::OK, gateway).await;
+    let response = check_request(request, StatusCode::OK, gateway.0).await;
 
     assert_str_eq!(expected_response, String::from_utf8_lossy(&response));
 }
@@ -67,10 +70,10 @@ async fn test_routes(
 #[tokio::test]
 #[should_panic]
 // FIXME: Currently is_alive is not implemented, fix this once it is implemented.
-async fn test_is_alive(gateway: Gateway) {
+async fn test_is_alive(gateway: (Gateway, Receiver<GatewayToMempoolMessage>)) {
     let request = Request::get("/is_alive").body(Body::empty()).unwrap();
     // Status code doesn't matter, this panics ATM.
-    check_request(request, StatusCode::default(), gateway).await;
+    check_request(request, StatusCode::default(), gateway.0).await;
 }
 
 async fn check_request(request: Request<Body>, status_code: StatusCode, gateway: Gateway) -> Bytes {
