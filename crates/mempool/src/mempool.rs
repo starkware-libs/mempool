@@ -114,8 +114,8 @@ impl Mempool {
 
     fn process_network_message(&mut self, message: GatewayToMempoolMessage) -> Result<()> {
         match message {
-            GatewayToMempoolMessage::AddTransaction(tx, account_state) => {
-                self.add_tx(tx, account_state)?;
+            GatewayToMempoolMessage::AddTransaction(mempool_input) => {
+                self.add_tx(mempool_input.tx, mempool_input.account)?;
                 Ok(())
             }
         }
