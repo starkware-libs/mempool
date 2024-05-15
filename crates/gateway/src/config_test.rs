@@ -8,8 +8,7 @@ use papyrus_config::loading::load_and_process_config;
 use serde::Deserialize;
 use validator::Validate;
 
-use crate::config::GatewayNetworkConfig;
-use crate::stateless_transaction_validator::StatelessTransactionValidatorConfig;
+use crate::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
 
 const TEST_FILES_FOLDER: &str = "./src/json_files_for_testing";
 const NETWORK_CONFIG_FILE: &str = "gateway_network_config.json";
