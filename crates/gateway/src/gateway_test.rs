@@ -1,5 +1,3 @@
-use std::fs::File;
-use std::path::Path;
 use std::sync::Arc;
 
 use axum::body::{Bytes, HttpBody};
@@ -8,18 +6,24 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
-use starknet_api::external_transaction::ExternalTransaction;
+use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::external_transaction::{ExternalInvokeTransaction, ExternalTransaction};
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::transaction::{
+    Resource, ResourceBounds, ResourceBoundsMapping, TransactionSignature,
+};
+use starknet_api::{patricia_key, stark_felt};
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
 
 use crate::gateway::{async_add_transaction, AppState};
+use crate::invoke_tx_args;
 use crate::stateless_transaction_validator::{
     StatelessTransactionValidator, StatelessTransactionValidatorConfig,
 };
-
-const TEST_FILES_FOLDER: &str = "./tests/fixtures";
+use crate::utils::{external_invoke_tx, external_invoke_tx_to_json};
 
 #[fixture]
 pub fn network_component() -> GatewayNetworkComponent {
@@ -29,23 +33,39 @@ pub fn network_component() -> GatewayNetworkComponent {
     GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway)
 }
 
-// TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
-// into JSON for testing.
+// TODO(Ayelet): add test cases for declare and deploy account transactions.
 #[rstest]
-#[case::declare(&Path::new(TEST_FILES_FOLDER).join("declare_v3.json"), "DECLARE")]
-#[case::deploy_account(
-    &Path::new(TEST_FILES_FOLDER).join("deploy_account_v3.json"),
-    "DEPLOY_ACCOUNT"
-)]
-#[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
+#[case::invoke(external_invoke_tx(invoke_tx_args! {
+    signature: TransactionSignature(vec![stark_felt!("0x1132577"), stark_felt!("0x17df53c")]),
+    contract_address: ContractAddress(patricia_key!(stark_felt!("0x1b34d819720bd84c89bdfb476bc2c4d0de9a41b766efabd20fa292280e4c6d9"))),
+    resource_bounds: ResourceBoundsMapping::try_from(vec![
+        (
+            Resource::L1Gas,
+            ResourceBounds {
+                max_amount: 5,
+                max_price_per_unit: 6,
+            },
+        ),
+        (
+            Resource::L2Gas,
+            ResourceBounds {
+                max_amount: 0,
+                max_price_per_unit: 0,
+            },
+        ),
+    ])
+    .unwrap(),
+    }), "INVOKE")]
 #[tokio::test]
 async fn test_add_transaction(
-    #[case] json_file_path: &Path,
+    #[case] external_invoke_tx: ExternalInvokeTransaction,
     #[case] expected_response: &str,
     network_component: GatewayNetworkComponent,
 ) {
-    let json_file = File::open(json_file_path).unwrap();
-    let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
+    let json_string = external_invoke_tx_to_json(
+        starknet_api::external_transaction::ExternalTransaction::Invoke(external_invoke_tx),
+    );
+    let tx: ExternalTransaction = serde_json::from_str(&json_string).unwrap();
 
     let mut app_state = AppState {
         stateless_transaction_validator: StatelessTransactionValidator {
