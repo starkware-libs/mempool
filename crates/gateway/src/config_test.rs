@@ -2,20 +2,24 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use blockifier::context::ChainInfo;
 use clap::Command;
 use papyrus_config::dumping::SerializeConfig;
 use papyrus_config::loading::load_and_process_config;
 use serde::Deserialize;
+use starknet_api::core::Nonce;
 use validator::Validate;
 
 use crate::config::{
-    GatewayNetworkConfig, RpcStateReaderConfig, StatelessTransactionValidatorConfig,
+    GatewayNetworkConfig, RpcStateReaderConfig, StatefulTransactionValidatorConfig,
+    StatelessTransactionValidatorConfig,
 };
 
 const TEST_FILES_FOLDER: &str = "./src/json_files_for_testing";
 const NETWORK_CONFIG_FILE: &str = "gateway_network_config.json";
 const STATELESS_TRANSACTION_VALIDATOR_CONFIG: &str = "stateless_transaction_validator_config.json";
 const RPC_STATE_READER_CONFIG: &str = "rpc_state_reader_config.json";
+const STATEFUL_TRANSACTION_VALIDATOR_CONFIG: &str = "stateful_transaction_validator_config.json";
 
 fn get_config_file_path(file_name: &str) -> PathBuf {
     Path::new(TEST_FILES_FOLDER).join(file_name)
@@ -111,6 +115,36 @@ fn test_valid_rpc_state_reader_config() {
 fn fix_test_valid_rpc_state_reader_config() {
     let expected_config = RpcStateReaderConfig::create_for_testing();
     let file_path = get_config_file_path(RPC_STATE_READER_CONFIG);
+    let fix = true;
+    test_valid_config_body(expected_config, file_path, fix);
+}
+
+#[test]
+/// Read the stateful transaction validator config file and validate its content.
+fn test_valid_stateful_transaction_validator_config() {
+    let expected_config = StatefulTransactionValidatorConfig {
+        max_nonce_for_validation_skip: Nonce::default(),
+        validate_max_n_steps: 100,
+        max_recursion_depth: 2,
+        chain_info: ChainInfo::create_for_testing().into(),
+    };
+    let file_path = get_config_file_path(STATEFUL_TRANSACTION_VALIDATOR_CONFIG);
+    let fix = false;
+    test_valid_config_body(expected_config, file_path, fix);
+}
+
+#[test]
+#[ignore]
+/// Fix the config file for test_valid_stateful_transaction_validator_config.
+/// Run with 'cargo test -- --ignored'.
+fn fix_test_valid_stateful_transaction_validator_config() {
+    let expected_config = StatefulTransactionValidatorConfig {
+        max_nonce_for_validation_skip: Nonce::default(),
+        validate_max_n_steps: 100,
+        max_recursion_depth: 2,
+        chain_info: ChainInfo::create_for_testing().into(),
+    };
+    let file_path = get_config_file_path(STATEFUL_TRANSACTION_VALIDATOR_CONFIG);
     let fix = true;
     test_valid_config_body(expected_config, file_path, fix);
 }
