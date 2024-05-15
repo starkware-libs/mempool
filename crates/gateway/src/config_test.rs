@@ -8,8 +8,7 @@ use papyrus_config::loading::load_and_process_config;
 use serde::Deserialize;
 use validator::Validate;
 
-use crate::config::GatewayNetworkConfig;
-use crate::stateless_transaction_validator::StatelessTransactionValidatorConfig;
+use crate::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
 
 const TEST_FILES_FOLDER: &str = "./src/json_files_for_testing";
 const NETWORK_CONFIG_FILE: &str = "gateway_network_config.json";
@@ -56,7 +55,7 @@ fn test_valid_network_config() {
 #[test]
 #[ignore]
 /// Fix the config file for test_valid_network_config. Run with 'cargo test -- --ignored'.
-fn fix_test_valid_config() {
+fn fix_test_valid_network_config() {
     let expected_config = GatewayNetworkConfig { ip: "0.0.0.0".parse().unwrap(), port: 8080 };
     let file_path = get_config_file_path(NETWORK_CONFIG_FILE);
     let fix = true;
