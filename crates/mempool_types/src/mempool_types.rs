@@ -1,9 +1,8 @@
 use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
-use starknet_api::internal_transaction::InternalTransaction;
 use starknet_api::transaction::{Tip, TransactionHash};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ThinTransaction {
     pub contract_address: ContractAddress,
     pub tx_hash: TransactionHash,
@@ -24,7 +23,7 @@ pub struct Account {
     pub state: AccountState,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MempoolInput {
     pub tx: ThinTransaction,
     pub account: Account,
@@ -32,7 +31,7 @@ pub struct MempoolInput {
 
 #[derive(Debug)]
 pub enum GatewayToMempoolMessage {
-    AddTransaction(InternalTransaction, Account),
+    AddTransaction(MempoolInput),
 }
 
 pub type MempoolToGatewayMessage = ();
