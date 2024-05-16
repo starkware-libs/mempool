@@ -6,7 +6,9 @@ use axum::body::{Body, Bytes, HttpBody};
 use axum::http::{Request, StatusCode};
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
-use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
+use starknet_gateway::config::{
+    GatewayConfig, GatewayNetworkConfig, StatelessTransactionValidatorConfig,
+};
 use starknet_gateway::gateway::Gateway;
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
@@ -27,13 +29,14 @@ pub fn gateway() -> Gateway {
         max_signature_length: 2,
         ..Default::default()
     };
+    let config = GatewayConfig { network_config, stateless_transaction_validator_config };
 
     let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
     let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
     let network_component =
         GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
 
-    Gateway { network_config, stateless_transaction_validator_config, network_component }
+    Gateway { config, network_component }
 }
 
 // TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these

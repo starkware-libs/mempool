@@ -7,7 +7,7 @@ use axum::{Json, Router};
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_mempool_types::mempool_types::GatewayNetworkComponent;
 
-use crate::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
+use crate::config::{GatewayConfig, GatewayNetworkConfig};
 use crate::errors::GatewayError;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
 
@@ -18,10 +18,7 @@ pub mod gateway_test;
 pub type GatewayResult<T> = Result<T, GatewayError>;
 
 pub struct Gateway {
-    pub network_config: GatewayNetworkConfig,
-    // TODO(Arni, 7/5/2024): Move the stateless transaction validator config into the gateway
-    // config.
-    pub stateless_transaction_validator_config: StatelessTransactionValidatorConfig,
+    pub config: GatewayConfig,
     pub network_component: GatewayNetworkComponent,
 }
 
@@ -37,7 +34,8 @@ pub struct AppState {
 impl Gateway {
     pub async fn build_server(self) {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
-        let addr = SocketAddr::new(self.network_config.ip, self.network_config.port);
+        let GatewayNetworkConfig { ip, port } = self.config.network_config;
+        let addr = SocketAddr::new(ip, port);
         let app = self.app();
 
         // Create a server that runs forever.
@@ -47,7 +45,7 @@ impl Gateway {
     pub fn app(self) -> Router {
         let app_state = AppState {
             stateless_transaction_validator: StatelessTransactionValidator {
-                config: self.stateless_transaction_validator_config,
+                config: self.config.stateless_transaction_validator_config,
             },
             network_component: Arc::new(self.network_component),
         };
