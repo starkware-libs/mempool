@@ -7,7 +7,7 @@ use starknet_api::external_transaction::{
 };
 use starknet_api::internal_transaction::{InternalInvokeTransaction, InternalTransaction};
 use starknet_api::transaction::{
-    Calldata, InvokeTransaction, InvokeTransactionV3, ResourceBounds, ResourceBoundsMapping,
+    Calldata, InvokeTransaction, InvokeTransactionV3, ResourceBounds, ResourceBoundsMapping, Tip,
     TransactionSignature,
 };
 
@@ -19,6 +19,33 @@ pub enum TransactionType {
     Declare,
     DeployAccount,
     Invoke,
+}
+
+pub fn get_tip(tx: &ExternalTransaction) -> Tip {
+    match tx {
+        ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => tx.tip,
+        ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => tx.tip,
+        ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => tx.tip,
+    }
+}
+
+pub fn get_nonce(tx: &ExternalTransaction) -> Nonce {
+    match tx {
+        ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => tx.nonce,
+        ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => tx.nonce,
+        ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => tx.nonce,
+    }
+}
+
+pub fn get_contract_address(tx: &ExternalTransaction) -> ContractAddress {
+    match tx {
+        ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) => tx.sender_address,
+        // TODO: Add support for deploy account.
+        ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(_)) => {
+            ContractAddress::default()
+        }
+        ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => tx.sender_address,
+    }
 }
 
 pub fn create_internal_tx_for_testing() -> InternalTransaction {
