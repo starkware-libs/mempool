@@ -12,7 +12,9 @@ use hyper::{Client, Response};
 use mempool_infra::network_component::CommunicationInterface;
 use rstest::rstest;
 use starknet_api::transaction::{Tip, TransactionHash};
-use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
+use starknet_gateway::config::{
+    GatewayConfig, GatewayNetworkConfig, StatelessTransactionValidatorConfig,
+};
 use starknet_gateway::gateway::Gateway;
 use starknet_gateway::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
 use starknet_gateway::stateful_transaction_validator::StatefulTransactionValidatorConfig;
@@ -77,6 +79,8 @@ async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, 
         max_signature_length: 2,
         ..Default::default()
     };
+    let config = GatewayConfig { network_config, stateless_transaction_validator_config };
+
     let stateful_transaction_validator_config =
         StatefulTransactionValidatorConfig::create_for_testing();
     let state_reader_factory = Arc::new(TestStateReaderFactory {
@@ -88,9 +92,8 @@ async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, 
     });
 
     let gateway = Gateway {
-        network_config,
+        config,
         network_component,
-        stateless_transaction_validator_config,
         stateful_transaction_validator_config,
         state_reader_factory,
     };
