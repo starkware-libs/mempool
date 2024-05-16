@@ -6,6 +6,8 @@ use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use blockifier::blockifier::block::BlockInfo;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
 use starknet_api::external_transaction::ExternalTransaction;
@@ -16,6 +18,10 @@ use tokio::sync::mpsc::channel;
 
 use crate::config::StatelessTransactionValidatorConfig;
 use crate::gateway::{async_add_tx, AppState};
+use crate::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
+use crate::stateful_transaction_validator::{
+    StatefulTransactionValidator, StatefulTransactionValidatorConfig,
+};
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
 
 const TEST_FILES_FOLDER: &str = "./tests/fixtures";
@@ -45,6 +51,8 @@ async fn test_add_tx(
 ) {
     let json_file = File::open(json_file_path).unwrap();
     let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
+    let stateful_transaction_validator_config =
+        StatefulTransactionValidatorConfig::create_for_testing();
 
     let mut app_state = AppState {
         stateless_transaction_validator: StatelessTransactionValidator {
@@ -54,7 +62,18 @@ async fn test_add_tx(
                 ..Default::default()
             },
         },
+        stateful_transaction_validator: StatefulTransactionValidator {
+            config: stateful_transaction_validator_config,
+        },
         network_component: Arc::new(network_component),
+        state_reader_factory: TestStateReaderFactory {
+            state_reader: TestStateReader {
+                block_info: BlockInfo::create_for_testing(),
+                // TODO(yael 16/5/2024): create a test state that will make the tx pass validations
+                blockifier_state_reader: DictStateReader::default(),
+            },
+        },
+        _phantom: Default::default(),
     };
 
     // Negative flow.
