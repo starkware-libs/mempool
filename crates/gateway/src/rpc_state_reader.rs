@@ -20,6 +20,7 @@ use crate::rpc_objects::{
 };
 use crate::state_reader::{MempoolStateReader, StateReaderFactory};
 
+#[derive(Clone)]
 pub struct RpcStateReader {
     pub config: RpcStateReaderConfig,
     pub block_id: BlockId,
@@ -164,16 +165,17 @@ fn reqwest_err_to_state_err(err: ReqwestError) -> StateError {
     StateError::StateReadError(format!("Rpc request failed with error {:?}", err.to_string()))
 }
 
+#[derive(Clone)]
 pub struct RpcStateReaderFactory {
     config: RpcStateReaderConfig,
 }
 
-impl StateReaderFactory<RpcStateReader> for RpcStateReaderFactory {
-    fn get_state_reader_from_latest_block(&self) -> RpcStateReader {
-        RpcStateReader::from_latest(&self.config)
+impl StateReaderFactory for RpcStateReaderFactory {
+    fn get_state_reader_from_latest_block(&self) -> Box<dyn MempoolStateReader> {
+        Box::new(RpcStateReader::from_latest(&self.config))
     }
 
-    fn get_state_reader(&self, block_number: BlockNumber) -> RpcStateReader {
-        RpcStateReader::from_number(&self.config, block_number)
+    fn get_state_reader(&self, block_number: BlockNumber) -> Box<dyn MempoolStateReader> {
+        Box::new(RpcStateReader::from_number(&self.config, block_number))
     }
 }

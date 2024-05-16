@@ -17,14 +17,15 @@ use crate::utils::external_tx_to_account_tx;
 #[path = "stateful_transaction_validator_test.rs"]
 mod stateful_transaction_validator_test;
 
+#[derive(Clone)]
 pub struct StatefulTransactionValidator {
     pub config: StatefulTransactionValidatorConfig,
 }
 
 impl StatefulTransactionValidator {
-    pub fn run_validate<T: MempoolStateReader>(
+    pub fn run_validate(
         &self,
-        state_reader_factory: &impl StateReaderFactory<T>,
+        state_reader_factory: &impl StateReaderFactory,
         external_tx: &ExternalTransaction,
         optional_class_info: Option<ClassInfo>,
         deploy_account_tx_hash: Option<TransactionHash>,
@@ -65,16 +66,29 @@ impl StatefulTransactionValidator {
     }
 }
 
-pub fn get_latest_block_info<S: MempoolStateReader>(
-    state_reader_factory: &impl StateReaderFactory<S>,
+pub fn get_latest_block_info(
+    state_reader_factory: &impl StateReaderFactory,
 ) -> StatefulTransactionValidatorResult<BlockInfo> {
     let state_reader = state_reader_factory.get_state_reader_from_latest_block();
     Ok(state_reader.get_block_info()?)
 }
 
+#[derive(Clone)]
 pub struct StatefulTransactionValidatorConfig {
     pub max_nonce_for_validation_skip: Nonce,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
     pub chain_info: ChainInfo,
+}
+
+#[cfg(any(feature = "testing", test))]
+impl StatefulTransactionValidatorConfig {
+    pub fn create_for_testing() -> Self {
+        StatefulTransactionValidatorConfig {
+            max_nonce_for_validation_skip: Default::default(),
+            validate_max_n_steps: 1000000,
+            max_recursion_depth: 50,
+            chain_info: Default::default(),
+        }
+    }
 }

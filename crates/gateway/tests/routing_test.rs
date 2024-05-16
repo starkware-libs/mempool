@@ -1,13 +1,19 @@
+#![cfg(feature = "testing")]
 use std::fs;
 use std::net::{IpAddr, Ipv4Addr};
 use std::path::Path;
+use std::sync::Arc;
 
 use axum::body::{Body, Bytes, HttpBody};
 use axum::http::{Request, StatusCode};
+use blockifier::blockifier::block::BlockInfo;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
 use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
 use starknet_gateway::gateway::Gateway;
+use starknet_gateway::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
+use starknet_gateway::stateful_transaction_validator::StatefulTransactionValidatorConfig;
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
@@ -27,13 +33,28 @@ pub fn gateway() -> Gateway {
         max_signature_length: 2,
         ..Default::default()
     };
+    let stateful_transaction_validator_config =
+        StatefulTransactionValidatorConfig::create_for_testing();
+    let state_reader_factory = TestStateReaderFactory {
+        state_reader: TestStateReader {
+            block_info: BlockInfo::create_for_testing(),
+            // TODO(yael 16/5/2024): create a test state that will make the tx pass validations
+            blockifier_state_reader: DictStateReader::default(),
+        },
+    };
 
     let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
     let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
     let network_component =
         GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
 
-    Gateway { network_config, stateless_transaction_validator_config, network_component }
+    Gateway {
+        network_config,
+        stateless_transaction_validator_config,
+        stateful_transaction_validator_config,
+        network_component,
+        state_reader_factory: Arc::new(state_reader_factory),
+    }
 }
 
 // TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
