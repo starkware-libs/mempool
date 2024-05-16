@@ -48,6 +48,7 @@ impl BlockifierStateReader for TestStateReader {
     }
 }
 
+#[derive(Clone)]
 pub struct TestStateReaderFactory {
     pub state_reader: TestStateReader,
 }
