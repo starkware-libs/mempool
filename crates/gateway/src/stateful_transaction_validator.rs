@@ -17,6 +17,7 @@ use crate::utils::external_tx_to_account_tx;
 #[path = "stateful_transaction_validator_test.rs"]
 mod stateful_transaction_validator_test;
 
+#[derive(Clone)]
 pub struct StatefulTransactionValidator {
     pub config: StatefulTransactionValidatorConfig,
 }
@@ -72,9 +73,21 @@ pub fn get_latest_block_info<S: MempoolStateReader>(
     Ok(state_reader.get_block_info()?)
 }
 
+#[derive(Clone)]
 pub struct StatefulTransactionValidatorConfig {
     pub max_nonce_for_validation_skip: Nonce,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
     pub chain_info: ChainInfo,
+}
+
+impl StatefulTransactionValidatorConfig {
+    pub fn create_for_testing() -> Self {
+        StatefulTransactionValidatorConfig {
+            max_nonce_for_validation_skip: Default::default(),
+            validate_max_n_steps: 1000000,
+            max_recursion_depth: 50,
+            chain_info: Default::default(),
+        }
+    }
 }
