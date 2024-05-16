@@ -1,16 +1,55 @@
 use std::collections::BTreeMap;
 use std::net::IpAddr;
 
-use papyrus_config::dumping::{ser_param, SerializeConfig};
+use papyrus_config::dumping::{append_sub_config_name, ser_param, SerializeConfig};
 use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
 use serde::{Deserialize, Serialize};
 use validator::Validate;
+
+#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
+pub struct GatewayConfig {
+    pub network_config: GatewayNetworkConfig,
+    pub stateless_transaction_validator_config: StatelessTransactionValidatorConfig,
+}
+
+#[cfg(any(feature = "testing", test))]
+impl GatewayConfig {
+    pub fn create_for_testing() -> Self {
+        Self {
+            network_config: GatewayNetworkConfig::create_for_testing(),
+            stateless_transaction_validator_config:
+                StatelessTransactionValidatorConfig::create_for_testing(),
+        }
+    }
+}
+
+impl SerializeConfig for GatewayConfig {
+    fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
+        vec![
+            append_sub_config_name(self.network_config.dump(), "network_config"),
+            append_sub_config_name(
+                self.stateless_transaction_validator_config.dump(),
+                "stateless_transaction_validator_config",
+            ),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+}
 
 /// The gateway network connection related configuration.
 #[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
 pub struct GatewayNetworkConfig {
     pub ip: IpAddr,
     pub port: u16,
+}
+
+#[cfg(any(feature = "testing", test))]
+impl GatewayNetworkConfig {
+    pub fn create_for_testing() -> Self {
+        Self { ip: "0.0.0.0".parse().unwrap(), port: 8080 }
+    }
 }
 
 impl SerializeConfig for GatewayNetworkConfig {
@@ -41,6 +80,18 @@ pub struct StatelessTransactionValidatorConfig {
 
     pub max_calldata_length: usize,
     pub max_signature_length: usize,
+}
+
+#[cfg(any(feature = "testing", test))]
+impl StatelessTransactionValidatorConfig {
+    pub fn create_for_testing() -> Self {
+        Self {
+            validate_non_zero_l1_gas_fee: true,
+            validate_non_zero_l2_gas_fee: false,
+            max_calldata_length: 10,
+            max_signature_length: 0,
+        }
+    }
 }
 
 impl SerializeConfig for StatelessTransactionValidatorConfig {

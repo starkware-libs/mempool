@@ -48,11 +48,7 @@ async fn test_add_tx(
 
     let mut app_state = AppState {
         stateless_transaction_validator: StatelessTransactionValidator {
-            config: StatelessTransactionValidatorConfig {
-                validate_non_zero_l1_gas_fee: true,
-                max_calldata_length: 10,
-                ..Default::default()
-            },
+            config: StatelessTransactionValidatorConfig::create_for_testing(),
         },
         network_component: Arc::new(network_component),
     };
