@@ -9,7 +9,9 @@ use hyper::{Client, Response};
 use mempool_infra::network_component::CommunicationInterface;
 use rstest::rstest;
 use starknet_api::transaction::{Tip, TransactionHash};
-use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
+use starknet_gateway::config::{
+    GatewayConfig, GatewayNetworkConfig, StatelessTransactionValidatorConfig,
+};
 use starknet_gateway::gateway::Gateway;
 use starknet_mempool::mempool::Mempool;
 use starknet_mempool_types::mempool_types::{
@@ -72,9 +74,9 @@ async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, 
         max_signature_length: 2,
         ..Default::default()
     };
+    let config = GatewayConfig { network_config, stateless_transaction_validator_config };
 
-    let gateway =
-        Gateway { network_config, network_component, stateless_transaction_validator_config };
+    let gateway = Gateway { config, network_component };
 
     // Setup server
     tokio::spawn(async move { gateway.build_server().await });

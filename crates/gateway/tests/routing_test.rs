@@ -6,7 +6,9 @@ use axum::body::{Body, Bytes, HttpBody};
 use axum::http::{Request, StatusCode};
 use pretty_assertions::assert_str_eq;
 use rstest::rstest;
-use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
+use starknet_gateway::config::{
+    GatewayConfig, GatewayNetworkConfig, StatelessTransactionValidatorConfig,
+};
 use starknet_gateway::gateway::Gateway;
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
@@ -59,6 +61,8 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
         ..Default::default()
     };
 
+    let config = GatewayConfig { network_config, stateless_transaction_validator_config };
+
     // The  `_rx_gateway_to_mempool`   is retained to keep the channel open, as dropping it would
     // prevent the sender from transmitting messages.
     let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
@@ -67,8 +71,7 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
         GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
 
     // TODO: Add fixture.
-    let gateway =
-        Gateway { network_config, stateless_transaction_validator_config, network_component };
+    let gateway = Gateway { config, network_component };
 
     let response = gateway.app().oneshot(request).await.unwrap();
     assert_eq!(response.status(), status_code);
