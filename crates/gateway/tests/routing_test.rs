@@ -1,24 +1,28 @@
-use std::fs;
 use std::net::{IpAddr, Ipv4Addr};
-use std::path::Path;
 
 use axum::body::{Body, Bytes, HttpBody};
 use axum::http::{Request, StatusCode};
-use blockifier::blockifier::block::BlockInfo;
-use blockifier::test_utils::dict_state_reader::DictStateReader;
+use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager};
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
+use starknet_api::external_transaction::ExternalTransaction;
+use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::TransactionSignature;
 use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
 use starknet_gateway::gateway::Gateway;
-use starknet_gateway::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
+use starknet_gateway::starknet_api_test_utils::{
+    executable_external_invoke_tx_for_testing, executable_resource_bounds_mapping,
+};
+use starknet_gateway::state_reader_test_utils::{
+    test_state_reader_factory, TestStateReader, TestStateReaderFactory,
+};
 use starknet_gateway::stateful_transaction_validator::StatefulTransactionValidatorConfig;
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
 use tower::ServiceExt;
-
-const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 
 #[fixture]
 pub fn gateway() -> Gateway<TestStateReaderFactory, TestStateReader> {
@@ -33,13 +37,7 @@ pub fn gateway() -> Gateway<TestStateReaderFactory, TestStateReader> {
     };
     let stateful_transaction_validator_config =
         StatefulTransactionValidatorConfig::create_for_testing();
-    let state_reader_factory = TestStateReaderFactory {
-        state_reader: TestStateReader {
-            block_info: BlockInfo::create_for_testing(),
-            // TODO(yael 16/5/2024): create a test state that will make the tx pass validations
-            blockifier_state_reader: DictStateReader::default(),
-        },
-    };
+    let state_reader_factory = test_state_reader_factory();
 
     let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
     let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
@@ -56,22 +54,36 @@ pub fn gateway() -> Gateway<TestStateReaderFactory, TestStateReader> {
     }
 }
 
+pub fn invoke_tx() -> ExternalTransaction {
+    let cairo_version = CairoVersion::Cairo1;
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let account_address = account_contract.get_instance_address(0);
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let calldata = create_trivial_calldata(test_contract_address);
+    let mut nonce_manager = NonceManager::default();
+    let nonce = nonce_manager.next(account_address);
+    executable_external_invoke_tx_for_testing(
+        executable_resource_bounds_mapping(),
+        nonce,
+        account_address,
+        calldata,
+        TransactionSignature(vec![StarkFelt::ZERO]),
+    )
+}
+
 // TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
 // into JSON for testing.
 #[rstest]
-#[case::declare(&Path::new(TEST_FILES_FOLDER).join("declare_v3.json"), "DECLARE")]
-#[case::deploy_account(
-    &Path::new(TEST_FILES_FOLDER).join("deploy_account_v3.json"),
-    "DEPLOY_ACCOUNT"
-)]
-#[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
+// TODO (Yael 19/5/2024): Add declare and deploy_account in the next milestone
+#[case::invoke(invoke_tx(), "INVOKE")]
 #[tokio::test]
 async fn test_routes(
-    #[case] json_file_path: &Path,
+    #[case] tx: ExternalTransaction,
     #[case] expected_response: &str,
     gateway: Gateway<TestStateReaderFactory, TestStateReader>,
 ) {
-    let tx_json = fs::read_to_string(json_file_path).unwrap();
+    let tx_json = serde_json::to_string(&tx).unwrap();
     let request = Request::post("/add_tx")
         .header("content-type", "application/json")
         .body(Body::from(tx_json))
