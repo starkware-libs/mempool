@@ -13,6 +13,13 @@ pub struct GatewayNetworkConfig {
     pub port: u16,
 }
 
+#[cfg(any(feature = "testing", test))]
+impl GatewayNetworkConfig {
+    pub fn create_for_testing() -> Self {
+        Self { ip: "0.0.0.0".parse().unwrap(), port: 8080 }
+    }
+}
+
 impl SerializeConfig for GatewayNetworkConfig {
     fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
         BTreeMap::from_iter([
@@ -41,6 +48,18 @@ pub struct StatelessTransactionValidatorConfig {
 
     pub max_calldata_length: usize,
     pub max_signature_length: usize,
+}
+
+#[cfg(any(feature = "testing", test))]
+impl StatelessTransactionValidatorConfig {
+    pub fn create_for_testing() -> Self {
+        Self {
+            validate_non_zero_l1_gas_fee: true,
+            validate_non_zero_l2_gas_fee: false,
+            max_calldata_length: 10,
+            max_signature_length: 0,
+        }
+    }
 }
 
 impl SerializeConfig for StatelessTransactionValidatorConfig {
