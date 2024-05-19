@@ -11,7 +11,7 @@ use starknet_api::transaction::{
     TransactionSignature,
 };
 
-pub const VALID_L1_GAS_MAX_AMOUNT: u64 = 1662;
+pub const VALID_L1_GAS_MAX_AMOUNT: u64 = 2214;
 pub const VALID_L1_GAS_MAX_PRICE_PER_UNIT: u128 = 100000000000;
 
 // Utils.

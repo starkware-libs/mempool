@@ -87,7 +87,7 @@ impl StatefulTransactionValidatorConfig {
             max_nonce_for_validation_skip: Default::default(),
             validate_max_n_steps: 1000000,
             max_recursion_depth: 50,
-            chain_info: Default::default(),
+            chain_info: BlockContext::create_for_testing().chain_info().clone(),
         }
     }
 }
