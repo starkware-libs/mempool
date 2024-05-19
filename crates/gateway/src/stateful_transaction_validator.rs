@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use blockifier::blockifier::block::BlockInfo;
 use blockifier::blockifier::stateful_validator::StatefulValidator as BlockifierStatefulValidator;
 use blockifier::bouncer::BouncerConfig;
@@ -24,14 +26,14 @@ pub struct StatefulTransactionValidator {
 impl StatefulTransactionValidator {
     pub fn run_validate(
         &self,
-        state_reader_factory: &impl StateReaderFactory,
+        state_reader_factory: Arc<dyn StateReaderFactory>,
         external_tx: &ExternalTransaction,
         optional_class_info: Option<ClassInfo>,
         deploy_account_tx_hash: Option<TransactionHash>,
     ) -> StatefulTransactionValidatorResult<()> {
         // TODO(yael 6/5/2024): consider storing the block_info as part of the
         // StatefulTransactionValidator and update it only once a new block is created.
-        let latest_block_info = get_latest_block_info(state_reader_factory)?;
+        let latest_block_info = get_latest_block_info(&state_reader_factory)?;
         let state_reader = state_reader_factory.get_state_reader(latest_block_info.block_number);
         let state = CachedState::new(state_reader);
         let versioned_constants = VersionedConstants::latest_constants_with_overrides(
@@ -66,7 +68,7 @@ impl StatefulTransactionValidator {
 }
 
 pub fn get_latest_block_info(
-    state_reader_factory: &impl StateReaderFactory,
+    state_reader_factory: &Arc<dyn StateReaderFactory>,
 ) -> StatefulTransactionValidatorResult<BlockInfo> {
     let state_reader = state_reader_factory.get_state_reader_from_latest_block();
     Ok(state_reader.get_block_info()?)
@@ -85,7 +87,7 @@ impl StatefulTransactionValidatorConfig {
             max_nonce_for_validation_skip: Default::default(),
             validate_max_n_steps: 1000000,
             max_recursion_depth: 50,
-            chain_info: Default::default(),
+            chain_info: BlockContext::create_for_testing().chain_info().clone(),
         }
     }
 }
