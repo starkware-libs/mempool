@@ -2,8 +2,9 @@ use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::internal_transaction::InternalTransaction;
 use starknet_api::transaction::{Tip, TransactionHash};
+use starknet_api::StarknetApiError;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ThinTransaction {
     pub contract_address: ContractAddress,
     pub tx_hash: TransactionHash,
@@ -15,6 +16,12 @@ pub struct ThinTransaction {
 pub struct AccountState {
     pub nonce: Nonce,
     // TODO: add balance field when needed.
+}
+impl AccountState {
+    pub fn update_state(&mut self) -> Result<(), StarknetApiError> {
+        self.nonce.try_increment()?;
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -36,6 +43,17 @@ pub enum GatewayToMempoolMessage {
 }
 
 pub type MempoolToGatewayMessage = ();
+
+pub enum BatcherToMempoolMessage {
+    GetTxs(u8),
+}
+
+pub type BatcherMempoolNetworkComponent =
+    NetworkComponent<BatcherToMempoolMessage, MempoolToBatcherMessage>;
+pub type MempoolBatcherNetworkComponent =
+    NetworkComponent<MempoolToBatcherMessage, BatcherToMempoolMessage>;
+
+pub type MempoolToBatcherMessage = Vec<ThinTransaction>;
 
 pub type GatewayNetworkComponent =
     NetworkComponent<GatewayToMempoolMessage, MempoolToGatewayMessage>;
