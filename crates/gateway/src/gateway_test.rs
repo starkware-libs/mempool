@@ -1,16 +1,16 @@
-use std::fs::File;
-use std::path::Path;
 use std::sync::Arc;
 
 use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use blockifier::blockifier::block::BlockInfo;
-use blockifier::test_utils::dict_state_reader::DictStateReader;
+use blockifier::test_utils::contracts::FeatureContract;
+use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager};
 use pretty_assertions::assert_str_eq;
 use rstest::{fixture, rstest};
 use starknet_api::external_transaction::ExternalTransaction;
+use starknet_api::hash::StarkFelt;
+use starknet_api::transaction::TransactionSignature;
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
@@ -18,13 +18,14 @@ use tokio::sync::mpsc::channel;
 
 use crate::config::StatelessTransactionValidatorConfig;
 use crate::gateway::{async_add_tx, AppState};
-use crate::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
+use crate::starknet_api_test_utils::{
+    executable_external_invoke_tx_for_testing, executable_resource_bounds_mapping,
+};
+use crate::state_reader_test_utils::test_state_reader_factory;
 use crate::stateful_transaction_validator::{
     StatefulTransactionValidator, StatefulTransactionValidatorConfig,
 };
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
-
-const TEST_FILES_FOLDER: &str = "./tests/fixtures";
 
 #[fixture]
 pub fn network_component() -> GatewayNetworkComponent {
@@ -34,24 +35,37 @@ pub fn network_component() -> GatewayNetworkComponent {
     GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway)
 }
 
+// TODO(Yael, 19/5/2024): refactor testing infrastructure to genereate a consistent state and
+// transaction for all tests in one place
+pub fn invoke_tx() -> ExternalTransaction {
+    let cairo_version = CairoVersion::Cairo1;
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let account_address = account_contract.get_instance_address(0);
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let calldata = create_trivial_calldata(test_contract_address);
+    let mut nonce_manager = NonceManager::default();
+    let nonce = nonce_manager.next(account_address);
+    executable_external_invoke_tx_for_testing(
+        executable_resource_bounds_mapping(),
+        nonce,
+        account_address,
+        calldata,
+        TransactionSignature(vec![StarkFelt::ZERO]),
+    )
+}
+
 // TODO(Ayelet): Replace the use of the JSON files with generated instances, then serialize these
 // into JSON for testing.
 #[rstest]
-#[case::declare(&Path::new(TEST_FILES_FOLDER).join("declare_v3.json"), "DECLARE")]
-#[case::deploy_account(
-    &Path::new(TEST_FILES_FOLDER).join("deploy_account_v3.json"),
-    "DEPLOY_ACCOUNT"
-)]
-#[case::invoke(&Path::new(TEST_FILES_FOLDER).join("invoke_v3.json"), "INVOKE")]
+// TODO (Yael 19/5/2024): Add declare and deploy_account in the next milestone
+#[case::invoke(invoke_tx(), "INVOKE")]
 #[tokio::test]
 async fn test_add_tx(
-    #[case] json_file_path: &Path,
+    #[case] tx: ExternalTransaction,
     #[case] expected_response: &str,
     network_component: GatewayNetworkComponent,
 ) {
-    let json_file = File::open(json_file_path).unwrap();
-    let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
-
     let mut app_state = AppState {
         stateless_transaction_validator: StatelessTransactionValidator {
             config: StatelessTransactionValidatorConfig {
@@ -64,13 +78,7 @@ async fn test_add_tx(
             config: StatefulTransactionValidatorConfig::create_for_testing(),
         },
         network_component: Arc::new(network_component),
-        state_reader_factory: Arc::new(TestStateReaderFactory {
-            state_reader: TestStateReader {
-                block_info: BlockInfo::create_for_testing(),
-                // TODO(yael 16/5/2024): create a test state that will make the tx pass validations
-                blockifier_state_reader: DictStateReader::default(),
-            },
-        }),
+        state_reader_factory: Arc::new(test_state_reader_factory()),
     };
 
     // Negative flow.

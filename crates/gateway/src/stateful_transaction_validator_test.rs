@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::context::BlockContext;
 use blockifier::test_utils::contracts::FeatureContract;
@@ -52,12 +54,12 @@ fn test_stateful_transaction_validator(
         &[(account_contract, 1), (test_contract, 1)],
     );
 
-    let state_reader_factory = TestStateReaderFactory {
+    let state_reader_factory = Arc::new(TestStateReaderFactory {
         state_reader: TestStateReader {
             block_info: block_context.block_info().clone(),
             blockifier_state_reader: state_reader,
         },
-    };
+    });
 
     let stateful_validator = StatefulTransactionValidator {
         config: StatefulTransactionValidatorConfig {
@@ -79,6 +81,6 @@ fn test_stateful_transaction_validator(
         Default::default(),
     );
 
-    let result = stateful_validator.run_validate(&state_reader_factory, &external_tx, None, None);
+    let result = stateful_validator.run_validate(state_reader_factory, &external_tx, None, None);
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }

@@ -14,6 +14,8 @@ pub enum GatewayError {
     #[error("Internal server error: {0}")]
     InternalServerError(#[from] JoinError),
     #[error(transparent)]
+    StatefulTransactionValidatorError(#[from] StatefulTransactionValidatorError),
+    #[error(transparent)]
     StatelessTransactionValidatorError(#[from] StatelessTransactionValidatorError),
 }
 
