@@ -2,13 +2,16 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 
 use anyhow::Result;
+use async_trait::async_trait;
+use mempool_infra::component_server::ComponentRequestHandler;
 use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, BatcherToMempoolChannels, BatcherToMempoolMessage,
-    GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent, MempoolResult, ThinTransaction,
+    GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent, MempoolRequest,
+    MempoolResponse, MempoolResult, ThinTransaction,
 };
 use tokio::select;
 
@@ -153,6 +156,41 @@ impl Mempool {
                 let txs = self.get_txs(n_txs)?;
                 self.batcher_network.tx.send(txs).await?;
                 Ok(())
+            }
+        }
+    }
+}
+
+/// Wraps the mempool to enable inbound async communication from other components.
+pub struct MempoolCommunicationWrapper {
+    mempool: Mempool,
+}
+
+impl MempoolCommunicationWrapper {
+    pub fn new(mempool: Mempool) -> Self {
+        MempoolCommunicationWrapper { mempool }
+    }
+}
+
+impl MempoolCommunicationWrapper {
+    async fn add_tx(&mut self, mempool_input: MempoolInput) -> MempoolResult<()> {
+        self.mempool.add_tx(mempool_input.tx, mempool_input.account)
+    }
+
+    async fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
+        self.mempool.get_txs(n_txs)
+    }
+}
+
+#[async_trait]
+impl ComponentRequestHandler<MempoolRequest, MempoolResponse> for MempoolCommunicationWrapper {
+    async fn handle_request(&mut self, message: MempoolRequest) -> MempoolResponse {
+        match message {
+            MempoolRequest::AddTransaction(mempool_input) => {
+                MempoolResponse::AddTransaction(self.add_tx(mempool_input).await)
+            }
+            MempoolRequest::GetTransactions(n_txs) => {
+                MempoolResponse::GetTransactions(self.get_txs(n_txs).await)
             }
         }
     }
