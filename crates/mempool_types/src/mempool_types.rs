@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+use mempool_infra::component_client::ComponentClient;
 use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
@@ -61,3 +63,53 @@ pub type MempoolNetworkComponent =
     NetworkComponent<MempoolToGatewayMessage, GatewayToMempoolMessage>;
 
 pub type MempoolResult<T> = Result<T, MempoolError>;
+
+// TODO(Tsabary, 1/6/2024): Move communication-related definitions to a separate file.
+pub struct NetworkError {}
+
+#[async_trait]
+pub trait MempoolClientInterface: Send + Sync {
+    async fn add_tx(&self, mempool_input: MempoolInput) -> Result<MempoolResult<()>, NetworkError>;
+    async fn get_txs(
+        &self,
+        n_txs: usize,
+    ) -> Result<MempoolResult<Vec<ThinTransaction>>, NetworkError>;
+}
+
+#[derive(Debug)]
+pub enum MempoolClientRequest {
+    AddTransaction(MempoolInput),
+    GetTransactions(usize),
+}
+
+#[derive(Debug)]
+pub enum MempoolClientResponse {
+    AddTransaction(MempoolResult<()>),
+    GetTransactions(MempoolResult<Vec<ThinTransaction>>),
+}
+
+type MempoolClient = ComponentClient<MempoolClientRequest, MempoolClientResponse>;
+
+#[async_trait]
+impl MempoolClientInterface for MempoolClient {
+    async fn add_tx(&self, mempool_input: MempoolInput) -> Result<MempoolResult<()>, NetworkError> {
+        let add_tx_message = MempoolClientRequest::AddTransaction(mempool_input);
+        let res = self.send(add_tx_message).await;
+        match res {
+            MempoolClientResponse::AddTransaction(res) => Result::Ok(res),
+            _ => panic!("Unexpected response type."),
+        }
+    }
+
+    async fn get_txs(
+        &self,
+        n_txs: usize,
+    ) -> Result<MempoolResult<Vec<ThinTransaction>>, NetworkError> {
+        let get_txs_message = MempoolClientRequest::GetTransactions(n_txs);
+        let res = self.send(get_txs_message).await;
+        match res {
+            MempoolClientResponse::GetTransactions(res) => Result::Ok(res),
+            _ => panic!("Unexpected response type."),
+        }
+    }
+}
