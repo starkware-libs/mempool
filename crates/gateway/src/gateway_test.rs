@@ -4,13 +4,19 @@ use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use mempool_infra::component_server::ComponentServer;
 use pretty_assertions::assert_str_eq;
 use rstest::rstest;
 use starknet_api::external_transaction::ExternalTransaction;
+use starknet_mempool::mempool::Mempool;
 use starknet_mempool_types::mempool_types::{
-    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
+    BatcherToMempoolChannels, BatcherToMempoolMessage, GatewayNetworkComponent,
+    GatewayToMempoolMessage, MempoolClient, MempoolMessageAndResponseSender,
+    MempoolNetworkComponent, MempoolToBatcherMessage, MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
+use tokio::sync::Mutex;
+use tokio::task;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
 use crate::gateway::{add_tx, AppState};
@@ -29,6 +35,8 @@ async fn test_add_tx(
 ) {
     // The  `_rx_gateway_to_mempool`   is retained to keep the channel open, as dropping it would
     // prevent the sender from transmitting messages.
+
+    use starknet_mempool::mempool::MempoolCommunicationWrapper;
     let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
     let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
 
@@ -38,6 +46,32 @@ async fn test_add_tx(
 
     let json_string = external_invoke_tx_to_json(&external_invoke_tx);
     let tx: ExternalTransaction = serde_json::from_str(&json_string).unwrap();
+
+    // TODO -- remove gateway_network, batcher_network, and channels.
+    let (_, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+    let (tx_mempool_to_gateway, _) = channel::<MempoolToGatewayMessage>(1);
+    let gateway_network =
+        MempoolNetworkComponent::new(tx_mempool_to_gateway, rx_gateway_to_mempool);
+
+    let (_, rx_mempool_to_batcher) = channel::<BatcherToMempoolMessage>(1);
+    let (tx_batcher_to_mempool, _) = channel::<MempoolToBatcherMessage>(1);
+    let batcher_network =
+        BatcherToMempoolChannels { rx: rx_mempool_to_batcher, tx: tx_batcher_to_mempool };
+
+    // Create and start the mempool server.
+    let mempool = Mempool::new([], gateway_network, batcher_network);
+    let (tx_mempool, rx_mempool) = channel::<MempoolMessageAndResponseSender>(32);
+    // TODO(Tsabary, 1/6/2024): Wrap with a dedicated create_mempool_server function.
+    let mut mempool_server = ComponentServer::new(
+        MempoolCommunicationWrapper { mempool: Mutex::new(mempool) },
+        rx_mempool,
+    );
+    task::spawn(async move {
+        mempool_server.start().await;
+    });
+
+    // Create the gateway's mempool client.
+    let gateway_mempool_client = Box::new(MempoolClient::new(tx_mempool.clone()));
 
     let mut app_state = AppState {
         stateless_transaction_validator: StatelessTransactionValidator {
@@ -52,6 +86,7 @@ async fn test_add_tx(
             config: StatefulTransactionValidatorConfig::create_for_testing(),
         }),
         state_reader_factory: Arc::new(test_state_reader_factory()),
+        mempool: Arc::new(gateway_mempool_client),
     };
 
     // Negative flow.
