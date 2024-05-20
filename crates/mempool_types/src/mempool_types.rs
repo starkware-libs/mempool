@@ -1,8 +1,10 @@
 use async_trait::async_trait;
 use mempool_infra::component_client::ComponentClient;
+use mempool_infra::component_server::ComponentRequestAndResponseSender;
 use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
+use thiserror::Error;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::errors::MempoolError;
@@ -66,7 +68,9 @@ pub type MempoolResult<T> = Result<T, MempoolError>;
 pub type MempoolClientResult<T> = Result<MempoolResult<T>, ClientError>;
 
 // TODO(Tsabary, 1/6/2024): Move communication-related definitions to a separate file.
+#[derive(Debug, Error)]
 pub enum ClientError {
+    #[error("Unexpected response type received")]
     UnexpectedResponse,
 }
 
@@ -88,10 +92,12 @@ pub enum MempoolResponse {
     GetTransactions(MempoolResult<Vec<ThinTransaction>>),
 }
 
-type MempoolClientCommunication = ComponentClient<MempoolRequest, MempoolResponse>;
+pub type MempoolClientImpl = ComponentClient<MempoolRequest, MempoolResponse>;
+pub type MempoolRequestAndResponseSender =
+    ComponentRequestAndResponseSender<MempoolRequest, MempoolResponse>;
 
 #[async_trait]
-impl MempoolClient for MempoolClientCommunication {
+impl MempoolClient for MempoolClientImpl {
     async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolClientResult<()> {
         let request = MempoolRequest::AddTransaction(mempool_input);
         let res = self.send(request).await;
