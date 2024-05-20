@@ -15,6 +15,7 @@ mempool_infra = { path = "../mempool_infra", version = "0.0" }
 starknet_api.workspace = true
 starknet_mempool_types = { path = "../mempool_types", version = "0.0" }
 tokio.workspace = true
+async-trait.workspace = true
 
 
 [dev-dependencies]

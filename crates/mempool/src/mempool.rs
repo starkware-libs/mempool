@@ -2,13 +2,16 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 
 use anyhow::Result;
+use async_trait::async_trait;
+use mempool_infra::component_server::ComponentMessageExecutor;
 use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, BatcherToMempoolChannels, BatcherToMempoolMessage,
-    GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent, MempoolResult, ThinTransaction,
+    GatewayToMempoolMessage, MempoolInput, MempoolMessages, MempoolNetworkComponent,
+    MempoolResponses, MempoolResult, MempoolTrait, ThinTransaction,
 };
 use tokio::select;
 
@@ -148,6 +151,33 @@ impl Mempool {
                 let txs = self.get_txs(n_txs)?;
                 self.batcher_network.tx.send(txs).await?;
                 Ok(())
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl MempoolTrait for Mempool {
+    async fn async_add_tx(&mut self, tx: ThinTransaction, account: Account) -> MempoolResult<()> {
+        self.add_tx(tx, account)
+    }
+
+    async fn async_get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
+        self.get_txs(n_txs)
+    }
+}
+
+#[async_trait]
+impl ComponentMessageExecutor<MempoolMessages, MempoolResponses> for Mempool {
+    async fn execute(&mut self, message: MempoolMessages) -> MempoolResponses {
+        match message {
+            MempoolMessages::AsyncAddTransaction(tx, account) => {
+                let res = self.async_add_tx(tx, account).await;
+                MempoolResponses::AsyncAddTransaction(res)
+            }
+            MempoolMessages::AsyncGetTxs(n_txs) => {
+                let res = self.async_get_txs(n_txs).await;
+                MempoolResponses::AsyncGetTxs(res)
             }
         }
     }
