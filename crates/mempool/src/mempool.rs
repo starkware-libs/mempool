@@ -161,6 +161,7 @@ impl Mempool {
     }
 }
 
+// TODO(Tsabary, 1/6/2024): Consider visibility of the following struct and its members.
 pub struct MempoolCommunicationWrapper {
     mempool: Mempool,
 }
