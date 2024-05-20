@@ -7,7 +7,7 @@ use axum::{Json, Router};
 use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_mempool_types::mempool_types::{
-    Account, GatewayNetworkComponent, GatewayToMempoolMessage, MempoolInput,
+    Account, GatewayNetworkComponent, GatewayToMempoolMessage, MempoolInput, MempoolTrait,
 };
 
 use crate::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
@@ -28,6 +28,7 @@ pub struct Gateway {
     // config.
     pub stateless_transaction_validator_config: StatelessTransactionValidatorConfig,
     pub network_component: GatewayNetworkComponent,
+    pub mempool: Box<dyn MempoolTrait>,
 }
 
 #[derive(Clone)]

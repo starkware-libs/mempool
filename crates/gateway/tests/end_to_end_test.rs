@@ -6,6 +6,8 @@ use std::time::Duration;
 use axum::body::{Body, HttpBody};
 use axum::http::{Request, StatusCode};
 use hyper::{Client, Response};
+use mempool_infra::component_client::ComponentClient;
+use mempool_infra::component_server::{ComponentServer, MessageAndResponseSender};
 use mempool_infra::network_component::CommunicationInterface;
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce};
@@ -15,7 +17,8 @@ use starknet_gateway::gateway::Gateway;
 use starknet_mempool::mempool::Mempool;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, GatewayNetworkComponent, GatewayToMempoolMessage, MempoolInput,
-    MempoolNetworkComponent, MempoolToGatewayMessage,
+    MempoolMessages, MempoolNetworkComponent, MempoolResponses, MempoolToGatewayMessage,
+    MempoolTrait,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;
@@ -66,7 +69,10 @@ fn initialize_network_channels() -> (GatewayNetworkComponent, MempoolNetworkComp
     )
 }
 
-async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, u16) {
+async fn set_up_gateway(
+    network_component: GatewayNetworkComponent,
+    mempool: Box<dyn MempoolTrait>,
+) -> (IpAddr, u16) {
     let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
     let port = 3000;
     let network_config = GatewayNetworkConfig { ip, port };
@@ -77,8 +83,12 @@ async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, 
         ..Default::default()
     };
 
-    let gateway =
-        Gateway { network_config, network_component, stateless_transaction_validator_config };
+    let gateway = Gateway {
+        network_config,
+        network_component,
+        stateless_transaction_validator_config,
+        mempool,
+    };
 
     // Setup server
     tokio::spawn(async move { gateway.build_server().await });
@@ -118,21 +128,26 @@ async fn send_and_verify_transaction(
 #[rstest]
 #[tokio::test]
 async fn test_end_to_end() {
+    // TODO: delete this line once deprecating network component.
     let (gateway_to_mempool_network, mempool_to_gateway_network) = initialize_network_channels();
 
+    // Initialize Mempool.
+    let (tx_mempool, rx_mempool) =
+        channel::<MessageAndResponseSender<MempoolMessages, MempoolResponses>>(32);
+    let mempool = Mempool::empty_mempool(mempool_to_gateway_network);
+    let mut mempool_server = ComponentServer::new(mempool, rx_mempool);
+    task::spawn(async move {
+        mempool_server.start().await;
+    });
+
     // Initialize Gateway.
-    let (ip, port) = set_up_gateway(gateway_to_mempool_network).await;
+    let mempool_client =
+        Box::new(ComponentClient::<MempoolMessages, MempoolResponses>::new(tx_mempool.clone()));
+    let (ip, port) = set_up_gateway(gateway_to_mempool_network, mempool_client).await;
 
     // Send a transaction.
     let invoke_json = &Path::new(TEST_FILES_FOLDER).join("invoke_v3.json");
     send_and_verify_transaction(ip, port, invoke_json, "INVOKE").await;
-
-    // Initialize Mempool.
-    let mut mempool = Mempool::empty_mempool(mempool_to_gateway_network);
-
-    let _listener_task = task::spawn(async move {
-        mempool.run().await.unwrap();
-    });
 
     // Wait for the listener to receive the transactions.
     sleep(Duration::from_secs(2)).await;

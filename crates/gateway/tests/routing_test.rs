@@ -4,14 +4,19 @@ use std::path::Path;
 
 use axum::body::{Body, Bytes, HttpBody};
 use axum::http::{Request, StatusCode};
+use mempool_infra::component_client::ComponentClient;
+use mempool_infra::component_server::{ComponentServer, MessageAndResponseSender};
 use pretty_assertions::assert_str_eq;
 use rstest::rstest;
 use starknet_gateway::config::{GatewayNetworkConfig, StatelessTransactionValidatorConfig};
 use starknet_gateway::gateway::Gateway;
+use starknet_mempool::mempool::Mempool;
 use starknet_mempool_types::mempool_types::{
-    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
+    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolMessages, MempoolNetworkComponent,
+    MempoolResponses, MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
+use tokio::task;
 use tower::ServiceExt;
 
 const TEST_FILES_FOLDER: &str = "./tests/fixtures";
@@ -59,16 +64,35 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
         ..Default::default()
     };
 
-    // The  `_rx_gateway_to_mempool`   is retained to keep the channel open, as dropping it would
-    // prevent the sender from transmitting messages.
-    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
-    let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
+    // TODO: remove NetworkComponent, GatewayToMempoolMessage, and MempoolToGatewayMessage.
+    let (tx_gateway_to_mempool, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+    let (tx_mempool_to_gateway, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
     let network_component =
         GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
 
+    // Initialize a Mempool.
+    let mempool_to_gateway_network =
+        MempoolNetworkComponent::new(tx_mempool_to_gateway, rx_gateway_to_mempool);
+
+    let (tx_mempool, rx_mempool) =
+        channel::<MessageAndResponseSender<MempoolMessages, MempoolResponses>>(32);
+    let mempool = Mempool::empty_mempool(mempool_to_gateway_network);
+    let mut mempool_server = ComponentServer::new(mempool, rx_mempool);
+    task::spawn(async move {
+        mempool_server.start().await;
+    });
+
+    // Initialize Gateway.
+    let mempool_client =
+        Box::new(ComponentClient::<MempoolMessages, MempoolResponses>::new(tx_mempool.clone()));
+
     // TODO: Add fixture.
-    let gateway =
-        Gateway { network_config, stateless_transaction_validator_config, network_component };
+    let gateway = Gateway {
+        network_config,
+        stateless_transaction_validator_config,
+        network_component,
+        mempool: mempool_client,
+    };
 
     let response = gateway.app().oneshot(request).await.unwrap();
     assert_eq!(response.status(), status_code);
