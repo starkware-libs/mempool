@@ -84,7 +84,6 @@ impl Mempool {
         for tx in &txs {
             self.state.remove(&tx.sender_address);
         }
-
         Ok(txs)
     }
 
