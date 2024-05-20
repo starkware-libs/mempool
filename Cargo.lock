@@ -3217,6 +3217,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "assert_matches",
+ "async-trait",
  "derive_more",
  "mempool_infra",
  "rstest",
@@ -3229,6 +3230,7 @@ dependencies = [
 name = "starknet_mempool_types"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "mempool_infra",
  "starknet_api",
  "thiserror",
