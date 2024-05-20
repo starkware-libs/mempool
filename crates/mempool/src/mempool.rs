@@ -78,7 +78,6 @@ impl Mempool {
         for tx in &txs {
             self.state.remove(&tx.contract_address);
         }
-
         Ok(txs)
     }
 

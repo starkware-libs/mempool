@@ -5,11 +5,11 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_mempool_types::mempool_types::{
-    Account, GatewayNetworkComponent, GatewayToMempoolMessage, MempoolInput,
+    Account, GatewayNetworkComponent, MempoolInput, MempoolTrait,
 };
+use tokio::sync::Mutex;
 
 use crate::config::{
     GatewayNetworkConfig, StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig,
@@ -35,6 +35,7 @@ pub struct Gateway {
     pub stateful_transaction_validator_config: StatefulTransactionValidatorConfig,
     pub network_component: GatewayNetworkComponent,
     pub state_reader_factory: Arc<dyn StateReaderFactory>,
+    pub mempool: Box<dyn MempoolTrait>,
 }
 
 #[derive(Clone)]
@@ -45,6 +46,7 @@ pub struct AppState {
     /// `GatewayNetworkClient` supports only one receiver at a time.
     pub network_component: Arc<GatewayNetworkComponent>,
     pub state_reader_factory: Arc<dyn StateReaderFactory>,
+    pub mempool: Arc<Mutex<Box<dyn MempoolTrait>>>,
 }
 
 impl Gateway {
@@ -67,6 +69,7 @@ impl Gateway {
             }),
             network_component: Arc::new(self.network_component),
             state_reader_factory: self.state_reader_factory,
+            mempool: Arc::new(Mutex::new(self.mempool)),
         };
 
         Router::new()
@@ -98,10 +101,11 @@ async fn add_tx(
     })
     .await??;
 
-    let message = GatewayToMempoolMessage::AddTransaction(mempool_input);
     app_state
-        .network_component
-        .send(message)
+        .mempool
+        .lock()
+        .await
+        .async_add_tx(mempool_input.tx, mempool_input.account)
         .await
         .map_err(|e| GatewayError::MessageSendError(e.to_string()))?;
     Ok(response)
@@ -113,7 +117,7 @@ fn process_tx(
     state_reader_factory: &dyn StateReaderFactory,
     tx: ExternalTransaction,
 ) -> GatewayResult<(String, MempoolInput)> {
-    // TODO(Arni, 1/5/2024): Preform congestion control.
+    // TODO(Arni, 1/5/2024): Perform congestion control.
 
     // Perform stateless validations.
     stateless_transaction_validator.validate(&tx)?;
