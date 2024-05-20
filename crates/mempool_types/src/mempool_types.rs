@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+use mempool_infra::component_client::ComponentClient;
 use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
@@ -40,3 +42,25 @@ pub type GatewayNetworkComponent =
     NetworkComponent<GatewayToMempoolMessage, MempoolToGatewayMessage>;
 pub type MempoolNetworkComponent =
     NetworkComponent<MempoolToGatewayMessage, GatewayToMempoolMessage>;
+
+#[async_trait]
+pub trait MempoolTrait: Send + Sync {
+    async fn async_add_tx(&mut self, tx: ThinTransaction, account: Account) -> ();
+}
+
+#[derive(Clone, Debug)]
+pub enum MempoolMessages {
+    AsyncAddTransaction(ThinTransaction, Account),
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum MempoolResponses {
+    AsyncAddTransaction(),
+}
+
+#[async_trait]
+impl MempoolTrait for ComponentClient<MempoolMessages, MempoolResponses> {
+    async fn async_add_tx(&mut self, tx: ThinTransaction, account: Account) {
+        self.send(MempoolMessages::AsyncAddTransaction(tx, account)).await;
+    }
+}
