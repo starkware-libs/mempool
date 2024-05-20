@@ -41,7 +41,6 @@ where
             let tx = message_and_res_tx.tx;
 
             let res = self.component.execute(message).await;
-
             tx.send(res).await.expect("Response connection should be open.");
         }
     }
