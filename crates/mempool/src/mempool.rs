@@ -2,15 +2,19 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 
 use anyhow::Result;
+use async_trait::async_trait;
+use mempool_infra::component_server::ComponentMessageExecutor;
 use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, BatcherToMempoolChannels, BatcherToMempoolMessage,
-    GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent, MempoolResult, ThinTransaction,
+    GatewayToMempoolMessage, MempoolInput, MempoolInterface, MempoolInvocationMessages,
+    MempoolInvocationResponses, MempoolNetworkComponent, MempoolResult, ThinTransaction,
 };
 use tokio::select;
+use tokio::sync::Mutex;
 
 use crate::priority_queue::TransactionPriorityQueue;
 
@@ -153,6 +157,39 @@ impl Mempool {
                 let txs = self.get_txs(n_txs)?;
                 self.batcher_network.tx.send(txs).await?;
                 Ok(())
+            }
+        }
+    }
+}
+
+pub struct MempoolCommunicationWrapper {
+    pub mempool: Mutex<Mempool>,
+}
+
+#[async_trait]
+impl MempoolInterface for MempoolCommunicationWrapper {
+    async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolResult<()> {
+        self.mempool.lock().await.add_tx(mempool_input.tx, mempool_input.account)
+    }
+
+    async fn get_txs(&self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
+        self.mempool.lock().await.get_txs(n_txs)
+    }
+}
+
+#[async_trait]
+impl ComponentMessageExecutor<MempoolInvocationMessages, MempoolInvocationResponses>
+    for MempoolCommunicationWrapper
+{
+    async fn execute(&mut self, message: MempoolInvocationMessages) -> MempoolInvocationResponses {
+        match message {
+            MempoolInvocationMessages::AddTransaction(mempool_input) => {
+                let res = self.add_tx(mempool_input).await;
+                MempoolInvocationResponses::AddTransaction(res)
+            }
+            MempoolInvocationMessages::GetTransactions(n_txs) => {
+                let res = self.get_txs(n_txs).await;
+                MempoolInvocationResponses::GetTransactions(res)
             }
         }
     }

@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+use mempool_infra::component_client::ComponentClient;
 use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
@@ -61,3 +63,43 @@ pub type MempoolNetworkComponent =
     NetworkComponent<MempoolToGatewayMessage, GatewayToMempoolMessage>;
 
 pub type MempoolResult<T> = Result<T, MempoolError>;
+
+// TODO(Tsabary, 1/6/2024): Move communication-related definitions to a separate file.
+#[async_trait]
+pub trait MempoolInterface: Send + Sync {
+    async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolResult<()>;
+    async fn get_txs(&self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>>;
+}
+
+#[derive(Debug)]
+pub enum MempoolInvocationMessages {
+    AddTransaction(MempoolInput),
+    GetTransactions(usize),
+}
+
+#[derive(Debug)]
+pub enum MempoolInvocationResponses {
+    AddTransaction(MempoolResult<()>),
+    GetTransactions(MempoolResult<Vec<ThinTransaction>>),
+}
+
+type MempoolClient = ComponentClient<MempoolInvocationMessages, MempoolInvocationResponses>;
+
+#[async_trait]
+impl MempoolInterface for MempoolClient {
+    async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolResult<()> {
+        let res = self.send(MempoolInvocationMessages::AddTransaction(mempool_input)).await;
+        match res {
+            MempoolInvocationResponses::AddTransaction(res) => res,
+            _ => panic!("Unexpected response type."),
+        }
+    }
+
+    async fn get_txs(&self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
+        let res = self.send(MempoolInvocationMessages::GetTransactions(n_txs)).await;
+        match res {
+            MempoolInvocationResponses::GetTransactions(res) => res,
+            _ => panic!("Unexpected response type."),
+        }
+    }
+}
