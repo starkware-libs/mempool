@@ -9,13 +9,13 @@ use starknet_api::transaction::{
     TransactionHash,
 };
 use starknet_api::{contract_address, patricia_key};
+use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     GatewayToMempoolMessage, MempoolNetworkComponent, MempoolToGatewayMessage,
 };
 use starknet_mempool_types::utils::create_thin_tx_for_testing;
 use tokio::sync::mpsc::channel;
 
-use crate::errors::MempoolError;
 use crate::mempool::{Account, Mempool, MempoolInput};
 use crate::priority_queue::PQTransaction;
 
