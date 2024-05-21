@@ -6,6 +6,7 @@ members = [
     "crates/mempool_node",
     "crates/mempool_infra",
     "crates/task_executor",
+    "crates/test_utils",
 ]
 resolver = "2"
 
@@ -27,6 +28,7 @@ as_conversions = "deny"
 
 [workspace.dependencies]
 anyhow = "1.0"
+assert-json-diff = "2.0.2"
 assert_matches = "1.5.0"
 async-trait = "0.1.79"
 axum = "0.6.12"
@@ -34,9 +36,11 @@ axum = "0.6.12"
 blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "fc62b8b8", features = ["testing"] }
 cairo-lang-starknet-classes = "2.6.0"
 clap = "4.3.10"
-derive_more = "0.99"
+colored = "2.1.0"
 const_format = "0.2.30"
+derive_more = "0.99"
 hyper = { version = "0.14", features = ["client", "http1"] }
+insta = "1.29.0"
 papyrus_config = "0.3.0"
 pretty_assertions = "1.4.0"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
