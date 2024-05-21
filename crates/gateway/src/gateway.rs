@@ -91,13 +91,12 @@ fn add_tx(gateway_state: AppState, tx: ExternalTransaction) -> GatewayResult<Str
     gateway_state.stateless_transaction_validator.validate(&tx)?;
 
     // TODO(Yael, 19/5/2024): pass the relevant class_info and deploy_account_hash.
-    gateway_state.stateful_transaction_validator.run_validate(
+    let _tx_hash = gateway_state.stateful_transaction_validator.run_validate(
         gateway_state.state_reader_factory,
         &tx,
         None,
         None,
     )?;
-    // TODO(Yael, 19/5/2024): return the tx_hash.
     // TODO(Arni, 1/5/2024): Move transaction to mempool.
 
     // TODO(Arni, 1/5/2024): Produce response.
