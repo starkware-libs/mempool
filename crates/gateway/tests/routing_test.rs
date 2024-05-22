@@ -16,9 +16,8 @@ use starknet_gateway::starknet_api_test_utils::invoke_tx;
 use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
 use starknet_mempool::mempool::Mempool;
 use starknet_mempool_types::mempool_types::{
-    BatcherToMempoolChannels, BatcherToMempoolMessage, GatewayNetworkComponent,
-    GatewayToMempoolMessage, MempoolMessages, MempoolNetworkComponent, MempoolResponses,
-    MempoolToBatcherMessage, MempoolToGatewayMessage,
+    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolMessages, MempoolResponses,
+    MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;
@@ -64,23 +63,13 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
     };
 
     // TODO: remove NetworkComponent, GatewayToMempoolMessage, and MempoolToGatewayMessage.
-    let (tx_gateway_to_mempool, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
-    let (tx_mempool_to_gateway, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
+    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
+    let (_tx_mempool_to_gateway, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
     let network_component =
         GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
     let stateful_transaction_validator_config =
         StatefulTransactionValidatorConfig::create_for_testing();
     let state_reader_factory = Arc::new(test_state_reader_factory());
-
-    // Initialize a Mempool.
-    let mempool_to_gateway_network =
-        MempoolNetworkComponent::new(tx_mempool_to_gateway, rx_gateway_to_mempool);
-
-    let (_tx_batcher_to_mempool, rx_batcher_to_mempool) = channel::<BatcherToMempoolMessage>(1);
-    let (tx_mempool_to_batcher, _rx_mempool_to_batcher) = channel::<MempoolToBatcherMessage>(1);
-
-    let batcher_channels =
-        BatcherToMempoolChannels { rx: rx_batcher_to_mempool, tx: tx_mempool_to_batcher };
 
     let (tx_mempool, rx_mempool) =
         channel::<MessageAndResponseSender<MempoolMessages, MempoolResponses>>(32);
@@ -89,7 +78,7 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
     let mempool_client =
         Box::new(ComponentClient::<MempoolMessages, MempoolResponses>::new(tx_mempool.clone()));
 
-    let mempool = Mempool::empty(mempool_to_gateway_network, batcher_channels);
+    let mempool = Mempool::empty();
     let mut mempool_server = ComponentServer::new(mempool, rx_mempool);
     task::spawn(async move {
         mempool_server.start().await;

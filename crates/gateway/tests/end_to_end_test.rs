@@ -18,9 +18,8 @@ use starknet_gateway::starknet_api_test_utils::invoke_tx;
 use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
 use starknet_mempool::mempool::Mempool;
 use starknet_mempool_types::mempool_types::{
-    BatcherToMempoolChannels, BatcherToMempoolMessage, GatewayNetworkComponent,
-    GatewayToMempoolMessage, MempoolInput, MempoolMessages, MempoolNetworkComponent,
-    MempoolResponses, MempoolToBatcherMessage, MempoolToGatewayMessage, MempoolTrait,
+    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolInput, MempoolMessages,
+    MempoolNetworkComponent, MempoolResponses, MempoolToGatewayMessage, MempoolTrait,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;
@@ -129,20 +128,13 @@ async fn send_and_verify_transaction(
 #[tokio::test]
 async fn test_end_to_end() {
     // TODO: delete this line once deprecating network component.
-    let (gateway_to_mempool_network, mempool_to_gateway_network) =
+    let (gateway_to_mempool_network, _mempool_to_gateway_network) =
         initialize_gateway_network_channels();
-
-    let (_tx_batcher_to_mempool, rx_batcher_to_mempool) = channel::<BatcherToMempoolMessage>(1);
-    let (tx_mempool_to_batcher, _rx_mempool_to_batcher) = channel::<MempoolToBatcherMessage>(1);
-
-    let batcher_channels =
-        BatcherToMempoolChannels { rx: rx_batcher_to_mempool, tx: tx_mempool_to_batcher };
 
     // Initialize Mempool.
     let (tx_mempool, rx_mempool) =
         channel::<MessageAndResponseSender<MempoolMessages, MempoolResponses>>(32);
-    let mempool = Mempool::empty(mempool_to_gateway_network, batcher_channels);
-
+    let mempool = Mempool::empty();
     let mut mempool_server = ComponentServer::new(mempool, rx_mempool);
     task::spawn(async move {
         mempool_server.start().await;

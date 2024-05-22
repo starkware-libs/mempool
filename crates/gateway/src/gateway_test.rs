@@ -11,9 +11,8 @@ use rstest::rstest;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_mempool::mempool::Mempool;
 use starknet_mempool_types::mempool_types::{
-    BatcherToMempoolChannels, BatcherToMempoolMessage, GatewayNetworkComponent,
-    GatewayToMempoolMessage, MempoolMessages, MempoolNetworkComponent, MempoolResponses,
-    MempoolToBatcherMessage, MempoolToGatewayMessage,
+    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolMessages, MempoolResponses,
+    MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
 use tokio::sync::Mutex;
@@ -42,19 +41,8 @@ async fn test_add_tx(#[case] tx: ExternalTransaction, #[case] expected_response:
     let network_component =
         Arc::new(GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway));
 
-    // TODO -- remove gateway_network, batcher_network, and channels.
-    let (_, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
-    let (tx_mempool_to_gateway, _) = channel::<MempoolToGatewayMessage>(1);
-    let gateway_network =
-        MempoolNetworkComponent::new(tx_mempool_to_gateway, rx_gateway_to_mempool);
-
-    let (_, rx_mempool_to_batcher) = channel::<BatcherToMempoolMessage>(1);
-    let (tx_batcher_to_mempool, _) = channel::<MempoolToBatcherMessage>(1);
-    let batcher_network =
-        BatcherToMempoolChannels { rx: rx_mempool_to_batcher, tx: tx_batcher_to_mempool };
-
     // Create and start the mempool server.
-    let mempool = Mempool::new([], gateway_network, batcher_network);
+    let mempool = Mempool::new([]);
     let (tx_mempool, rx_mempool) =
         channel::<MessageAndResponseSender<MempoolMessages, MempoolResponses>>(32);
     let mut mempool_server = ComponentServer::new(mempool, rx_mempool);
