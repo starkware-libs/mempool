@@ -65,7 +65,7 @@ fn initialize_gateway_network_channels() -> (GatewayNetworkComponent, MempoolNet
     )
 }
 
-async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, u16) {
+async fn set_up_gateway(network_component: GatewayNetworkComponent) -> SocketAddr {
     let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
     let port = 3000;
     let network_config = GatewayNetworkConfig { ip, port };
@@ -90,26 +90,25 @@ async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, 
     // Setup server
     tokio::spawn(async move { gateway.build_server().await });
 
+    // TODO: Avoid using sleep, it slow down the test.
     // Ensure the server has time to start up
     sleep(Duration::from_millis(1000)).await;
-    (ip, port)
+    SocketAddr::from((ip, port))
 }
 
 async fn send_and_verify_transaction(
-    ip: IpAddr,
-    port: u16,
+    socket_addr: SocketAddr,
     tx: ExternalTransaction,
     expected_response: &str,
 ) {
     let tx_json = external_invoke_tx_to_json(tx);
     let request = Request::builder()
         .method("POST")
-        .uri(format!("http://{}", SocketAddr::from((ip, port))) + "/add_tx")
+        .uri(format!("http://{}", socket_addr) + "/add_tx")
         .header("content-type", "application/json")
         .body(Body::from(tx_json))
         .unwrap();
 
-    // Create a client
     let client = Client::new();
 
     // Send a POST request with the transaction data as the body
@@ -135,11 +134,11 @@ async fn test_end_to_end() {
         BatcherToMempoolChannels { rx: rx_batcher_to_mempool, tx: tx_mempool_to_batcher };
 
     // Initialize Gateway.
-    let (ip, port) = set_up_gateway(gateway_to_mempool_network).await;
+    let socket_addr = set_up_gateway(gateway_to_mempool_network).await;
 
     // Send a transaction.
     let external_tx = invoke_tx();
-    send_and_verify_transaction(ip, port, external_tx, "INVOKE").await;
+    send_and_verify_transaction(socket_addr, external_tx, "INVOKE").await;
 
     // Initialize Mempool.
     let mut mempool = Mempool::empty(mempool_to_gateway_network, batcher_channels);
@@ -148,13 +147,12 @@ async fn test_end_to_end() {
         mempool.run().await.unwrap();
     });
 
+    // TODO: Avoid using sleep, it slow down the test.
     // Wait for the listener to receive the transactions.
     sleep(Duration::from_secs(2)).await;
 
     let batcher_to_mempool_message = BatcherToMempoolMessage::GetTransactions(2);
-    task::spawn(async move {
-        tx_batcher_to_mempool.send(batcher_to_mempool_message).await.unwrap();
-    });
+    tx_batcher_to_mempool.send(batcher_to_mempool_message).await.unwrap();
 
     let mempool_message = rx_mempool_to_batcher.recv().await.unwrap();
     assert_eq!(mempool_message.len(), 1);
