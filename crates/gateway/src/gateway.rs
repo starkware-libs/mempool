@@ -6,9 +6,7 @@ use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use starknet_api::external_transaction::ExternalTransaction;
-use starknet_mempool_types::mempool_types::{
-    Account, GatewayNetworkComponent, MempoolInput, MempoolTrait,
-};
+use starknet_mempool_types::mempool_types::{Account, MempoolInput, MempoolTrait};
 use tokio::sync::Mutex;
 
 use crate::config::{
@@ -33,7 +31,6 @@ pub struct Gateway {
     // config.
     pub stateless_transaction_validator_config: StatelessTransactionValidatorConfig,
     pub stateful_transaction_validator_config: StatefulTransactionValidatorConfig,
-    pub network_component: GatewayNetworkComponent,
     pub state_reader_factory: Arc<dyn StateReaderFactory>,
     pub mempool: Box<dyn MempoolTrait>,
 }
@@ -42,9 +39,6 @@ pub struct Gateway {
 pub struct AppState {
     pub stateless_transaction_validator: StatelessTransactionValidator,
     pub stateful_transaction_validator: Arc<StatefulTransactionValidator>,
-    /// This field uses Arc to enable shared ownership, which is necessary because
-    /// `GatewayNetworkClient` supports only one receiver at a time.
-    pub network_component: Arc<GatewayNetworkComponent>,
     pub state_reader_factory: Arc<dyn StateReaderFactory>,
     pub mempool: Arc<Mutex<Box<dyn MempoolTrait>>>,
 }
@@ -67,7 +61,6 @@ impl Gateway {
             stateful_transaction_validator: Arc::new(StatefulTransactionValidator {
                 config: self.stateful_transaction_validator_config,
             }),
-            network_component: Arc::new(self.network_component),
             state_reader_factory: self.state_reader_factory,
             mempool: Arc::new(Mutex::new(self.mempool)),
         };

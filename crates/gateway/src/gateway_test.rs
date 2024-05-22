@@ -10,10 +10,7 @@ use pretty_assertions::assert_str_eq;
 use rstest::rstest;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_mempool::mempool::Mempool;
-use starknet_mempool_types::mempool_types::{
-    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolMessages, MempoolResponses,
-    MempoolToGatewayMessage,
-};
+use starknet_mempool_types::mempool_types::{MempoolMessages, MempoolResponses};
 use tokio::sync::mpsc::channel;
 use tokio::sync::Mutex;
 use tokio::task;
@@ -32,15 +29,6 @@ use crate::stateless_transaction_validator::StatelessTransactionValidator;
 #[case::invoke(invoke_tx(), "INVOKE")]
 #[tokio::test]
 async fn test_add_tx(#[case] tx: ExternalTransaction, #[case] expected_response: &str) {
-    // The  `_rx_gateway_to_mempool`   is retained to keep the channel open, as dropping it would
-    // prevent the sender from transmitting messages.
-    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
-    let (_, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
-
-    // TODO: Add fixture.
-    let network_component =
-        Arc::new(GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway));
-
     // Create and start the mempool server.
     let mempool = Mempool::new([]);
     let (tx_mempool, rx_mempool) =
@@ -62,7 +50,6 @@ async fn test_add_tx(#[case] tx: ExternalTransaction, #[case] expected_response:
                 ..Default::default()
             },
         },
-        network_component,
         stateful_transaction_validator: Arc::new(StatefulTransactionValidator {
             config: StatefulTransactionValidatorConfig::create_for_testing(),
         }),
