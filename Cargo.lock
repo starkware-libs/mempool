@@ -3217,7 +3217,6 @@ dependencies = [
  "blockifier",
  "cairo-lang-starknet-classes",
  "hyper",
- "mempool_infra",
  "papyrus_config",
  "pretty_assertions",
  "reqwest",
@@ -3255,7 +3254,6 @@ dependencies = [
  "mempool_infra",
  "starknet_api",
  "thiserror",
- "tokio",
 ]
 
 [[package]]
