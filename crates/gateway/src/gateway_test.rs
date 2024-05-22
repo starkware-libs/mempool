@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
 use starknet_mempool_types::mempool_types::{
-    GatewayToMempoolMessage, MempoolClient, MempoolInvocation, MempoolMessageAndResponseSender,
+    MempoolClient, MempoolInvocation, MempoolMessageAndResponseSender,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;
@@ -41,10 +41,6 @@ pub fn app_state(mempool_client: Box<dyn MempoolInvocation>) -> AppState {
 // TODO(Ayelet): add test cases for declare and deploy account transactions.
 #[tokio::test]
 async fn test_add_tx() {
-    // The `_rx_gateway_to_mempool` is retained to keep the channel open, as dropping it would
-    // prevent the sender from transmitting messages.
-    let (_, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
-
     // Create and start the mempool server.
     let mempool = Mempool::new([]);
     // TODO(Tsabary): wrap creation of channels in dedicated functions, take channel capacity from
