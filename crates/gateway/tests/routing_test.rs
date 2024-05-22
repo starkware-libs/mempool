@@ -14,10 +14,7 @@ use starknet_gateway::gateway::Gateway;
 use starknet_gateway::starknet_api_test_utils::{external_invoke_tx_to_json, invoke_tx};
 use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
-use starknet_mempool_types::mempool_types::{
-    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolClient,
-    MempoolMessageAndResponseSender, MempoolToGatewayMessage,
-};
+use starknet_mempool_types::mempool_types::{MempoolClient, MempoolMessageAndResponseSender};
 use tokio::sync::mpsc::channel;
 use tokio::task;
 use tower::ServiceExt;
@@ -70,11 +67,6 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
         stateful_transaction_validator_config,
     };
 
-    // TODO: remove NetworkComponent, GatewayToMempoolMessage, and MempoolToGatewayMessage.
-    let (tx_gateway_to_mempool, _rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
-    let (_tx_mempool_to_gateway, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
-    let network_component =
-        GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway);
     let state_reader_factory = Arc::new(test_state_reader_factory());
 
     let (tx_mempool, rx_mempool) = channel::<MempoolMessageAndResponseSender>(32);
@@ -89,7 +81,7 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
     });
 
     // TODO: Add fixture.
-    let gateway = Gateway::new(config, network_component, state_reader_factory, mempool_client);
+    let gateway = Gateway::new(config, state_reader_factory, mempool_client);
 
     let response = gateway.app().oneshot(request).await.unwrap();
     assert_eq!(response.status(), status_code);
