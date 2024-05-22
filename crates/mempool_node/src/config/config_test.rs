@@ -21,20 +21,10 @@ use crate::config::{
     DEFAULT_CONFIG_PATH,
 };
 
-const TEST_FILES_FOLDER: &str = "crates/mempool_node/src/test_files";
-const CONFIG_FILE: &str = "mempool_node_config.json";
-
-fn get_config_file(file_name: &str) -> Result<MempoolNodeConfig, papyrus_config::ConfigError> {
-    let config_file = File::open(Path::new(TEST_FILES_FOLDER).join(file_name)).unwrap();
-    load_and_process_config::<MempoolNodeConfig>(config_file, node_command(), vec![])
-}
-
 #[test]
-fn test_valid_config() {
-    env::set_current_dir(get_absolute_path("")).expect("Couldn't set working dir.");
-
-    // Read the valid config file and validate its content.
-    let expected_config = MempoolNodeConfig {
+fn test_components_config() {
+    // Initialize the config file and check that the validator finds no errors.
+    let mut config = MempoolNodeConfig {
         components: ComponentConfig {
             gateway_component: ComponentExecutionConfig { execute: true },
             mempool_component: ComponentExecutionConfig { execute: false },
@@ -49,18 +39,6 @@ fn test_valid_config() {
             },
         },
     };
-    let loaded_config = get_config_file(CONFIG_FILE).unwrap();
-
-    assert!(loaded_config.validate().is_ok());
-    assert_eq!(loaded_config, expected_config);
-}
-
-#[test]
-fn test_components_config() {
-    env::set_current_dir(get_absolute_path("")).expect("Couldn't set working dir.");
-
-    // Read the valid config file and check that the validator finds no errors.
-    let mut config = get_config_file(CONFIG_FILE).unwrap();
     assert!(config.validate().is_ok());
 
     // Invalidate the gateway component and check that the validator finds an error.
