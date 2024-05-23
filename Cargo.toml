@@ -6,6 +6,7 @@ members = [
     "crates/mempool_node",
     "crates/mempool_infra",
     "crates/task_executor",
+    "crates/tests-integration",
 ]
 resolver = "2"
 
