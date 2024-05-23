@@ -3230,7 +3230,6 @@ dependencies = [
  "axum",
  "blockifier",
  "cairo-lang-starknet-classes",
- "hyper",
  "mempool_infra",
  "papyrus_config",
  "pretty_assertions",
@@ -3256,6 +3255,23 @@ dependencies = [
  "mempool_infra",
  "rstest",
  "starknet_api",
+ "starknet_mempool_types",
+ "tokio",
+]
+
+[[package]]
+name = "starknet_mempool_integration_tests"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "hyper",
+ "mempool_infra",
+ "pretty_assertions",
+ "reqwest",
+ "rstest",
+ "starknet_api",
+ "starknet_gateway",
+ "starknet_mempool",
  "starknet_mempool_types",
  "tokio",
 ]
