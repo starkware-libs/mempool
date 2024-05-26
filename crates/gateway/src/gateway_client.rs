@@ -6,7 +6,7 @@ use reqwest::{Client, Response};
 use starknet_api::external_transaction::ExternalTransaction;
 
 use crate::errors::GatewayError;
-use crate::starknet_api_test_utils::external_invoke_tx_to_json;
+use crate::starknet_api_test_utils::external_tx_to_json;
 
 pub type GatewayResult<T> = Result<T, GatewayError>;
 
@@ -23,9 +23,14 @@ impl GatewayClient {
     }
 
     // TODO: change from &str to proper return type once that's ready.
-    pub async fn assert_add_tx_success(&self, tx: &ExternalTransaction, expected: &str) {
+    pub async fn assert_add_tx_success(
+        &self,
+        tx: &ExternalTransaction,
+        tx_type: &str,
+        expected: &str,
+    ) {
         let response =
-            self.add_tx_with_status_check(tx, StatusCode::OK).await.bytes().await.unwrap();
+            self.add_tx_with_status_check(tx, tx_type, StatusCode::OK).await.bytes().await.unwrap();
 
         assert_eq!(response, expected)
     }
@@ -33,9 +38,10 @@ impl GatewayClient {
     pub async fn add_tx_with_status_check(
         &self,
         tx: &ExternalTransaction,
+        tx_type: &str,
         expected_status_code: StatusCode,
     ) -> Response {
-        let response = self.add_tx(tx).await;
+        let response = self.add_tx(tx, tx_type).await;
         assert_eq!(response.status(), expected_status_code);
 
         response
@@ -43,8 +49,8 @@ impl GatewayClient {
 
     // Prefer using assert_add_tx_success or other higher level methods of this client, to ensure
     // tests are boilerplate and implementation-detail free.
-    pub async fn add_tx(&self, tx: &ExternalTransaction) -> Response {
-        let tx_json = external_invoke_tx_to_json(tx);
+    pub async fn add_tx(&self, tx: &ExternalTransaction, tx_type: &str) -> Response {
+        let tx_json = external_tx_to_json(tx.clone(), tx_type);
         self.client
             .post(format!("http://{}/add_tx", self.socket))
             .header("content-type", "application/json")

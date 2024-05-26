@@ -14,7 +14,7 @@ use tokio::sync::mpsc::channel;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
 use crate::gateway::{add_tx, AppState};
-use crate::starknet_api_test_utils::{external_invoke_tx_to_json, invoke_tx};
+use crate::starknet_api_test_utils::{external_tx_to_json, invoke_tx};
 use crate::state_reader_test_utils::test_state_reader_factory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
@@ -36,7 +36,7 @@ async fn test_add_tx(
     let network_component =
         Arc::new(GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway));
 
-    let json_string = external_invoke_tx_to_json(&external_invoke_tx);
+    let json_string = external_tx_to_json(external_invoke_tx, "INVOKE_FUNCTION");
     let tx: ExternalTransaction = serde_json::from_str(&json_string).unwrap();
 
     let mut app_state = AppState {

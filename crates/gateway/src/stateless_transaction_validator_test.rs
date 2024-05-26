@@ -71,7 +71,7 @@ fn test_positive_flow(
     tx_type: TransactionType,
 ) {
     let tx_validator = StatelessTransactionValidator { config };
-    let tx = external_tx_for_testing(tx_type, resource_bounds, tx_calldata, signature);
+    let tx = external_tx_for_testing(tx_type, resource_bounds, tx_calldata, signature, None);
 
     assert!(tx_validator.validate(&tx).is_ok());
 }
@@ -122,6 +122,7 @@ fn test_invalid_resource_bounds(
         resource_bounds,
         calldata![],
         TransactionSignature::default(),
+        None,
     );
 
     assert_eq!(tx_validator.validate(&tx).unwrap_err(), expected_error);
@@ -138,6 +139,7 @@ fn test_calldata_too_long(
         non_zero_resource_bounds_mapping(),
         calldata![StarkFelt::from_u128(1), StarkFelt::from_u128(2)],
         TransactionSignature::default(),
+        None,
     );
 
     assert_eq!(
@@ -161,6 +163,7 @@ fn test_signature_too_long(
         non_zero_resource_bounds_mapping(),
         calldata![],
         TransactionSignature(vec![StarkFelt::from_u128(1), StarkFelt::from_u128(2)]),
+        None,
     );
 
     assert_eq!(
