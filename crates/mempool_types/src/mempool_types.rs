@@ -28,7 +28,7 @@ pub struct Account {
     pub state: AccountState,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct MempoolInput {
     pub tx: ThinTransaction,
     pub account: Account,
@@ -55,13 +55,13 @@ pub trait MempoolClient: Send + Sync {
     async fn get_txs(&self, n_txs: usize) -> MempoolClientResult<Vec<ThinTransaction>>;
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum MempoolRequest {
     AddTransaction(MempoolInput),
     GetTransactions(usize),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum MempoolResponse {
     AddTransaction(MempoolResult<()>),
     GetTransactions(MempoolResult<Vec<ThinTransaction>>),

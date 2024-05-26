@@ -24,7 +24,7 @@ pub mod gateway_test;
 pub type GatewayResult<T> = Result<T, GatewayError>;
 
 pub struct Gateway {
-    config: GatewayConfig,
+    pub config: GatewayConfig,
     app_state: AppState,
 }
 
@@ -70,8 +70,6 @@ impl Gateway {
             .route("/is_alive", get(is_alive))
             .route("/add_tx", post(add_tx))
             .with_state(self.app_state)
-        // TODO: when we need to configure the router, like adding banned ips, add it here via
-        // `with_state`.
     }
 }
 
