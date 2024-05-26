@@ -22,7 +22,7 @@ impl GatewayClient {
         Self { socket, client }
     }
 
-    pub async fn add_tx(&self, tx: ExternalTransaction) -> GatewayResult<String> {
+    pub async fn add_tx(&self, tx: &ExternalTransaction) -> GatewayResult<String> {
         let tx_json = external_invoke_tx_to_json(tx);
         let request = Request::builder()
             .method("POST")
