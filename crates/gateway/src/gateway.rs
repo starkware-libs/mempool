@@ -24,7 +24,7 @@ pub mod gateway_test;
 pub type GatewayResult<T> = Result<T, GatewayError>;
 
 pub struct Gateway {
-    config: GatewayConfig,
+    pub config: GatewayConfig,
     app_state: AppState,
 }
 
@@ -72,6 +72,32 @@ impl Gateway {
             .with_state(self.app_state)
         // TODO: when we need to configure the router, like adding banned ips, add it here via
         // `with_state`.
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub async fn create_for_testing(mempool_client: Arc<dyn MempoolClient>) -> Gateway {
+        let stateless_tx_validator_config = crate::config::StatelessTransactionValidatorConfig {
+            validate_non_zero_l1_gas_fee: true,
+            max_calldata_length: 10,
+            max_signature_length: 2,
+            ..Default::default()
+        };
+
+        let socket: SocketAddr = "127.0.0.1:3000".parse().unwrap();
+        let network_config = GatewayNetworkConfig { ip: socket.ip(), port: socket.port() };
+        let stateful_tx_validator_config =
+            crate::config::StatefulTransactionValidatorConfig::create_for_testing();
+
+        let gateway_config = GatewayConfig {
+            network_config,
+            stateless_tx_validator_config,
+            stateful_tx_validator_config,
+        };
+
+        let state_reader_factory =
+            Arc::new(crate::state_reader_test_utils::rpc_test_state_reader_factory().await);
+
+        Gateway::new(gateway_config, state_reader_factory, mempool_client)
     }
 }
 
