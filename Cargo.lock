@@ -3269,6 +3269,7 @@ dependencies = [
  "starknet_gateway",
  "starknet_mempool",
  "starknet_mempool_types",
+ "starknet_task_executor",
  "tokio",
 ]
 
