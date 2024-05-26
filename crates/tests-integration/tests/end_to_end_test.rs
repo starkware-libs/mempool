@@ -85,7 +85,7 @@ async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, 
     let gateway = Gateway::new(config, network_component, state_reader_factory);
 
     // Setup server
-    tokio::spawn(async move { gateway.run_server().await });
+    tokio::spawn(async move { gateway.run().await });
 
     // Ensure the server has time to start up
     sleep(Duration::from_millis(1000)).await;
