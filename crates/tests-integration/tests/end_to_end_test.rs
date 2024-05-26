@@ -1,30 +1,16 @@
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-use std::sync::Arc;
-use std::time::Duration;
-
-use axum::body::{Body, HttpBody};
-use axum::http::{Request, StatusCode};
-use hyper::{Client, Response};
 use mempool_infra::network_component::CommunicationInterface;
+use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::external_transaction::ExternalTransaction;
 use starknet_api::transaction::{Tip, TransactionHash};
-use starknet_gateway::config::{
-    GatewayConfig, GatewayNetworkConfig, StatefulTransactionValidatorConfig,
-    StatelessTransactionValidatorConfig,
-};
-use starknet_gateway::gateway::Gateway;
-use starknet_gateway::starknet_api_test_utils::{external_invoke_tx_to_json, invoke_tx};
-use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
-use starknet_mempool::mempool::Mempool;
+use starknet_gateway::starknet_api_test_utils::invoke_tx;
+use starknet_mempool_integration_tests::integration_test_setup::IntegrationTestSetup;
+use starknet_mempool_integration_tests::integration_test_utils::check_success;
 use starknet_mempool_types::mempool_types::{
-    BatcherToMempoolChannels, BatcherToMempoolMessage, GatewayNetworkComponent,
-    GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent, MempoolToBatcherMessage,
+    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent,
     MempoolToGatewayMessage,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;
-use tokio::time::sleep;
 
 #[tokio::test]
 async fn test_send_and_receive() {
@@ -55,108 +41,16 @@ async fn test_send_and_receive() {
     }
 }
 
-fn initialize_gateway_network_channels() -> (GatewayNetworkComponent, MempoolNetworkComponent) {
-    let (tx_gateway_to_mempool, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
-    let (tx_mempool_to_gateway, rx_mempool_to_gateway) = channel::<MempoolToGatewayMessage>(1);
-
-    (
-        GatewayNetworkComponent::new(tx_gateway_to_mempool, rx_mempool_to_gateway),
-        MempoolNetworkComponent::new(tx_mempool_to_gateway, rx_gateway_to_mempool),
-    )
-}
-
-async fn set_up_gateway(network_component: GatewayNetworkComponent) -> (IpAddr, u16) {
-    let ip = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
-    let port = 3000;
-    let network_config = GatewayNetworkConfig { ip, port };
-    let stateless_transaction_validator_config = StatelessTransactionValidatorConfig {
-        validate_non_zero_l1_gas_fee: true,
-        max_calldata_length: 10,
-        max_signature_length: 2,
-        ..Default::default()
-    };
-    let stateful_transaction_validator_config =
-        StatefulTransactionValidatorConfig::create_for_testing();
-    let config = GatewayConfig {
-        network_config,
-        stateless_transaction_validator_config,
-        stateful_transaction_validator_config,
-    };
-
-    let state_reader_factory = Arc::new(test_state_reader_factory());
-
-    let gateway = Gateway { config, network_component, state_reader_factory };
-
-    // Setup server
-    tokio::spawn(async move { gateway.run().await });
-
-    // Ensure the server has time to start up
-    sleep(Duration::from_millis(1000)).await;
-    (ip, port)
-}
-
-async fn send_and_verify_transaction(
-    ip: IpAddr,
-    port: u16,
-    tx: ExternalTransaction,
-    expected_response: &str,
-) {
-    let tx_json = external_invoke_tx_to_json(tx);
-    let request = Request::builder()
-        .method("POST")
-        .uri(format!("http://{}", SocketAddr::from((ip, port))) + "/add_tx")
-        .header("content-type", "application/json")
-        .body(Body::from(tx_json))
-        .unwrap();
-
-    // Create a client
-    let client = Client::new();
-
-    // Send a POST request with the transaction data as the body
-    let response: Response<Body> = client.request(request).await.unwrap();
-
-    assert_eq!(response.status(), StatusCode::OK);
-
-    let res = response.into_body().collect().await.unwrap().to_bytes();
-
-    assert_eq!(res, expected_response.as_bytes());
-}
-
 #[rstest]
 #[tokio::test]
 async fn test_end_to_end() {
-    let (gateway_to_mempool_network, mempool_to_gateway_network) =
-        initialize_gateway_network_channels();
+    let mock = IntegrationTestSetup::new().await;
 
-    let (tx_batcher_to_mempool, rx_batcher_to_mempool) = channel::<BatcherToMempoolMessage>(1);
-    let (tx_mempool_to_batcher, mut rx_mempool_to_batcher) = channel::<MempoolToBatcherMessage>(1);
+    check_success(mock.add_tx(&invoke_tx()), "INVOKE").await;
 
-    let batcher_channels =
-        BatcherToMempoolChannels { rx: rx_batcher_to_mempool, tx: tx_mempool_to_batcher };
-
-    // Initialize Gateway.
-    let (ip, port) = set_up_gateway(gateway_to_mempool_network).await;
-
-    // Send a transaction.
-    let external_tx = invoke_tx();
-    send_and_verify_transaction(ip, port, external_tx, "INVOKE").await;
-
-    // Initialize Mempool.
-    let mut mempool = Mempool::empty(mempool_to_gateway_network, batcher_channels);
-
-    task::spawn(async move {
-        mempool.run().await.unwrap();
-    });
-
-    // Wait for the listener to receive the transactions.
-    sleep(Duration::from_secs(2)).await;
-
-    let batcher_to_mempool_message = BatcherToMempoolMessage::GetTransactions(2);
-    task::spawn(async move {
-        tx_batcher_to_mempool.send(batcher_to_mempool_message).await.unwrap();
-    });
-
-    let mempool_message = rx_mempool_to_batcher.recv().await.unwrap();
-    assert_eq!(mempool_message.len(), 1);
-    assert_eq!(mempool_message[0].tip, Tip(0));
+    // TODO: we need a better way of asserting external txs with their internal counterparts,
+    // without having to compute hashes (maybe just assert the rest of the fields?).
+    let mempool_txs = mock.get_txs(2).await;
+    assert_eq!(mempool_txs.len(), 1);
+    assert_eq!(mempool_txs[0].tip, Tip(0));
 }

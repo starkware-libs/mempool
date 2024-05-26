@@ -3265,13 +3265,13 @@ dependencies = [
  "hyper",
  "mempool_infra",
  "pretty_assertions",
+ "reqwest",
  "rstest",
- "serde_json",
  "starknet_api",
  "starknet_gateway",
  "starknet_mempool",
  "starknet_mempool_types",
- "thiserror",
+ "starknet_task_executor",
  "tokio",
 ]
 
