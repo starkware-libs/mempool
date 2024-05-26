@@ -27,7 +27,7 @@ impl GatewayClient {
     }
 
     // TODO: implement when usage eventually arises.
-    pub fn assert_add_tx_error(&self, _tx: &ExternalTransaction) -> GatewayError {
+    pub async fn assert_add_tx_error(&self, _tx: &ExternalTransaction) -> GatewayError {
         todo!()
     }
 
