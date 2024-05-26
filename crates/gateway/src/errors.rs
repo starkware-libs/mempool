@@ -11,6 +11,8 @@ use tokio::task::JoinError;
 
 #[derive(Debug, Error)]
 pub enum GatewayError {
+    #[error(transparent)]
+    HTTPError(#[from] hyper::Error),
     #[error("Internal server error: {0}")]
     InternalServerError(#[from] JoinError),
     #[error("Error sending message: {0}")]
