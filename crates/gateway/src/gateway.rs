@@ -59,14 +59,14 @@ impl Gateway {
         Gateway { config, app_state }
     }
 
-    pub async fn run_server(self) {
+    pub async fn run(self) -> GatewayResult<()> {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let GatewayNetworkConfig { ip, port } = self.config.network_config;
         let addr = SocketAddr::new(ip, port);
         let app = self.app();
 
         // Create a server that runs forever.
-        axum::Server::bind(&addr).serve(app.into_make_service()).await.unwrap();
+        Ok(axum::Server::bind(&addr).serve(app.into_make_service()).await?)
     }
 
     pub fn app(self) -> Router {
