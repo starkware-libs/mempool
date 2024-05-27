@@ -99,7 +99,7 @@ impl Mempool {
     }
 }
 
-// TODO(Tsabary, 1/6/2024): Consider visibility of the following struct and its members.
+// Wraps the mempool with async communication capabilities.
 pub struct MempoolCommunicationWrapper {
     mempool: Mempool,
 }
