@@ -100,12 +100,11 @@ impl Mempool {
     }
 }
 
-// TODO(Tsabary, 1/6/2024): Consider visibility of the following struct and its members.
 pub struct MempoolCommunicationWrapper {
     // The mempool operates sequentially, and the lock ensures that only one of the
     // potentially-concurrent operations is performed at a time. Therefore, the lock does not
     // hinder the mempool's performance.
-    pub mempool: Mutex<Mempool>,
+    mempool: Mutex<Mempool>,
 }
 
 impl MempoolCommunicationWrapper {
