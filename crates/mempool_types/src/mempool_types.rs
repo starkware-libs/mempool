@@ -43,37 +43,37 @@ pub trait MempoolInterface: Send + Sync {
 }
 
 #[derive(Debug)]
-pub enum MempoolInvocationMessages {
+pub enum MempoolInvocationRequest {
     AddTransaction(MempoolInput),
     GetTransactions(usize),
 }
 
 #[derive(Debug)]
-pub enum MempoolInvocationResponses {
+pub enum MempoolInvocationResponse {
     AddTransaction(MempoolResult<()>),
     GetTransactions(MempoolResult<Vec<ThinTransaction>>),
 }
 
-pub type MempoolClient = ComponentClient<MempoolInvocationMessages, MempoolInvocationResponses>;
+pub type MempoolClient = ComponentClient<MempoolInvocationRequest, MempoolInvocationResponse>;
 pub type MempoolMessageAndResponseSender =
-    MessageAndResponseSender<MempoolInvocationMessages, MempoolInvocationResponses>;
+    MessageAndResponseSender<MempoolInvocationRequest, MempoolInvocationResponse>;
 
 #[async_trait]
 impl MempoolInterface for MempoolClient {
     async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolResult<()> {
-        let add_tx_message = MempoolInvocationMessages::AddTransaction(mempool_input);
+        let add_tx_message = MempoolInvocationRequest::AddTransaction(mempool_input);
         let res = self.send(add_tx_message).await;
         match res {
-            MempoolInvocationResponses::AddTransaction(res) => res,
+            MempoolInvocationResponse::AddTransaction(res) => res,
             _ => panic!("Unexpected response type."),
         }
     }
 
     async fn get_txs(&self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
-        let get_txs_message = MempoolInvocationMessages::GetTransactions(n_txs);
+        let get_txs_message = MempoolInvocationRequest::GetTransactions(n_txs);
         let res = self.send(get_txs_message).await;
         match res {
-            MempoolInvocationResponses::GetTransactions(res) => res,
+            MempoolInvocationResponse::GetTransactions(res) => res,
             _ => panic!("Unexpected response type."),
         }
     }

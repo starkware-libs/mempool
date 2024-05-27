@@ -7,8 +7,8 @@ use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
-    Account, AccountState, MempoolInput, MempoolInterface, MempoolInvocationMessages,
-    MempoolInvocationResponses, MempoolMessageAndResponseSender, MempoolResult, ThinTransaction,
+    Account, AccountState, MempoolInput, MempoolInterface, MempoolInvocationRequest,
+    MempoolInvocationResponse, MempoolMessageAndResponseSender, MempoolResult, ThinTransaction,
 };
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::Mutex;
@@ -126,18 +126,18 @@ impl MempoolInterface for MempoolCommunicationWrapper {
 }
 
 #[async_trait]
-impl ComponentMessageExecutor<MempoolInvocationMessages, MempoolInvocationResponses>
+impl ComponentMessageExecutor<MempoolInvocationRequest, MempoolInvocationResponse>
     for MempoolCommunicationWrapper
 {
-    async fn execute(&mut self, message: MempoolInvocationMessages) -> MempoolInvocationResponses {
+    async fn execute(&mut self, message: MempoolInvocationRequest) -> MempoolInvocationResponse {
         match message {
-            MempoolInvocationMessages::AddTransaction(mempool_input) => {
+            MempoolInvocationRequest::AddTransaction(mempool_input) => {
                 let res = self.add_tx(mempool_input).await;
-                MempoolInvocationResponses::AddTransaction(res)
+                MempoolInvocationResponse::AddTransaction(res)
             }
-            MempoolInvocationMessages::GetTransactions(n_txs) => {
+            MempoolInvocationRequest::GetTransactions(n_txs) => {
                 let res = self.get_txs(n_txs).await;
-                MempoolInvocationResponses::GetTransactions(res)
+                MempoolInvocationResponse::GetTransactions(res)
             }
         }
     }
@@ -145,8 +145,8 @@ impl ComponentMessageExecutor<MempoolInvocationMessages, MempoolInvocationRespon
 
 type MempoolCommunicationServer = ComponentServer<
     MempoolCommunicationWrapper,
-    MempoolInvocationMessages,
-    MempoolInvocationResponses,
+    MempoolInvocationRequest,
+    MempoolInvocationResponse,
 >;
 
 pub fn create_mempool_server(
