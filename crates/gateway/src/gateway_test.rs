@@ -10,8 +10,7 @@ use starknet_api::external_transaction::ExternalTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
 use starknet_mempool_types::mempool_types::{
-    GatewayToMempoolMessage, MempoolClient, MempoolClientImpl, MempoolRequestAndResponseSender,
-    MempoolClient, MempoolClientInterface, MempoolMessageAndResponseSender,
+    MempoolClient, MempoolClientImpl, MempoolRequestAndResponseSender,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;

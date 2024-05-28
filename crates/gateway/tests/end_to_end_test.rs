@@ -13,8 +13,7 @@ use starknet_gateway::starknet_api_test_utils::invoke_tx;
 use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
 use starknet_mempool_types::mempool_types::{
-    GatewayNetworkComponent, GatewayToMempoolMessage, MempoolClient, MempoolClientImpl, MempoolInput, MempoolNetworkComponent, MempoolRequestAndResponseSender, MempoolToGatewayMessage
-    MempoolClient, MempoolClientInterface, MempoolMessageAndResponseSender,
+    MempoolClient, MempoolClientImpl, MempoolInput, MempoolRequestAndResponseSender,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;
