@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "network_component_test.rs"]
+mod network_component_test;
+
 use async_trait::async_trait;
 use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::{Receiver, Sender};
