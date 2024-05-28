@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use mempool_infra::component_client::ComponentClient;
-use mempool_infra::component_server::MessageAndResponseSender;
+use mempool_infra::component_server::ComponentRequestAndResponseSender;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
 use thiserror::Error;
@@ -62,8 +62,8 @@ pub enum MempoolInvocationResponse {
 }
 
 pub type MempoolClient = ComponentClient<MempoolInvocationRequest, MempoolInvocationResponse>;
-pub type MempoolMessageAndResponseSender =
-    MessageAndResponseSender<MempoolInvocationRequest, MempoolInvocationResponse>;
+pub type MempoolRequestAndResponseSender =
+    ComponentRequestAndResponseSender<MempoolInvocationRequest, MempoolInvocationResponse>;
 
 #[async_trait]
 impl MempoolInvocation for MempoolClient {

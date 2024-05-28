@@ -14,7 +14,7 @@ use starknet_gateway::gateway::Gateway;
 use starknet_gateway::starknet_api_test_utils::{external_invoke_tx_to_json, invoke_tx};
 use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
-use starknet_mempool_types::mempool_types::{MempoolClient, MempoolMessageAndResponseSender};
+use starknet_mempool_types::mempool_types::{MempoolClient, MempoolRequestAndResponseSender};
 use tokio::sync::mpsc::channel;
 use tokio::task;
 use tower::ServiceExt;
@@ -74,7 +74,7 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
     // TODO(Tsabary): wrap creation of channels in dedicated functions, take channel capacity from
     // config.
     let (tx_mempool, rx_mempool) =
-        channel::<MempoolMessageAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
+        channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
 
     // Initialize Gateway.
     let mempool_client = Box::new(MempoolClient::new(tx_mempool.clone()));

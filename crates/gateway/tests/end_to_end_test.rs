@@ -14,7 +14,7 @@ use starknet_gateway::starknet_api_test_utils::invoke_tx;
 use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
 use starknet_mempool_types::mempool_types::{
-    MempoolClient, MempoolInvocation, MempoolMessageAndResponseSender,
+    MempoolClient, MempoolInvocation, MempoolRequestAndResponseSender,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;
@@ -60,7 +60,7 @@ async fn test_end_to_end() {
     // TODO(Tsabary): wrap creation of channels in dedicated functions, take channel capacity from
     // config.
     let (tx_mempool, rx_mempool) =
-        channel::<MempoolMessageAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
+        channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
     let mempool = Mempool::empty();
     let mut mempool_server = create_mempool_server(mempool, rx_mempool);
     task::spawn(async move {

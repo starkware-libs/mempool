@@ -8,7 +8,7 @@ type ValueA = u32;
 type ValueB = u8;
 
 use crate::component_server::{
-    ComponentMessageExecutor, ComponentServer, MessageAndResponseSender,
+    ComponentMessageExecutor, ComponentRequestAndResponseSender, ComponentServer,
 };
 
 #[async_trait]
@@ -120,13 +120,15 @@ impl ComponentMessageExecutor<ComponentBMessages, ComponentBResponses> for Compo
 }
 
 async fn verify_response(
-    tx_a: Sender<MessageAndResponseSender<ComponentAMessages, ComponentAResponses>>,
+    tx_a: Sender<ComponentRequestAndResponseSender<ComponentAMessages, ComponentAResponses>>,
     expected_value: ValueA,
 ) {
     let (tx_a_main, mut rx_a_main) = channel::<ComponentAResponses>(1);
 
-    let message_and_res_tx: MessageAndResponseSender<ComponentAMessages, ComponentAResponses> =
-        MessageAndResponseSender { message: ComponentAMessages::AGetValue, tx: tx_a_main };
+    let message_and_res_tx: ComponentRequestAndResponseSender<
+        ComponentAMessages,
+        ComponentAResponses,
+    > = ComponentRequestAndResponseSender { message: ComponentAMessages::AGetValue, tx: tx_a_main };
 
     tx_a.send(message_and_res_tx).await.unwrap();
 
@@ -144,9 +146,9 @@ async fn test_setup() {
     let expected_value: ValueA = setup_value.into();
 
     let (tx_a, rx_a) =
-        channel::<MessageAndResponseSender<ComponentAMessages, ComponentAResponses>>(32);
+        channel::<ComponentRequestAndResponseSender<ComponentAMessages, ComponentAResponses>>(32);
     let (tx_b, rx_b) =
-        channel::<MessageAndResponseSender<ComponentBMessages, ComponentBResponses>>(32);
+        channel::<ComponentRequestAndResponseSender<ComponentBMessages, ComponentBResponses>>(32);
 
     let a_client = ComponentClient::new(tx_a.clone());
     let b_client = ComponentClient::new(tx_b.clone());

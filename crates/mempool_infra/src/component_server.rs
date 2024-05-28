@@ -6,7 +6,7 @@ pub trait ComponentMessageExecutor<M, R> {
     async fn execute(&mut self, message: M) -> R;
 }
 
-pub struct MessageAndResponseSender<M, R>
+pub struct ComponentRequestAndResponseSender<M, R>
 where
     M: Send + Sync,
     R: Send + Sync,
@@ -22,7 +22,7 @@ where
     R: Send + Sync,
 {
     component: C,
-    rx: Receiver<MessageAndResponseSender<M, R>>,
+    rx: Receiver<ComponentRequestAndResponseSender<M, R>>,
 }
 
 impl<C, M, R> ComponentServer<C, M, R>
@@ -31,7 +31,7 @@ where
     M: Send + Sync,
     R: Send + Sync,
 {
-    pub fn new(component: C, rx: Receiver<MessageAndResponseSender<M, R>>) -> Self {
+    pub fn new(component: C, rx: Receiver<ComponentRequestAndResponseSender<M, R>>) -> Self {
         Self { component, rx }
     }
 

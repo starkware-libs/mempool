@@ -6,7 +6,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
 use starknet_mempool_types::mempool_types::{
-    MempoolClient, MempoolInvocation, MempoolMessageAndResponseSender,
+    MempoolClient, MempoolInvocation, MempoolRequestAndResponseSender,
 };
 use tokio::sync::mpsc::channel;
 use tokio::task;
@@ -46,7 +46,7 @@ async fn test_add_tx() {
     // TODO(Tsabary): wrap creation of channels in dedicated functions, take channel capacity from
     // config.
     let (tx_mempool, rx_mempool) =
-        channel::<MempoolMessageAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
+        channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
     let mut mempool_server = create_mempool_server(mempool, rx_mempool);
     task::spawn(async move {
         mempool_server.start().await;
