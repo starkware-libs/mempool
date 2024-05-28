@@ -10,11 +10,10 @@ use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, BatcherToMempoolChannels, BatcherToMempoolMessage,
-    GatewayToMempoolMessage, MempoolInput, MempoolInterface, MempoolInvocationMessages,
-    MempoolInvocationResponses, MempoolNetworkComponent, MempoolResult, ThinTransaction,
+    GatewayToMempoolMessage, MempoolInput, MempoolInvocationMessages, MempoolInvocationResponses,
+    MempoolNetworkComponent, MempoolResult, ThinTransaction,
 };
 use tokio::select;
-use tokio::sync::Mutex;
 
 use crate::priority_queue::TransactionPriorityQueue;
 
@@ -166,17 +165,22 @@ pub struct MempoolCommunicationWrapper {
     // The mempool operates sequentially, and the lock ensures that only one of the
     // potentially-concurrent operations is performed at a time. Therefore, the lock does not
     // hinder the mempool's performance.
-    mempool: Mutex<Mempool>,
+    mempool: Mempool,
 }
 
-#[async_trait]
-impl MempoolInterface for MempoolCommunicationWrapper {
-    async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolResult<()> {
-        self.mempool.lock().await.add_tx(mempool_input.tx, mempool_input.account)
+impl MempoolCommunicationWrapper {
+    pub fn new(mempool: Mempool) -> Self {
+        MempoolCommunicationWrapper { mempool }
+    }
+}
+
+impl MempoolCommunicationWrapper {
+    async fn add_tx(&mut self, mempool_input: MempoolInput) -> MempoolResult<()> {
+        self.mempool.add_tx(mempool_input.tx, mempool_input.account)
     }
 
-    async fn get_txs(&self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
-        self.mempool.lock().await.get_txs(n_txs)
+    async fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
+        self.mempool.get_txs(n_txs)
     }
 }
 
