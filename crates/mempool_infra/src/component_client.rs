@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "component_server_client_test.rs"]
+mod component_server_client_test;
+
 use tokio::sync::mpsc::{channel, Sender};
 
 use crate::component_server::MessageAndResponseSender;

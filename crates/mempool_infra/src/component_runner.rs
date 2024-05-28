@@ -1,3 +1,7 @@
+#[cfg(test)]
+#[path = "component_runner_test.rs"]
+mod component_runner_test;
+
 use async_trait::async_trait;
 use papyrus_config::dumping::SerializeConfig;
 
