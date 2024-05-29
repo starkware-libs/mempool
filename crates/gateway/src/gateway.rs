@@ -17,7 +17,7 @@ use crate::starknet_api_test_utils::get_sender_address;
 use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
-use crate::utils::external_tx_to_thin_tx;
+use crate::utils::{external_tx_to_account_tx, external_tx_to_thin_tx, get_tx_hash};
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -119,16 +119,24 @@ fn process_tx(
     // Perform stateless validations.
     stateless_transaction_validator.validate(&tx)?;
 
+    // Convert to internal transaction.
+    let account_tx = external_tx_to_account_tx(
+        &tx,
+        None,
+        &stateful_transaction_validator.config.chain_info.chain_id,
+    )?;
+    let tx_hash = get_tx_hash(&account_tx);
+    let thin_tx = external_tx_to_thin_tx(&tx, tx_hash);
+
     // TODO(Yael, 19/5/2024): pass the relevant class_info and deploy_account_hash.
-    let tx_hash =
-        stateful_transaction_validator.run_validate(state_reader_factory, &tx, None, None)?;
+    stateful_transaction_validator.run_validate(state_reader_factory, account_tx, None)?;
     // TODO(Arni, 1/5/2024): Move transaction to mempool.
 
     // TODO(Arni, 1/5/2024): Produce response.
     // Send response.
 
     let mempool_input = MempoolInput {
-        tx: external_tx_to_thin_tx(&tx, tx_hash),
+        tx: thin_tx,
         account: Account { address: get_sender_address(&tx), ..Default::default() },
     };
 
