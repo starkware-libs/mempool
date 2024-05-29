@@ -22,6 +22,7 @@ use crate::stateless_transaction_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 pub fn app_state(network_component: GatewayNetworkComponent) -> AppState {
+    let chain_info = ChainInfo::create_for_testing();
     AppState {
         stateless_tx_validator: StatelessTransactionValidator {
             config: StatelessTransactionValidatorConfig {
@@ -34,7 +35,9 @@ pub fn app_state(network_component: GatewayNetworkComponent) -> AppState {
         network_component: Arc::new(network_component),
         stateful_tx_validator: Arc::new(StatefulTransactionValidator {
             config: StatefulTransactionValidatorConfig::create_for_testing(),
+            chain_info: chain_info.clone(),
         }),
+        chain_info,
         state_reader_factory: Arc::new(test_state_reader_factory()),
     }
 }
