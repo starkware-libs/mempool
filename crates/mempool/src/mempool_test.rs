@@ -173,3 +173,25 @@ fn test_add_same_tx(mut mempool: Mempool) {
         Err(MempoolError::DuplicateTransaction { tx_hash: TransactionHash(StarkFelt::ONE) })
     );
 }
+
+#[rstest]
+fn test_add_tx_with_identical_tip_success(mut mempool: Mempool) {
+    let account1 = Account::default();
+    let tx1 = create_thin_tx_for_testing(
+        Tip(1),
+        TransactionHash(StarkFelt::ONE),
+        contract_address!("0x0"),
+    );
+
+    let account2 = Account { address: contract_address!("0x1"), ..Default::default() };
+    // Create a tx with identical tip, it should be allowed through since the priority queue
+    // tie-breaks identical tips by other tx-unique identifiers (for example tx hash).
+    let tx2 = create_thin_tx_for_testing(
+        Tip(1),
+        TransactionHash(StarkFelt::TWO),
+        contract_address!("0x1"),
+    );
+
+    assert!(mempool.add_tx(tx1, account1).is_ok());
+    assert!(mempool.add_tx(tx2, account2).is_ok());
+}
