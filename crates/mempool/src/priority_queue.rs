@@ -12,7 +12,7 @@ pub struct TransactionPriorityQueue(BTreeSet<PrioritizedTransaction>);
 impl TransactionPriorityQueue {
     pub fn push(&mut self, tx: ThinTransaction) {
         let mempool_tx = PrioritizedTransaction(tx);
-        self.insert(mempool_tx);
+        assert!(self.insert(mempool_tx), "keys should be unique; duplicates checked prior.");
     }
 
     // TODO(gilad): remove collect
@@ -36,7 +36,7 @@ pub struct PrioritizedTransaction(pub ThinTransaction);
 /// tips are either exactly equal or not.
 impl PartialEq for PrioritizedTransaction {
     fn eq(&self, other: &PrioritizedTransaction) -> bool {
-        self.tip == other.tip
+        self.tip == other.tip && self.tx_hash == other.tx_hash
     }
 }
 
@@ -47,7 +47,7 @@ impl Eq for PrioritizedTransaction {}
 
 impl Ord for PrioritizedTransaction {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.tip.cmp(&other.tip)
+        self.tip.cmp(&other.tip).then_with(|| self.tx_hash.cmp(&other.tx_hash))
     }
 }
 
