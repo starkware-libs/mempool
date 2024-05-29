@@ -64,8 +64,8 @@ fn test_stateful_tx_validator(
             max_nonce_for_validation_skip: Default::default(),
             validate_max_n_steps: block_context.versioned_constants().validate_max_n_steps,
             max_recursion_depth: block_context.versioned_constants().max_recursion_depth,
-            chain_info: block_context.chain_info().clone().into(),
         },
+        chain_info: block_context.chain_info().clone(),
     };
 
     let calldata = create_trivial_calldata(test_contract_address);
@@ -76,12 +76,9 @@ fn test_stateful_tx_validator(
         nonce,
         sender_address,
         calldata));
-    let account_tx = external_tx_to_account_tx(
-        &external_tx,
-        None,
-        &stateful_validator.config.chain_info.chain_id,
-    )
-    .unwrap();
+    let account_tx =
+        external_tx_to_account_tx(&external_tx, None, &block_context.chain_info().chain_id)
+            .unwrap();
 
     let result = stateful_validator.run_validate(&state_reader_factory, account_tx, None);
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));

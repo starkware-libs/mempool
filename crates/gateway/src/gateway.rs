@@ -5,6 +5,7 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use blockifier::context::ChainInfo;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::mempool_types::{Account, MempoolClient, MempoolInput};
@@ -32,6 +33,7 @@ pub struct Gateway {
 pub struct AppState {
     pub stateless_tx_validator: StatelessTransactionValidator,
     pub stateful_tx_validator: Arc<StatefulTransactionValidator>,
+    pub chain_info: ChainInfo,
     pub state_reader_factory: Arc<dyn StateReaderFactory>,
     pub mempool_client: Arc<dyn MempoolClient>,
 }
@@ -42,13 +44,16 @@ impl Gateway {
         state_reader_factory: Arc<dyn StateReaderFactory>,
         mempool_client: Arc<dyn MempoolClient>,
     ) -> Self {
+        let chain_info: ChainInfo = config.chain_info_config.clone().into();
         let app_state = AppState {
             stateless_tx_validator: StatelessTransactionValidator {
                 config: config.stateless_tx_validator_config.clone(),
             },
             stateful_tx_validator: Arc::new(StatefulTransactionValidator {
                 config: config.stateful_tx_validator_config.clone(),
+                chain_info: chain_info.clone(),
             }),
+            chain_info,
             state_reader_factory,
             mempool_client,
         };
@@ -89,6 +94,7 @@ async fn add_tx(
         process_tx(
             app_state.stateless_tx_validator,
             app_state.stateful_tx_validator.as_ref(),
+            &app_state.chain_info,
             app_state.state_reader_factory.as_ref(),
             tx,
         )
@@ -109,6 +115,7 @@ async fn add_tx(
 fn process_tx(
     stateless_tx_validator: StatelessTransactionValidator,
     stateful_tx_validator: &StatefulTransactionValidator,
+    chain_info: &ChainInfo,
     state_reader_factory: &dyn StateReaderFactory,
     tx: ExternalTransaction,
 ) -> GatewayResult<MempoolInput> {
@@ -118,8 +125,7 @@ fn process_tx(
     stateless_tx_validator.validate(&tx)?;
 
     // Convert to internal transaction.
-    let account_tx =
-        external_tx_to_account_tx(&tx, None, &stateful_tx_validator.config.chain_info.chain_id)?;
+    let account_tx = external_tx_to_account_tx(&tx, None, &chain_info.chain_id)?;
     let tx_hash = get_tx_hash(&account_tx);
     let thin_tx = external_tx_to_thin_tx(&tx, tx_hash);
 

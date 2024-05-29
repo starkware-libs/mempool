@@ -26,6 +26,7 @@ use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 const MEMPOOL_INVOCATIONS_QUEUE_SIZE: usize = 32;
 
 pub fn app_state(mempool_client: Arc<dyn MempoolClient>) -> AppState {
+    let chain_info = ChainInfo::create_for_testing();
     AppState {
         stateless_tx_validator: StatelessTransactionValidator {
             config: StatelessTransactionValidatorConfig {
@@ -37,7 +38,9 @@ pub fn app_state(mempool_client: Arc<dyn MempoolClient>) -> AppState {
         },
         stateful_tx_validator: Arc::new(StatefulTransactionValidator {
             config: StatefulTransactionValidatorConfig::create_for_testing(),
+            chain_info: chain_info.clone(),
         }),
+        chain_info,
         state_reader_factory: Arc::new(local_test_state_reader_factory()),
         mempool_client,
     }
