@@ -6,7 +6,6 @@ use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
-use starknet_api::transaction::TransactionHash;
 
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
@@ -17,14 +16,10 @@ use crate::starknet_api_test_utils::{
 };
 use crate::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
+use crate::utils::external_tx_to_account_tx;
 
 #[rstest]
-#[case::valid_invoke_tx(
-    100000000000000000,
-    Ok(TransactionHash(StarkFelt::try_from(
-        "0x07459d76bd7adec02c25cf7ab0dcb95e9197101d4ada41cae6b465fcb78c0e47"
-    ).unwrap()))
-)]
+#[case::valid_invoke_tx(100000000000000000, Ok(()))]
 #[case::invalid_invoke_tx(
     0,
     Err(StatefulTransactionValidatorError::StatefulValidatorError(
@@ -42,7 +37,7 @@ use crate::stateful_transaction_validator::StatefulTransactionValidator;
 )]
 fn test_stateful_transaction_validator(
     #[case] account_balance: u128,
-    #[case] expected_result: StatefulTransactionValidatorResult<TransactionHash>,
+    #[case] expected_result: StatefulTransactionValidatorResult<()>,
 ) {
     let cairo_version = CairoVersion::Cairo1;
     let block_context = &BlockContext::create_for_testing();
@@ -81,7 +76,13 @@ fn test_stateful_transaction_validator(
         nonce,
         sender_address,
         calldata));
+    let account_tx = external_tx_to_account_tx(
+        &external_tx,
+        None,
+        &stateful_validator.config.chain_info.chain_id,
+    )
+    .unwrap();
 
-    let result = stateful_validator.run_validate(&state_reader_factory, &external_tx, None, None);
+    let result = stateful_validator.run_validate(&state_reader_factory, account_tx, None);
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }
