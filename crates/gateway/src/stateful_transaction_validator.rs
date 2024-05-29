@@ -2,16 +2,14 @@ use blockifier::blockifier::block::BlockInfo;
 use blockifier::blockifier::stateful_validator::StatefulValidator as BlockifierStatefulValidator;
 use blockifier::bouncer::BouncerConfig;
 use blockifier::context::BlockContext;
-use blockifier::execution::contract_class::ClassInfo;
 use blockifier::state::cached_state::CachedState;
+use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::versioned_constants::VersionedConstants;
-use starknet_api::external_transaction::ExternalTransaction;
 use starknet_api::transaction::TransactionHash;
 
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
 use crate::state_reader::{MempoolStateReader, StateReaderFactory};
-use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 #[cfg(test)]
 #[path = "stateful_transaction_validator_test.rs"]
@@ -25,10 +23,9 @@ impl StatefulTransactionValidator {
     pub fn run_validate(
         &self,
         state_reader_factory: &dyn StateReaderFactory,
-        external_tx: &ExternalTransaction,
-        optional_class_info: Option<ClassInfo>,
+        account_tx: AccountTransaction,
         deploy_account_tx_hash: Option<TransactionHash>,
-    ) -> StatefulTransactionValidatorResult<TransactionHash> {
+    ) -> StatefulTransactionValidatorResult<()> {
         // TODO(yael 6/5/2024): consider storing the block_info as part of the
         // StatefulTransactionValidator and update it only once a new block is created.
         let latest_block_info = get_latest_block_info(state_reader_factory)?;
@@ -58,14 +55,8 @@ impl StatefulTransactionValidator {
             self.config.max_nonce_for_validation_skip,
             BouncerConfig::max(),
         );
-        let account_tx = external_tx_to_account_tx(
-            external_tx,
-            optional_class_info,
-            &self.config.chain_info.chain_id,
-        )?;
-        let tx_hash = get_tx_hash(&account_tx);
         validator.perform_validations(account_tx, deploy_account_tx_hash)?;
-        Ok(tx_hash)
+        Ok(())
     }
 }
 
