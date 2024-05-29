@@ -5,8 +5,8 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::external_transaction::ExternalTransaction;
+use starknet_mempool_infra::network_component::CommunicationInterface;
 use starknet_mempool_types::mempool_types::{
     Account, GatewayNetworkComponent, GatewayToMempoolMessage, MempoolInput,
 };

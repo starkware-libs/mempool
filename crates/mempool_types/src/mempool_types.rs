@@ -1,6 +1,6 @@
-use mempool_infra::network_component::NetworkComponent;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
+use starknet_mempool_infra::network_component::NetworkComponent;
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::errors::MempoolError;

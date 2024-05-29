@@ -2,7 +2,6 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
-use mempool_infra::network_component::CommunicationInterface;
 use rstest::rstest;
 use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_gateway::config::{
@@ -14,6 +13,7 @@ use starknet_gateway::gateway_client;
 use starknet_gateway::starknet_api_test_utils::invoke_tx;
 use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
 use starknet_mempool::mempool::Mempool;
+use starknet_mempool_infra::network_component::CommunicationInterface;
 use starknet_mempool_types::mempool_types::{
     BatcherToMempoolChannels, BatcherToMempoolMessage, GatewayNetworkComponent,
     GatewayToMempoolMessage, MempoolInput, MempoolNetworkComponent, MempoolToBatcherMessage,

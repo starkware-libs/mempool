@@ -2,9 +2,9 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 
 use anyhow::Result;
-use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
+use starknet_mempool_infra::network_component::CommunicationInterface;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, BatcherToMempoolChannels, BatcherToMempoolMessage,
