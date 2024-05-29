@@ -4,6 +4,7 @@ use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use blockifier::context::ChainInfo;
 use starknet_mempool_types::mempool_types::{
     GatewayNetworkComponent, GatewayToMempoolMessage, MempoolToGatewayMessage,
 };
@@ -17,6 +18,7 @@ use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
 
 pub fn app_state(network_component: GatewayNetworkComponent) -> AppState {
+    let chain_info = ChainInfo::create_for_testing();
     AppState {
         stateless_transaction_validator: StatelessTransactionValidator {
             config: StatelessTransactionValidatorConfig {
@@ -29,7 +31,9 @@ pub fn app_state(network_component: GatewayNetworkComponent) -> AppState {
         network_component: Arc::new(network_component),
         stateful_transaction_validator: Arc::new(StatefulTransactionValidator {
             config: StatefulTransactionValidatorConfig::create_for_testing(),
+            chain_info: chain_info.clone(),
         }),
+        chain_info,
         state_reader_factory: Arc::new(test_state_reader_factory()),
     }
 }
@@ -50,10 +54,11 @@ async fn test_add_tx() {
     let response = add_tx(State(app_state), invoke_tx().into()).await.into_response();
 
     let status_code = response.status();
-    assert_eq!(status_code, StatusCode::OK);
-
     let response_bytes = &to_bytes(response).await;
-    assert!(String::from_utf8_lossy(response_bytes).starts_with("INVOKE"));
+    let response_string = String::from_utf8_lossy(response_bytes);
+
+    assert_eq!(status_code, StatusCode::OK, "the response is: {:?}", response_string);
+    assert!(response_string.starts_with("INVOKE"));
 }
 
 async fn to_bytes(res: Response) -> Bytes {

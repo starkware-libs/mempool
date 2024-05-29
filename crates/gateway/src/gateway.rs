@@ -5,6 +5,7 @@ use std::sync::Arc;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use blockifier::context::ChainInfo;
 use mempool_infra::network_component::CommunicationInterface;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_mempool_types::mempool_types::{
@@ -34,6 +35,7 @@ pub struct Gateway {
 pub struct AppState {
     pub stateless_transaction_validator: StatelessTransactionValidator,
     pub stateful_transaction_validator: Arc<StatefulTransactionValidator>,
+    pub chain_info: ChainInfo,
     /// This field uses Arc to enable shared ownership, which is necessary because
     /// `GatewayNetworkClient` supports only one receiver at a time.
     pub network_component: Arc<GatewayNetworkComponent>,
@@ -46,13 +48,16 @@ impl Gateway {
         network_component: GatewayNetworkComponent,
         state_reader_factory: Arc<dyn StateReaderFactory>,
     ) -> Self {
+        let chain_info: ChainInfo = config.chain_info_config.clone().into();
         let app_state = AppState {
             stateless_transaction_validator: StatelessTransactionValidator {
                 config: config.stateless_transaction_validator_config.clone(),
             },
             stateful_transaction_validator: Arc::new(StatefulTransactionValidator {
                 config: config.stateful_transaction_validator_config.clone(),
+                chain_info: chain_info.clone(),
             }),
+            chain_info,
             network_component: Arc::new(network_component),
             state_reader_factory,
         };
@@ -93,6 +98,7 @@ async fn add_tx(
         process_tx(
             app_state.stateless_transaction_validator,
             app_state.stateful_transaction_validator.as_ref(),
+            &app_state.chain_info,
             app_state.state_reader_factory.as_ref(),
             tx,
         )
@@ -111,6 +117,7 @@ async fn add_tx(
 fn process_tx(
     stateless_transaction_validator: StatelessTransactionValidator,
     stateful_transaction_validator: &StatefulTransactionValidator,
+    chain_info: &ChainInfo,
     state_reader_factory: &dyn StateReaderFactory,
     tx: ExternalTransaction,
 ) -> GatewayResult<(String, MempoolInput)> {
@@ -120,11 +127,7 @@ fn process_tx(
     stateless_transaction_validator.validate(&tx)?;
 
     // Convert to internal transaction.
-    let account_tx = external_tx_to_account_tx(
-        &tx,
-        None,
-        &stateful_transaction_validator.config.chain_info.chain_id,
-    )?;
+    let account_tx = external_tx_to_account_tx(&tx, None, &chain_info.chain_id)?;
     let tx_hash = get_tx_hash(&account_tx);
     let thin_tx = external_tx_to_thin_tx(&tx, tx_hash);
 

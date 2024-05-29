@@ -7,7 +7,7 @@ use pretty_assertions::assert_str_eq;
 use rstest::rstest;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_gateway::config::{
-    GatewayConfig, GatewayNetworkConfig, StatefulTransactionValidatorConfig,
+    ChainInfoConfig, GatewayConfig, GatewayNetworkConfig, StatefulTransactionValidatorConfig,
     StatelessTransactionValidatorConfig,
 };
 use starknet_gateway::gateway::Gateway;
@@ -60,11 +60,12 @@ async fn check_request(request: Request<Body>, status_code: StatusCode) -> Bytes
     };
     let stateful_transaction_validator_config =
         StatefulTransactionValidatorConfig::create_for_testing();
-
+    let chain_info_config = ChainInfoConfig::create_for_testing();
     let config = GatewayConfig {
         network_config,
         stateless_transaction_validator_config,
         stateful_transaction_validator_config,
+        chain_info_config,
     };
 
     // The  `_rx_gateway_to_mempool`   is retained to keep the channel open, as dropping it would

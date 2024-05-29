@@ -13,6 +13,7 @@ pub struct GatewayConfig {
     pub network_config: GatewayNetworkConfig,
     pub stateless_transaction_validator_config: StatelessTransactionValidatorConfig,
     pub stateful_transaction_validator_config: StatefulTransactionValidatorConfig,
+    pub chain_info_config: ChainInfoConfig,
 }
 
 impl SerializeConfig for GatewayConfig {
@@ -27,6 +28,7 @@ impl SerializeConfig for GatewayConfig {
                 self.stateful_transaction_validator_config.dump(),
                 "stateful_transaction_validator_config",
             ),
+            append_sub_config_name(self.chain_info_config.dump(), "chain_info_config"),
         ]
         .into_iter()
         .flatten()
@@ -201,12 +203,11 @@ pub struct StatefulTransactionValidatorConfig {
     pub max_nonce_for_validation_skip: Nonce,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
-    pub chain_info: ChainInfoConfig,
 }
 
 impl SerializeConfig for StatefulTransactionValidatorConfig {
     fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
-        let members = BTreeMap::from_iter([
+        BTreeMap::from_iter([
             ser_param(
                 "max_nonce_for_validation_skip",
                 &self.max_nonce_for_validation_skip,
@@ -225,9 +226,7 @@ impl SerializeConfig for StatefulTransactionValidatorConfig {
                 "The maximum recursion depth allowed in a transaction.",
                 ParamPrivacyInput::Public,
             ),
-        ]);
-        let sub_configs = append_sub_config_name(self.chain_info.dump(), "chain_info");
-        vec![members, sub_configs].into_iter().flatten().collect()
+        ])
     }
 }
 
@@ -237,7 +236,6 @@ impl StatefulTransactionValidatorConfig {
             max_nonce_for_validation_skip: Default::default(),
             validate_max_n_steps: 1000000,
             max_recursion_depth: 50,
-            chain_info: ChainInfoConfig::create_for_testing(),
         }
     }
 }
