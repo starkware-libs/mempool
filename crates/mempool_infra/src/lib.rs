@@ -15,3 +15,6 @@ mod component_runner_test;
 
 #[cfg(test)]
 mod component_server_client_test;
+
+#[cfg(test)]
+mod component_rpc_server_client_test;
