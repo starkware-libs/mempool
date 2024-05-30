@@ -1,8 +1,8 @@
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 
-use starknet_api::core::ContractAddress;
-use starknet_api::transaction::TransactionHash;
+use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, MempoolInput, MempoolResult, ThinTransaction,
@@ -18,8 +18,10 @@ pub mod mempool_test;
 #[derive(Debug, Default)]
 pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
-    txs_queue: TransactionQueue,
+    // All transactions currently held in the mempool.
     tx_pool: TransactionPool,
+    // Transactions eligible for sequencing.
+    tx_queue: TransactionQueue,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -27,7 +29,7 @@ impl Mempool {
     pub fn new(inputs: impl IntoIterator<Item = MempoolInput>) -> Self {
         let mut mempool = Mempool::empty();
 
-        for MempoolInput { tx, account: Account { sender_address, state } } in inputs.into_iter() {
+        for MempoolInput { tx, account: Account { sender_address, state } } in inputs {
             // Attempts to insert a key-value pair into the mempool's state. Returns `None`
             // if the key was not present, otherwise returns the old value while updating
             // the new value.
@@ -38,15 +40,16 @@ impl Mempool {
                     sender_address, tx
                 );
             }
-            // Attempt to push the transaction into the tx_pool
-            if let Err(err) = mempool.tx_pool.push(tx.clone()) {
+
+            mempool.tx_queue.push((&tx).into());
+
+            let tx_hash = tx.tx_hash;
+            if let Err(err) = mempool.tx_pool.push(tx) {
                 panic!(
                     "Transaction: {:?} already exists in the mempool. Error: {:?}",
-                    tx.tx_hash, err
+                    tx_hash, err
                 );
             }
-
-            mempool.txs_queue.push(tx.into());
         }
 
         mempool
@@ -63,12 +66,10 @@ impl Mempool {
     // library.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
         let mut eligible_txs: Vec<ThinTransaction> = Vec::with_capacity(n_txs);
-
-        let txs = self.txs_queue.pop_last_chunk(n_txs);
-        for tx in txs {
+        for tx_hash in self.tx_queue.pop_last_chunk(n_txs) {
+            let tx = self.tx_pool.remove(tx_hash)?;
             self.state.remove(&tx.sender_address);
-            self.tx_pool.remove(tx.tx_hash)?;
-            eligible_txs.push(tx.0);
+            eligible_txs.push(tx);
         }
 
         Ok(eligible_txs)
@@ -83,7 +84,7 @@ impl Mempool {
             Vacant(entry) => {
                 entry.insert(account.state);
                 // TODO(Mohammad): use `handle_tx`.
-                self.txs_queue.push(tx.clone().into());
+                self.tx_queue.push((&tx).into());
                 self.tx_pool.push(tx)?;
 
                 Ok(())
@@ -109,5 +110,21 @@ impl Mempool {
 /// execution fields).
 /// TODO(Mohammad): rename this struct to `ThinTransaction` once that name
 /// becomes available, to better reflect its purpose and usage.
-#[derive(Clone, Debug, Default, derive_more::Deref, derive_more::From)]
-pub struct TransactionReference(ThinTransaction);
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct TransactionReference {
+    pub sender_address: ContractAddress,
+    pub nonce: Nonce,
+    pub tx_hash: TransactionHash,
+    pub tip: Tip,
+}
+
+impl From<&ThinTransaction> for TransactionReference {
+    fn from(tx: &ThinTransaction) -> Self {
+        TransactionReference {
+            sender_address: tx.sender_address,
+            nonce: tx.nonce,
+            tx_hash: tx.tx_hash,
+            tip: tx.tip,
+        }
+    }
+}
