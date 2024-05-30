@@ -1,9 +1,9 @@
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::Result;
 use mempool_infra::network_component::CommunicationInterface;
-use starknet_api::core::ContractAddress;
+use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
@@ -23,6 +23,7 @@ pub struct Mempool {
     pub gateway_network: MempoolNetworkComponent,
     batcher_network: BatcherToMempoolChannels,
     txs_queue: TransactionPriorityQueue,
+    tx_store: HashMap<ContractAddress, BTreeMap<Nonce, ThinTransaction>>,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -34,6 +35,7 @@ impl Mempool {
     ) -> Self {
         let mut mempool = Mempool {
             txs_queue: TransactionPriorityQueue::default(),
+            tx_store: HashMap::default(),
             state: HashMap::default(),
             gateway_network,
             batcher_network,
@@ -55,6 +57,14 @@ impl Mempool {
                         input.account.address,
                         input.tx
                     );
+
+                    // Insert the transaction into the tx_store.
+                    mempool
+                        .tx_store
+                        .entry(input.account.address)
+                        .or_default()
+                        .insert(input.tx.nonce, input.tx.clone());
+
                     input.tx
                 })
                 .collect::<Vec<ThinTransaction>>(),
@@ -79,6 +89,7 @@ impl Mempool {
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
             self.state.remove(&tx.sender_address);
+            self.tx_store.remove(&tx.sender_address);
         }
 
         Ok(txs)
@@ -92,7 +103,11 @@ impl Mempool {
             Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash }),
             Vacant(entry) => {
                 entry.insert(account.state);
-                self.txs_queue.push(tx);
+                self.txs_queue.push(tx.clone());
+
+                // Insert the transaction into the tx_store
+                self.tx_store.entry(account.address).or_default().insert(tx.nonce, tx);
+
                 Ok(())
             }
         }
