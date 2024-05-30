@@ -13,7 +13,6 @@ use starknet_mempool_types::utils::create_thin_tx_for_testing;
 use tokio::sync::mpsc::channel;
 
 use crate::mempool::{Account, Mempool, MempoolInput};
-use crate::priority_queue::PrioritizedTransaction;
 
 fn create_for_testing(inputs: impl IntoIterator<Item = MempoolInput>) -> Mempool {
     let (_, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
@@ -117,9 +116,9 @@ fn test_add_tx(mut mempool: Mempool) {
     mempool.state.contains_key(&account2.address);
     mempool.state.contains_key(&account3.address);
 
-    assert_eq!(mempool.txs_queue.pop_last().unwrap(), PrioritizedTransaction(tx_tip_100_address_1));
-    assert_eq!(mempool.txs_queue.pop_last().unwrap(), PrioritizedTransaction(tx_tip_80_address_2));
-    assert_eq!(mempool.txs_queue.pop_last().unwrap(), PrioritizedTransaction(tx_tip_50_address_0));
+    assert_eq!(mempool.txs_queue.pop_last().unwrap(), tx_tip_100_address_1.into(),);
+    assert_eq!(mempool.txs_queue.pop_last().unwrap(), tx_tip_80_address_2.into());
+    assert_eq!(mempool.txs_queue.pop_last().unwrap(), tx_tip_50_address_0.into());
 }
 
 #[rstest]
