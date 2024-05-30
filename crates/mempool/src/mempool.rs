@@ -52,7 +52,7 @@ impl Mempool {
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
         let mut eligible_txs: Vec<ThinTransaction> = Vec::with_capacity(n_txs);
         for tx_hash in self.tx_queue.pop_last_chunk(n_txs) {
-            let tx = self.tx_pool.remove(tx_hash)?;
+            let tx = self.tx_pool.get(tx_hash)?.clone();
             assert!(!self.staging.contains(&tx_hash));
             self.staging.push(tx_hash);
             eligible_txs.push(tx);
@@ -84,11 +84,31 @@ impl Mempool {
     // push back.
     pub fn commit_block(
         &mut self,
-        _block_number: u64,
-        _txs_in_block: &[TransactionHash],
+        txs_in_block: &[TransactionHash],
         _state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
-        todo!()
+        let mut counter = 0;
+        for &tx_hash in txs_in_block {
+            if self.staging.contains(&tx_hash) {
+                counter += 1;
+                self.tx_pool.remove(tx_hash)?;
+            }
+        }
+        // It pops the first `counter` hashes from staging area.
+        // Since transactions maintain their order after being processed by the Mempool, the
+        // transactions to be included in the block should be the first ones in the staging area.
+        self.staging.drain(0..counter);
+
+        // Re-insert transaction to PQ.
+        for &tx_hash in self.staging.iter() {
+            let tx = self.tx_pool.get(tx_hash)?;
+            self.tx_queue.insert(TransactionReference::new(tx));
+        }
+
+        // Cleanin the `StagingArea`.
+        self.staging = Vec::default();
+
+        Ok(())
     }
 
     fn insert_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
