@@ -16,6 +16,7 @@ use starknet_mempool_types::mempool_types::{
 use tokio::select;
 
 use crate::priority_queue::TransactionPriorityQueue;
+use crate::transaction_store::TransactionStore;
 
 #[cfg(test)]
 #[path = "mempool_test.rs"]
@@ -26,6 +27,7 @@ pub struct Mempool {
     pub gateway_network: MempoolNetworkComponent,
     batcher_network: BatcherToMempoolChannels,
     txs_queue: TransactionPriorityQueue,
+    tx_store: TransactionStore,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -37,6 +39,7 @@ impl Mempool {
     ) -> Self {
         let mut mempool = Mempool {
             txs_queue: TransactionPriorityQueue::default(),
+            tx_store: TransactionStore::default(),
             state: HashMap::default(),
             gateway_network,
             batcher_network,
@@ -58,6 +61,15 @@ impl Mempool {
                         input.account.address,
                         input.tx
                     );
+
+                    // Insert the transaction into the tx_store.
+                    let res = mempool.tx_store.push(input.tx.clone());
+                    assert!(
+                        res.is_ok(),
+                        "Transaction: {:?} already exists in the mempool.",
+                        input.tx.tx_hash
+                    );
+
                     input.tx
                 })
                 .collect::<Vec<ThinTransaction>>(),
@@ -82,6 +94,7 @@ impl Mempool {
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
             self.state.remove(&tx.sender_address);
+            self.tx_store.remove(&tx.tx_hash)?;
         }
 
         Ok(txs)
@@ -95,7 +108,9 @@ impl Mempool {
             Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash }),
             Vacant(entry) => {
                 entry.insert(account.state);
-                self.txs_queue.push(tx);
+                self.txs_queue.push(tx.clone());
+                self.tx_store.push(tx)?;
+
                 Ok(())
             }
         }
