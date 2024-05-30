@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use starknet_api::core::ContractAddress;
-use starknet_api::transaction::TransactionHash;
+use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_mempool_types::mempool_types::{
     AccountState, MempoolInput, MempoolResult, ThinTransaction,
 };
@@ -16,8 +16,10 @@ pub mod mempool_test;
 #[derive(Debug, Default)]
 pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
-    txs_queue: TransactionQueue,
+    // All transactions currently held in the mempool.
     tx_pool: TransactionPool,
+    // Transactions eligible for sequencing.
+    tx_queue: TransactionQueue,
 }
 
 impl Mempool {
@@ -34,6 +36,10 @@ impl Mempool {
         Mempool::default()
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &TransactionReference> {
+        self.tx_queue.iter()
+    }
+
     /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push
@@ -41,11 +47,9 @@ impl Mempool {
     // library.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
         let mut eligible_txs: Vec<ThinTransaction> = Vec::with_capacity(n_txs);
-
-        let txs = self.txs_queue.pop_last_chunk(n_txs);
-        for tx in txs {
-            self.tx_pool.remove(tx.tx_hash)?;
-            eligible_txs.push(tx.0);
+        for tx_hash in self.tx_queue.pop_last_chunk(n_txs) {
+            let tx = self.tx_pool.remove(tx_hash)?;
+            eligible_txs.push(tx);
         }
 
         Ok(eligible_txs)
@@ -75,7 +79,7 @@ impl Mempool {
         let tx = input.tx;
 
         self.tx_pool.insert(tx.clone())?;
-        self.txs_queue.insert(TransactionReference::new(tx));
+        self.tx_queue.insert(TransactionReference::new(&tx));
 
         Ok(())
     }
@@ -85,11 +89,21 @@ impl Mempool {
 /// execution fields).
 /// TODO(Mohammad): rename this struct to `ThinTransaction` once that name
 /// becomes available, to better reflect its purpose and usage.
-#[derive(Clone, Debug, Default, derive_more::Deref)]
-pub struct TransactionReference(pub ThinTransaction);
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct TransactionReference {
+    pub sender_address: ContractAddress,
+    pub nonce: Nonce,
+    pub tx_hash: TransactionHash,
+    pub tip: Tip,
+}
 
 impl TransactionReference {
-    pub fn new(tx: ThinTransaction) -> Self {
-        TransactionReference(tx)
+    pub fn new(tx: &ThinTransaction) -> Self {
+        TransactionReference {
+            sender_address: tx.sender_address,
+            nonce: tx.nonce,
+            tx_hash: tx.tx_hash,
+            tip: tx.tip,
+        }
     }
 }
