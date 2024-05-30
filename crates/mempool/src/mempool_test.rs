@@ -1,4 +1,5 @@
-use assert_matches::assert_matches;
+use std::panic;
+
 use itertools::zip_eq;
 use pretty_assertions::assert_eq;
 use rstest::{fixture, rstest};
@@ -6,10 +7,9 @@ use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_api::{contract_address, patricia_key};
-use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{Account, ThinTransaction};
 
-use crate::mempool::{Mempool, MempoolInput};
+use crate::mempool::{Mempool, MempoolInput, TransactionReference};
 
 /// Creates a valid input for mempool's `add_tx` with optional default value for
 /// `sender_address`.
@@ -48,12 +48,13 @@ fn mempool() -> Mempool {
 // transactions.
 #[track_caller]
 fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
-    let mempool_txs = mempool.txs_queue.iter();
+    let mempool_txs = mempool.tx_queue.iter();
+    let expected_txs = expected_txs.iter().map(TransactionReference::new);
 
     assert!(
         zip_eq(expected_txs, mempool_txs)
             // Deref the inner mempool tx type.
-            .all(|(expected_tx, mempool_tx)| *expected_tx == *mempool_tx)
+            .all(|(expected_tx, mempool_tx)| expected_tx == *mempool_tx)
     );
 }
 
@@ -113,14 +114,28 @@ fn test_add_same_tx(mut mempool: Mempool) {
     let input = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
     let same_input = input.clone();
 
-    assert_eq!(mempool.add_tx(input), Ok(()));
+    assert_eq!(mempool.add_tx(input.clone()), Ok(()));
 
-    assert_matches!(
-        mempool.add_tx(same_input.clone()),
-        Err(MempoolError::DuplicateTransaction { .. })
-    );
-    // Assert that the original tx remains in the pool after the failed attempt.
-    check_mempool_txs_eq(&mempool, &[same_input.tx])
+    let result = panic::catch_unwind(move || mempool.add_tx(same_input.clone()));
+
+    match result {
+        Ok(_) => panic!(
+            "Expected add_tx to panic with 'Fee escalation transactions are not yet supported'"
+        ),
+        Err(e) => {
+            let msg = e
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| e.downcast_ref::<&'static str>().copied())
+                .expect("Unexpected panic type");
+
+            assert!(
+                msg.contains("Fee escalation transactions are not yet supported"),
+                "Unexpected panic message: {:?}",
+                msg
+            );
+        }
+    }
 }
 
 #[rstest]
