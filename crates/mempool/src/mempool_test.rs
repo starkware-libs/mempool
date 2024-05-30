@@ -14,6 +14,7 @@ use starknet_mempool_types::utils::create_thin_tx_for_testing;
 use tokio::sync::mpsc::channel;
 
 use crate::mempool::{Account, Mempool, MempoolInput};
+use crate::priority_queue::ThinPriorityTransaction;
 
 /// Creates a valid input for mempool's `add_tx` with optional default value for
 /// `sender_address`.
@@ -136,7 +137,10 @@ fn test_add_same_tx(mut mempool: Mempool) {
 fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
     let mempool_txs = mempool.txs_queue.iter();
     // Deref the inner mempool tx type.
-    expected_txs.iter().zip(mempool_txs).all(|(a, b)| *a == **b);
+    expected_txs
+        .iter()
+        .zip(mempool_txs)
+        .all(|(a, b)| <ThinTransaction as Into<ThinPriorityTransaction>>::into(a.clone()) == *b);
 }
 
 // TODO: remove network code once server abstraction is merged, then move into mempool with cfg.
