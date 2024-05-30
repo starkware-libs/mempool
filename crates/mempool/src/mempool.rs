@@ -13,7 +13,8 @@ use starknet_mempool_types::mempool_types::{
 };
 use tokio::sync::mpsc::Receiver;
 
-use crate::priority_queue::TransactionPriorityQueue;
+use crate::priority_queue::{PrioritizedTransaction, TransactionPriorityQueue};
+use crate::staging_area::StagingArea;
 use crate::transaction_store::TransactionStore;
 
 #[cfg(test)]
@@ -25,6 +26,7 @@ pub struct Mempool {
     txs_queue: TransactionPriorityQueue,
     // All transactions currently held in the mempool.
     tx_store: TransactionStore,
+    staging: StagingArea,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -34,6 +36,7 @@ impl Mempool {
             txs_queue: TransactionPriorityQueue::default(),
             tx_store: TransactionStore::default(),
             state: HashMap::default(),
+            staging: StagingArea::default(),
         };
 
         for MempoolInput { tx, account: Account { sender_address, state } } in inputs.into_iter() {
@@ -74,11 +77,23 @@ impl Mempool {
         let mut txs: Vec<ThinTransaction> = Vec::default();
         for pq_tx in &pq_txs {
             let tx = self.tx_store.remove(&pq_tx.tx_hash)?;
+            // TODO(Mohammad): remove from store and staging area in `commit_block`.
             self.state.remove(&tx.sender_address);
+            self.staging.insert(tx.tx_hash)?;
             txs.push(tx);
         }
 
         Ok(txs)
+    }
+
+    // TODO(Ayelet): implement a method that returns the next eligible transaction for the given
+    // sender address to be added to priority queue.
+    #[allow(dead_code)]
+    fn get_next_eligible_tx(
+        &self,
+        _sender_address: ContractAddress,
+    ) -> Option<PrioritizedTransaction> {
+        todo!()
     }
 
     /// Adds a new transaction to the mempool.
