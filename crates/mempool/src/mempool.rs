@@ -19,6 +19,7 @@ pub mod mempool_test;
 pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
     txs_queue: TransactionPriorityQueue,
+    // All transactions currently held in the mempool.
     tx_pool: TransactionPool,
     state: HashMap<ContractAddress, AccountState>,
 }
@@ -50,7 +51,7 @@ impl Mempool {
                 );
             }
 
-            mempool.txs_queue.push(tx);
+            mempool.txs_queue.push(tx.into());
         }
 
         mempool
@@ -66,10 +67,13 @@ impl Mempool {
     // back. TODO: Consider renaming to `pop_txs` to be more consistent with the standard
     // library.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
-        let txs = self.txs_queue.pop_last_chunk(n_txs);
-        for tx in &txs {
+        let pq_txs = self.txs_queue.pop_last_chunk(n_txs);
+
+        let mut txs: Vec<ThinTransaction> = Vec::default();
+        for pq_tx in &pq_txs {
+            let tx = self.tx_pool.remove(pq_tx.tx_hash)?;
             self.state.remove(&tx.sender_address);
-            self.tx_pool.remove(tx.tx_hash)?;
+            txs.push(tx);
         }
 
         Ok(txs)
@@ -84,7 +88,7 @@ impl Mempool {
             Vacant(entry) => {
                 entry.insert(account.state);
                 // TODO(Mohammad): use `handle_tx`.
-                self.txs_queue.push(tx.clone());
+                self.txs_queue.push(tx.clone().into());
                 self.tx_pool.push(tx)?;
 
                 Ok(())

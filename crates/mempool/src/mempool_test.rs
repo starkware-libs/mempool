@@ -10,6 +10,7 @@ use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::ThinTransaction;
 
 use crate::mempool::{Account, Mempool, MempoolInput};
+use crate::priority_queue::PrioritizedTransaction;
 
 /// Creates a valid input for mempool's `add_tx` with optional default value for
 /// `sender_address`.
@@ -146,11 +147,12 @@ fn test_add_same_tx(mut mempool: Mempool) {
 #[track_caller]
 fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
     let mempool_txs = mempool.txs_queue.iter();
+    let expected_txs = expected_txs.iter().map(|tx| PrioritizedTransaction::from(tx.clone()));
 
     assert!(
         zip_eq(expected_txs, mempool_txs)
             // Deref the inner mempool tx type.
-            .all(|(expected_tx, mempool_tx)| *expected_tx == **mempool_tx)
+            .all(|(expected_tx, mempool_tx)| expected_tx == *mempool_tx)
     );
 }
 
@@ -168,7 +170,7 @@ fn test_add_tx_with_identical_tip_succeeds(mut mempool: Mempool) {
 
     // TODO: currently hash comparison tie-breaks the two. Once more robust tie-breaks are added
     // replace this assertion with a dedicated test.
-    check_mempool_txs_eq(&mempool, &[tx2, tx1]);
+    check_mempool_txs_eq(&mempool, &[tx2, tx1])
 }
 
 #[rstest]

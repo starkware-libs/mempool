@@ -1,38 +1,42 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, VecDeque};
 
+use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_mempool_types::mempool_types::ThinTransaction;
 // Assumption: for the MVP only one transaction from the same contract class can be in the mempool
 // at a time. When this changes, saving the transactions themselves on the queu might no longer be
 // appropriate, because we'll also need to stores transactions without indexing them. For example,
 // transactions with future nonces will need to be stored, and potentially indexed on block commits.
+
+// Priority queue of transactions with associated priority.
 #[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
 pub struct TransactionPriorityQueue(BTreeSet<PrioritizedTransaction>);
 
 impl TransactionPriorityQueue {
     /// Adds a transaction to the mempool, ensuring unique keys.
     /// Panics: if given a duplicate tx.
-    pub fn push(&mut self, tx: ThinTransaction) {
-        let mempool_tx = PrioritizedTransaction(tx);
-        assert!(self.insert(mempool_tx), "Keys should be unique; duplicates are checked prior.");
+    pub fn push(&mut self, tx: PrioritizedTransaction) {
+        assert!(self.insert(tx), "Keys should be unique; duplicates are checked prior.");
     }
 
     // TODO(gilad): remove collect
-    pub fn pop_last_chunk(&mut self, n_txs: usize) -> Vec<ThinTransaction> {
-        (0..n_txs).filter_map(|_| self.pop_last().map(|tx| tx.0)).collect()
+    pub fn pop_last_chunk(&mut self, n_txs: usize) -> Vec<PrioritizedTransaction> {
+        let txs: Vec<PrioritizedTransaction> =
+            (0..n_txs).filter_map(|_| self.0.pop_last()).collect();
+        txs
     }
 }
 
-impl From<Vec<ThinTransaction>> for TransactionPriorityQueue {
-    fn from(transactions: Vec<ThinTransaction>) -> Self {
-        TransactionPriorityQueue(BTreeSet::from_iter(
-            transactions.into_iter().map(PrioritizedTransaction),
-        ))
-    }
+// TODO: remove allow dead code when `address_to_nonce` is added.
+#[allow(dead_code)]
+#[derive(Clone, Debug, Default)]
+pub struct PrioritizedTransaction {
+    pub address: ContractAddress,
+    pub nonce: Nonce,
+    pub tx_hash: TransactionHash,
+    pub tip: Tip,
 }
-
-#[derive(Clone, Debug, derive_more::Deref, derive_more::From)]
-pub struct PrioritizedTransaction(pub ThinTransaction);
 
 /// Compare transactions based only on their tip, a uint, using the Eq trait. It ensures that two
 /// tips are either exactly equal or not.
@@ -56,6 +60,17 @@ impl Ord for PrioritizedTransaction {
 impl PartialOrd for PrioritizedTransaction {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
+    }
+}
+
+impl From<ThinTransaction> for PrioritizedTransaction {
+    fn from(tx: ThinTransaction) -> Self {
+        PrioritizedTransaction {
+            address: tx.sender_address,
+            nonce: tx.nonce,
+            tx_hash: tx.tx_hash,
+            tip: tx.tip,
+        }
     }
 }
 
