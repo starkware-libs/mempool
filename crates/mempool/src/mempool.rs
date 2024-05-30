@@ -76,11 +76,10 @@ impl Mempool {
 
         let mut txs: Vec<ThinTransaction> = Vec::default();
         for pq_tx in &pq_txs {
-            let tx = self.tx_store.remove(&pq_tx.tx_hash)?;
-            // TODO(Mohammad): remove from store and staging area in `commit_block`.
+            let tx = self.tx_store.get(&pq_tx.tx_hash)?;
             self.state.remove(&tx.sender_address);
             self.staging.insert(tx.tx_hash)?;
-            txs.push(tx);
+            txs.push(tx.clone());
         }
 
         Ok(txs)
@@ -119,11 +118,35 @@ impl Mempool {
     // push back.
     pub fn commit_block(
         &mut self,
-        _block_number: u64,
-        _txs_in_block: &[TransactionHash],
-        _state_changes: HashMap<ContractAddress, AccountState>,
+        txs_in_block: &[TransactionHash],
+        state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
-        todo!()
+        let mut counter = 0;
+        for tx_hash in txs_in_block {
+            if self.staging.contains(tx_hash) {
+                counter += 1;
+                self.tx_store.remove(tx_hash)?;
+            }
+        }
+        // It pops the first `counter` hashes from staging area.
+        // As the transactions keep in the same order after the Mempool, the transactions included
+        // in the block should be the first ones in the staging area.
+        self.staging.remove(counter);
+
+        for (contract_address, account_state) in state_changes {
+            self.state.insert(contract_address, account_state);
+        }
+
+        // Re-insert transaction to PQ.
+        for tx_hash in self.staging.iter() {
+            let tx = self.tx_store.get(tx_hash)?.clone();
+            self.txs_queue.push(tx.into());
+        }
+
+        // Cleanin the `StagingArea`.
+        self.staging = StagingArea::default();
+
+        Ok(())
     }
 }
 

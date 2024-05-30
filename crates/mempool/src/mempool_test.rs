@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
 use rstest::{fixture, rstest};
@@ -139,6 +141,37 @@ fn test_add_same_tx(mut mempool: Mempool) {
     );
     // Assert that the original tx remains in the pool after the failed attempt.
     assert!(check_mempool_txs_eq(&mempool, &[tx]));
+}
+
+#[rstest]
+fn test_commit_block() {
+    let (tx_tip_50_address_0, account1) = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
+    let (tx_tip_100_address_1, account2) =
+        add_tx_input!(Tip(100), TransactionHash(StarkFelt::TWO), contract_address!("0x1"));
+
+    let mut mempool = Mempool::new([
+        MempoolInput { tx: tx_tip_50_address_0.clone(), account: account1 },
+        MempoolInput { tx: tx_tip_100_address_1.clone(), account: account2 },
+    ]);
+
+    let expected_addresses = vec![contract_address!("0x0"), contract_address!("0x1")];
+    // checks that the transactions were added to the mempool.
+    for address in &expected_addresses {
+        assert!(mempool.state.contains_key(address));
+    }
+
+    let sorted_txs = vec![tx_tip_100_address_1, tx_tip_50_address_0];
+
+    let txs = mempool.get_txs(2).unwrap();
+
+    // checks that the returned transactions are the ones with the highest priority.
+    assert_eq!(txs.len(), 2);
+    assert_eq!(txs, sorted_txs[..2].to_vec());
+
+    mempool.commit_block(&[TransactionHash(StarkFelt::TWO)], HashMap::default()).unwrap();
+
+    let _txs = mempool.get_txs(1).unwrap();
+    mempool.commit_block(&[TransactionHash(StarkFelt::ONE)], HashMap::default()).unwrap();
 }
 
 // Asserts that the transactions in the mempool are in ascending order as per the expected
