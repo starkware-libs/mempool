@@ -24,6 +24,7 @@ pub struct Mempool {
     batcher_network: BatcherToMempoolChannels,
     txs_queue: TransactionPriorityQueue,
     tx_store: HashMap<ContractAddress, BTreeMap<Nonce, ThinTransaction>>,
+    tx_hash_2_tx: HashMap<TransactionHash, ThinTransaction>,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -37,38 +38,34 @@ impl Mempool {
             txs_queue: TransactionPriorityQueue::default(),
             tx_store: HashMap::default(),
             state: HashMap::default(),
+            tx_hash_2_tx: HashMap::default(),
             gateway_network,
             batcher_network,
         };
 
-        mempool.txs_queue = TransactionPriorityQueue::from(
-            inputs
-                .into_iter()
-                .map(|input| {
-                    // Attempts to insert a key-value pair into the mempool's state. Returns `None`
-                    // if the key was not present, otherwise returns the old value while updating
-                    // the new value.
-                    let prev_value =
-                        mempool.state.insert(input.account.address, input.account.state);
-                    assert!(
-                        prev_value.is_none(),
-                        "Sender address: {:?} already exists in the mempool. Can't add {:?} to \
-                         the mempool.",
-                        input.account.address,
-                        input.tx
-                    );
+        for input in inputs.into_iter() {
+            // Attempts to insert a key-value pair into the mempool's state. Returns `None`
+            // if the key was not present, otherwise returns the old value while updating
+            // the new value.
+            let prev_value = mempool.state.insert(input.account.address, input.account.state);
+            assert!(
+                prev_value.is_none(),
+                "Sender address: {:?} already exists in the mempool. Can't add {:?} to the \
+                 mempool.",
+                input.account.address,
+                input.tx
+            );
 
-                    // Insert the transaction into the tx_store.
-                    mempool
-                        .tx_store
-                        .entry(input.account.address)
-                        .or_default()
-                        .insert(input.tx.nonce, input.tx.clone());
+            // Insert the transaction into the tx_store.
+            mempool
+                .tx_store
+                .entry(input.account.address)
+                .or_default()
+                .insert(input.tx.nonce, input.tx.clone());
 
-                    input.tx
-                })
-                .collect::<Vec<ThinTransaction>>(),
-        );
+            mempool.txs_queue.push(input.tx.clone().into());
+            mempool.tx_hash_2_tx.insert(input.tx.tx_hash, input.tx);
+        }
 
         mempool
     }
@@ -86,10 +83,14 @@ impl Mempool {
     // back. TODO: Consider renaming to `pop_txs` to be more consistent with the standard
     // library.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
-        let txs = self.txs_queue.pop_last_chunk(n_txs);
-        for tx in &txs {
+        let pq_txs = self.txs_queue.pop_last_chunk(n_txs);
+
+        let mut txs: Vec<ThinTransaction> = Vec::default();
+        for pq_tx in &pq_txs {
+            let tx = self.tx_hash_2_tx.remove(&pq_tx.tx_hash).unwrap();
             self.state.remove(&tx.sender_address);
             self.tx_store.remove(&tx.sender_address);
+            txs.push(tx);
         }
 
         Ok(txs)
@@ -103,7 +104,9 @@ impl Mempool {
             Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash }),
             Vacant(entry) => {
                 entry.insert(account.state);
-                self.txs_queue.push(tx.clone());
+                self.txs_queue.push(tx.clone().into());
+
+                self.tx_hash_2_tx.insert(tx.tx_hash, tx.clone());
 
                 // Insert the transaction into the tx_store
                 self.tx_store.entry(account.address).or_default().insert(tx.nonce, tx);
