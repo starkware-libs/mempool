@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::transaction::transactions::{
@@ -8,11 +10,11 @@ use blockifier::transaction::transactions::{
 use starknet_api::core::{calculate_contract_address, ChainId, ClassHash, ContractAddress, Nonce};
 use starknet_api::external_transaction::{
     ExternalDeclareTransaction, ExternalDeployAccountTransaction, ExternalInvokeTransaction,
-    ExternalTransaction,
+    ExternalTransaction, ResourceBoundsMapping,
 };
 use starknet_api::transaction::{
     DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
-    InvokeTransaction, InvokeTransactionV3, Tip, TransactionHash, TransactionHasher,
+    InvokeTransaction, InvokeTransactionV3, Resource, Tip, TransactionHash, TransactionHasher,
 };
 use starknet_mempool_types::mempool_types::ThinTransaction;
 
@@ -56,6 +58,13 @@ pub fn external_tx_to_thin_tx(
     }
 }
 
+fn from(mapping: ResourceBoundsMapping) -> starknet_api::transaction::ResourceBoundsMapping {
+    let mut map = BTreeMap::new();
+    map.insert(Resource::L1Gas, mapping.l1_gas);
+    map.insert(Resource::L2Gas, mapping.l2_gas);
+    starknet_api::transaction::ResourceBoundsMapping(map)
+}
+
 // TODO(Mohammad): Remove this trait once it is implemented in StarkNet API.
 pub trait ExternalTransactionExt {
     fn nonce(&self) -> &Nonce;
@@ -73,7 +82,7 @@ pub fn external_tx_to_account_tx(
             let declare_tx = DeclareTransaction::V3(DeclareTransactionV3 {
                 class_hash: ClassHash::default(), /* FIXME(yael 15/4/24): call the starknet-api
                                                    * function once ready */
-                resource_bounds: tx.resource_bounds.clone(),
+                resource_bounds: from(tx.resource_bounds.clone()),
                 tip: tx.tip,
                 signature: tx.signature.clone(),
                 nonce: tx.nonce,
@@ -92,7 +101,7 @@ pub fn external_tx_to_account_tx(
         }
         ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
             let deploy_account_tx = DeployAccountTransaction::V3(DeployAccountTransactionV3 {
-                resource_bounds: tx.resource_bounds.clone(),
+                resource_bounds: from(tx.resource_bounds.clone()),
                 tip: tx.tip,
                 signature: tx.signature.clone(),
                 nonce: tx.nonce,
@@ -120,7 +129,7 @@ pub fn external_tx_to_account_tx(
         }
         ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => {
             let invoke_tx = InvokeTransaction::V3(InvokeTransactionV3 {
-                resource_bounds: tx.resource_bounds.clone(),
+                resource_bounds: from(tx.resource_bounds.clone()),
                 tip: tx.tip,
                 signature: tx.signature.clone(),
                 nonce: tx.nonce,
