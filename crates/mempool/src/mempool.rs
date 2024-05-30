@@ -14,6 +14,7 @@ use starknet_mempool_types::mempool_types::{
 use tokio::sync::mpsc::Receiver;
 
 use crate::priority_queue::TransactionPriorityQueue;
+use crate::transaction_store::TransactionStore;
 
 #[cfg(test)]
 #[path = "mempool_test.rs"]
@@ -22,13 +23,17 @@ pub mod mempool_test;
 pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
     txs_queue: TransactionPriorityQueue,
+    tx_store: TransactionStore,
     state: HashMap<ContractAddress, AccountState>,
 }
 
 impl Mempool {
     pub fn new(inputs: impl IntoIterator<Item = MempoolInput>) -> Self {
-        let mut mempool =
-            Mempool { txs_queue: TransactionPriorityQueue::default(), state: HashMap::default() };
+        let mut mempool = Mempool {
+            txs_queue: TransactionPriorityQueue::default(),
+            tx_store: TransactionStore::default(),
+            state: HashMap::default(),
+        };
 
         mempool.txs_queue = TransactionPriorityQueue::from(
             inputs
@@ -46,6 +51,15 @@ impl Mempool {
                         input.account.sender_address,
                         input.tx
                     );
+
+                    // Insert the transaction into the tx_store.
+                    let res = mempool.tx_store.push(input.tx.clone());
+                    assert!(
+                        res.is_ok(),
+                        "Transaction: {:?} already exists in the mempool.",
+                        input.tx.tx_hash
+                    );
+
                     input.tx
                 })
                 .collect::<Vec<ThinTransaction>>(),
@@ -67,6 +81,7 @@ impl Mempool {
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
             self.state.remove(&tx.sender_address);
+            self.tx_store.remove(&tx.tx_hash)?;
         }
 
         Ok(txs)
@@ -80,7 +95,10 @@ impl Mempool {
             Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash }),
             Vacant(entry) => {
                 entry.insert(account.state);
-                self.txs_queue.push(tx);
+                // TODO(Mohammad): use `handle_tx`.
+                self.txs_queue.push(tx.clone());
+                self.tx_store.push(tx)?;
+
                 Ok(())
             }
         }
