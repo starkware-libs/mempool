@@ -10,6 +10,7 @@ use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::ThinTransaction;
 
 use crate::mempool::{Account, Mempool, MempoolInput};
+use crate::priority_queue::PrioritizedTransaction;
 
 /// Creates a valid input for mempool's `add_tx` with optional default value for
 /// `sender_address`.
@@ -124,7 +125,7 @@ fn test_add_tx(mut mempool: Mempool) {
     check_mempool_txs_eq(
         &mempool,
         &[tx_tip_50_address_0, tx_tip_80_address_2, tx_tip_100_address_1],
-    )
+    );
 }
 
 #[rstest]
@@ -138,7 +139,7 @@ fn test_add_same_tx(mut mempool: Mempool) {
         Err(MempoolError::DuplicateTransaction { tx_hash: TransactionHash(StarkFelt::ONE) })
     );
     // Assert that the original tx remains in the pool after the failed attempt.
-    check_mempool_txs_eq(&mempool, &[tx])
+    check_mempool_txs_eq(&mempool, &[tx]);
 }
 
 // Asserts that the transactions in the mempool are in ascending order as per the expected
@@ -146,11 +147,12 @@ fn test_add_same_tx(mut mempool: Mempool) {
 #[track_caller]
 fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
     let mempool_txs = mempool.txs_queue.iter();
+    let expected_txs = expected_txs.iter().map(|tx| PrioritizedTransaction::from(tx.clone()));
 
     assert!(
         zip_eq(expected_txs, mempool_txs)
             // Deref the inner mempool tx type.
-            .all(|(expected_tx, mempool_tx)| *expected_tx == **mempool_tx)
+            .all(|(expected_tx, mempool_tx)| expected_tx == *mempool_tx)
     );
 }
 

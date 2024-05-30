@@ -5513,7 +5513,6 @@ version = "0.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "derive_more",
  "itertools 0.13.0",
  "pretty_assertions",
  "rstest",
