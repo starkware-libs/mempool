@@ -13,6 +13,7 @@ use starknet_mempool_types::mempool_types::{
 use tokio::sync::mpsc::Receiver;
 
 use crate::priority_queue::TransactionPriorityQueue;
+use crate::staging_area::StagingQueue;
 use crate::transaction_store::TransactionStore;
 
 #[cfg(test)]
@@ -23,6 +24,7 @@ pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
     txs_queue: TransactionPriorityQueue,
     tx_store: TransactionStore,
+    staging: StagingQueue,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -32,6 +34,7 @@ impl Mempool {
             txs_queue: TransactionPriorityQueue::default(),
             tx_store: TransactionStore::default(),
             state: HashMap::default(),
+            staging: StagingQueue::default(),
         };
 
         for input in inputs.into_iter() {
@@ -77,6 +80,7 @@ impl Mempool {
         for pq_tx in &pq_txs {
             let tx = self.tx_store.remove(&pq_tx.tx_hash)?;
             self.state.remove(&tx.sender_address);
+            self.staging.insert(tx.clone().into())?;
             txs.push(tx);
         }
 
