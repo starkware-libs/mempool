@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, VecDeque};
 
+use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::mempool_types::ThinTransaction;
 
 use crate::mempool::TransactionReference;
@@ -15,13 +16,12 @@ impl TransactionQueue {
     /// Adds a transaction to the mempool, ensuring unique keys.
     /// Panics: if given a duplicate tx.
     pub fn insert(&mut self, tx: TransactionReference) {
-        let mempool_tx = QueuedTransaction(tx);
-        assert!(self.0.insert(mempool_tx), "Keys should be unique; duplicates are checked prior.");
+        assert!(self.0.insert(tx.into()), "Keys should be unique; duplicates are checked prior.");
     }
 
     // TODO(gilad): remove collect
-    pub fn pop_last_chunk(&mut self, n_txs: usize) -> Vec<TransactionReference> {
-        (0..n_txs).filter_map(|_| self.0.pop_last().map(|tx| tx.0)).collect()
+    pub fn pop_last_chunk(&mut self, n_txs: usize) -> Vec<TransactionHash> {
+        (0..n_txs).filter_map(|_| self.0.pop_last().map(|tx| tx.tx_hash)).collect()
     }
 
     #[cfg(any(feature = "testing", test))]
@@ -30,14 +30,8 @@ impl TransactionQueue {
     }
 }
 
-impl From<Vec<TransactionReference>> for TransactionQueue {
-    fn from(transactions: Vec<TransactionReference>) -> Self {
-        TransactionQueue(BTreeSet::from_iter(transactions.into_iter().map(QueuedTransaction)))
-    }
-}
-
-#[derive(Clone, Debug, derive_more::Deref, derive_more::From)]
-struct QueuedTransaction(pub TransactionReference);
+#[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut, derive_more::From)]
+struct QueuedTransaction(TransactionReference);
 
 /// Compare transactions based only on their tip, a uint, using the Eq trait. It ensures that two
 /// tips are either exactly equal or not.
