@@ -22,6 +22,7 @@ pub struct Mempool {
 }
 
 impl Mempool {
+    // TODO(Mohammad): return `Result`, to consider invalid input.
     pub fn new(inputs: impl IntoIterator<Item = MempoolInput>) -> Self {
         let mut mempool =
             Mempool { txs_queue: TransactionPriorityQueue::default(), state: HashMap::default() };
@@ -42,6 +43,7 @@ impl Mempool {
                         input.account.sender_address,
                         input.tx
                     );
+
                     input.tx
                 })
                 .collect::<Vec<ThinTransaction>>(),
@@ -77,6 +79,7 @@ impl Mempool {
             Vacant(entry) => {
                 entry.insert(account.state);
                 self.txs_queue.push(tx);
+
                 Ok(())
             }
         }
