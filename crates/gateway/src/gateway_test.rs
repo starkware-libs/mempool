@@ -47,13 +47,18 @@ async fn test_add_tx() {
 
     let app_state = app_state(gateway_component);
 
-    let response = add_tx(State(app_state), invoke_tx().into()).await.into_response();
+    let tx = invoke_tx();
+    let tx_hash = app_state
+        .stateful_transaction_validator
+        .run_validate(&test_state_reader_factory(), &tx, None, None)
+        .unwrap();
+    let response = add_tx(State(app_state), tx.into()).await.into_response();
 
     let status_code = response.status();
     assert_eq!(status_code, StatusCode::OK);
 
     let response_bytes = &to_bytes(response).await;
-    assert!(String::from_utf8_lossy(response_bytes).starts_with("INVOKE"));
+    assert_eq!(tx_hash, serde_json::from_slice(response_bytes).unwrap());
 }
 
 async fn to_bytes(res: Response) -> Bytes {
