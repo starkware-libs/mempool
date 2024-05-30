@@ -20,6 +20,8 @@ pub struct Mempool {
     tx_pool: TransactionPool,
     // Transactions eligible for sequencing.
     tx_queue: TransactionQueue,
+    // Transactions that are currently being executed.
+    staging: Vec<TransactionHash>,
 }
 
 impl Mempool {
@@ -51,10 +53,22 @@ impl Mempool {
         let mut eligible_txs: Vec<ThinTransaction> = Vec::with_capacity(n_txs);
         for tx_hash in self.tx_queue.pop_last_chunk(n_txs) {
             let tx = self.tx_pool.remove(tx_hash)?;
+            assert!(!self.staging.contains(&tx_hash));
+            self.staging.push(tx_hash);
             eligible_txs.push(tx);
         }
 
         Ok(eligible_txs)
+    }
+
+    // TODO(Ayelet): implement a method that returns the next eligible transaction for the given
+    // sender address to be added to priority queue.
+    #[allow(dead_code)]
+    fn get_next_eligible_tx(
+        &self,
+        _sender_address: ContractAddress,
+    ) -> Option<TransactionReference> {
+        todo!()
     }
 
     /// Adds a new transaction to the mempool.
