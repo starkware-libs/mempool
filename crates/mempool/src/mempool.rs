@@ -78,10 +78,10 @@ impl Mempool {
 
         let mut txs: Vec<ThinTransaction> = Vec::default();
         for pq_tx in &pq_txs {
-            let tx = self.tx_store.remove(&pq_tx.tx_hash)?;
+            let tx = self.tx_store.get(&pq_tx.tx_hash)?;
             self.state.remove(&tx.sender_address);
             self.staging.insert(tx.clone().into())?;
-            txs.push(tx);
+            txs.push(tx.clone());
         }
 
         Ok(txs)
@@ -110,10 +110,26 @@ impl Mempool {
     pub fn commit_block(
         &mut self,
         _block_number: u64,
-        _txs_in_block: &[TransactionHash],
-        _state_changes: HashMap<ContractAddress, AccountState>,
+        txs_in_block: &[TransactionHash],
+        state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
-        todo!()
+        for tx_hash in txs_in_block {
+            self.staging.remove(tx_hash)?;
+            self.tx_store.remove(tx_hash)?;
+        }
+
+        for (contract_address, account_state) in state_changes {
+            self.state.insert(contract_address, account_state);
+        }
+
+        for tx_hash in self.staging.keys() {
+            let tx = self.tx_store.get(tx_hash)?.clone();
+            self.txs_queue.push(tx.into());
+        }
+
+        self.staging = StagingQueue::default();
+
+        Ok(())
     }
 }
 
