@@ -9,7 +9,7 @@ use starknet_api::{contract_address, patricia_key};
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{Account, ThinTransaction};
 
-use crate::mempool::{Mempool, MempoolInput};
+use crate::mempool::{Mempool, MempoolInput, TransactionReference};
 
 /// Creates a valid input for mempool's `add_tx` with optional default value for
 /// `sender_address`.
@@ -49,11 +49,12 @@ fn mempool() -> Mempool {
 #[track_caller]
 fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
     let mempool_txs = mempool.tx_queue.iter();
+    let expected_txs = expected_txs.iter().map(TransactionReference::new);
 
     assert!(
         zip_eq(expected_txs, mempool_txs)
             // Deref the inner mempool tx type.
-            .all(|(expected_tx, mempool_tx)| *expected_tx == *mempool_tx)
+            .all(|(expected_tx, mempool_tx)| expected_tx == *mempool_tx)
     );
 }
 
@@ -113,7 +114,7 @@ fn test_add_same_tx(mut mempool: Mempool) {
     let input = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
     let same_input = input.clone();
 
-    assert_eq!(mempool.add_tx(input), Ok(()));
+    assert_eq!(mempool.add_tx(input.clone()), Ok(()));
 
     assert_matches!(
         mempool.add_tx(same_input.clone()),
