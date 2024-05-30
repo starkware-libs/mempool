@@ -5309,7 +5309,6 @@ version = "0.0.0"
 dependencies = [
  "assert_matches",
  "async-trait",
- "derive_more",
  "pretty_assertions",
  "rstest",
  "starknet_api",

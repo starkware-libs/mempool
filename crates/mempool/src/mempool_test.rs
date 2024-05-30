@@ -9,6 +9,7 @@ use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::ThinTransaction;
 
 use crate::mempool::{Account, Mempool, MempoolInput};
+use crate::priority_queue::PrioritizedTransaction;
 
 /// Creates a valid input for mempool's `add_tx` with optional default value for
 /// `sender_address`.
@@ -120,10 +121,10 @@ fn test_add_tx(mut mempool: Mempool) {
     mempool.state.contains_key(&account2.sender_address);
     mempool.state.contains_key(&account3.sender_address);
 
-    check_mempool_txs_eq(
+    assert!(check_mempool_txs_eq(
         &mempool,
-        &[tx_tip_50_address_0, tx_tip_80_address_2, tx_tip_100_address_1],
-    )
+        &[tx_tip_50_address_0, tx_tip_80_address_2, tx_tip_100_address_1]
+    ));
 }
 
 #[rstest]
@@ -137,15 +138,19 @@ fn test_add_same_tx(mut mempool: Mempool) {
         Err(MempoolError::DuplicateTransaction { tx_hash: TransactionHash(StarkFelt::ONE) })
     );
     // Assert that the original tx remains in the pool after the failed attempt.
-    check_mempool_txs_eq(&mempool, &[tx])
+    assert!(check_mempool_txs_eq(&mempool, &[tx]));
 }
 
 // Asserts that the transactions in the mempool are in ascending order as per the expected
 // transactions.
-fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
+fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) -> bool {
     let mempool_txs = mempool.txs_queue.iter();
-    // Deref the inner mempool tx type.
-    expected_txs.iter().zip(mempool_txs).all(|(a, b)| *a == **b);
+
+    // Convert and compare transactions
+    expected_txs.iter().zip(mempool_txs).all(|(expected, actual)| {
+        let expected_converted: PrioritizedTransaction = expected.clone().into();
+        expected_converted == *actual
+    })
 }
 
 #[rstest]
@@ -162,7 +167,7 @@ fn test_add_tx_with_identical_tip_succeeds(mut mempool: Mempool) {
 
     // TODO: currently hash comparison tie-breaks the two. Once more robust tie-breaks are added
     // replace this assertion with a dedicated test.
-    check_mempool_txs_eq(&mempool, &[tx2, tx1]);
+    assert!(check_mempool_txs_eq(&mempool, &[tx2, tx1]));
 }
 
 #[rstest]
@@ -176,5 +181,5 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
 
     assert!(mempool.add_tx(tx_big_tip_small_hash.clone(), account1).is_ok());
     assert!(mempool.add_tx(tx_small_tip_big_hash.clone(), account2).is_ok());
-    check_mempool_txs_eq(&mempool, &[tx_big_tip_small_hash, tx_small_tip_big_hash])
+    assert!(check_mempool_txs_eq(&mempool, &[tx_small_tip_big_hash, tx_big_tip_small_hash]));
 }
