@@ -114,10 +114,21 @@ impl Mempool {
     pub fn commit_block(
         &mut self,
         _block_number: u64,
-        _txs_in_block: &[TransactionHash],
-        _state_changes: HashMap<ContractAddress, AccountState>,
+        txs_in_block: &[TransactionHash],
+        state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
-        todo!()
+        for tx_hash in txs_in_block {
+            self.tx_store.remove(tx_hash);
+            self.staging.remove(tx_hash);
+        }
+
+        for (contract_address, account_state) in state_changes {
+            self.state.insert(contract_address, account_state);
+        }
+
+        // TODO: Handle reverts.
+        assert!(self.staging.is_empty(), "Staging should be empty after block commit.");
+        Ok(())
     }
 
     /// Listens asynchronously for network messages and processes them.
