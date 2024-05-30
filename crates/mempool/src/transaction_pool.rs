@@ -5,7 +5,7 @@ use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{MempoolResult, ThinTransaction};
 
-use crate::priority_queue::PrioritizedTransaction;
+use crate::priority_queue::QueuedTransaction;
 
 /// Contains all transactions currently held in the mempool.
 /// Invariant: both data structures are consistent regarding the existence of transactions:
@@ -16,32 +16,32 @@ pub struct TransactionPool {
     // Holds the complete transaction objects; it should be the sole entity that does so.
     tx_pool: HashMap<TransactionHash, ThinTransaction>,
     // Transactions organized by account address, sorted by ascending nonce values.
-    txs_by_account: HashMap<ContractAddress, BTreeMap<Nonce, PrioritizedTransaction>>,
+    txs_by_account: HashMap<ContractAddress, BTreeMap<Nonce, QueuedTransaction>>,
 }
 
 impl TransactionPool {
-    // TODO(Mohammad): Remove the cloning of tx once the PrioritizedTransaction is updated.
+    // TODO(Mohammad): Remove the cloning of tx once the QueuedTransaction is updated.
     pub fn push(&mut self, tx: ThinTransaction) -> MempoolResult<()> {
         let tx_hash = tx.tx_hash;
-
-        // Insert transaction to pool, if it is new.
-        if let hash_map::Entry::Vacant(entry) = self.tx_pool.entry(tx_hash) {
-            entry.insert(tx.clone());
-        } else {
-            return Err(MempoolError::DuplicateTransaction { tx_hash });
-        }
 
         let txs_from_account_entry = self.txs_by_account.entry(tx.sender_address).or_default();
         match txs_from_account_entry.entry(tx.nonce) {
             btree_map::Entry::Vacant(txs_from_account) => {
-                txs_from_account.insert(tx.into());
+                txs_from_account.insert((&tx).into());
             }
             btree_map::Entry::Occupied(_) => {
-                panic!(
-                    "Transaction pool consistency error: transaction with hash {tx_hash} does not \
-                     appear in main mapping, but it appears in the account mapping"
-                );
+                return Err(MempoolError::DuplicateTransaction { tx_hash });
             }
+        }
+
+        // Insert transaction to pool, if it is new.
+        if let hash_map::Entry::Vacant(entry) = self.tx_pool.entry(tx_hash) {
+            entry.insert(tx);
+        } else {
+            panic!(
+                "Transaction pool consistency error: transaction with hash {tx_hash} does not \
+                 appear in the account mapping, but it appears in the main mapping"
+            );
         }
         Ok(())
     }
