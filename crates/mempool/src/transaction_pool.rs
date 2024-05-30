@@ -20,28 +20,28 @@ pub struct TransactionPool {
 }
 
 impl TransactionPool {
-    // TODO(Mohammad): Remove the cloning of tx once the `TransactionReference` is updated.
     pub fn push(&mut self, tx: ThinTransaction) -> MempoolResult<()> {
         let tx_hash = tx.tx_hash;
 
-        // Insert transaction to pool, if it is new.
-        if let hash_map::Entry::Vacant(entry) = self.tx_pool.entry(tx_hash) {
-            entry.insert(tx.clone());
-        } else {
-            return Err(MempoolError::DuplicateTransaction { tx_hash });
-        }
-
+        // Insert transaction into the mapping by account.
         let txs_from_account_entry = self.txs_by_account.entry(tx.sender_address).or_default();
         match txs_from_account_entry.entry(tx.nonce) {
             btree_map::Entry::Vacant(txs_from_account) => {
-                txs_from_account.insert(tx.into());
+                txs_from_account.insert((&tx).into());
             }
             btree_map::Entry::Occupied(_) => {
-                panic!(
-                    "Transaction pool consistency error: transaction with hash {tx_hash} does not \
-                     appear in main mapping, but it appears in the account mapping"
-                );
+                return Err(MempoolError::DuplicateTransaction { tx_hash });
             }
+        }
+
+        // Insert transaction to pool, if it is new.
+        if let hash_map::Entry::Vacant(entry) = self.tx_pool.entry(tx_hash) {
+            entry.insert(tx);
+        } else {
+            panic!(
+                "Transaction pool consistency error: transaction with hash {tx_hash} does not \
+                 appear in the account mapping, but it appears in the main mapping"
+            );
         }
         Ok(())
     }
