@@ -1,5 +1,5 @@
 use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use anyhow::Result;
 use mempool_infra::network_component::CommunicationInterface;
@@ -25,6 +25,7 @@ pub struct Mempool {
     batcher_network: BatcherToMempoolChannels,
     txs_queue: TransactionPriorityQueue,
     tx_store: TransactionStore,
+    staging: BTreeSet<TransactionHash>,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -38,6 +39,7 @@ impl Mempool {
             txs_queue: TransactionPriorityQueue::default(),
             tx_store: TransactionStore::default(),
             state: HashMap::default(),
+            staging: BTreeSet::default(),
             gateway_network,
             batcher_network,
         };
@@ -82,6 +84,7 @@ impl Mempool {
         for pq_tx in &pq_txs {
             let tx = self.tx_store.remove(&pq_tx.tx_hash).unwrap();
             self.state.remove(&tx.sender_address);
+            self.staging.insert(pq_tx.tx_hash);
             txs.push(tx);
         }
 
