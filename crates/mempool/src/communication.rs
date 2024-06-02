@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use starknet_mempool_infra::component_definitions::ComponentRequestHandler;
+use starknet_mempool_infra::component_runner::{ComponentRunner, ComponentStartError};
 use starknet_mempool_infra::component_server::ComponentServer;
 use starknet_mempool_types::communication::{
     MempoolRequest, MempoolRequestAndResponseSender, MempoolResponse,
@@ -47,5 +48,12 @@ impl ComponentRequestHandler<MempoolRequest, MempoolResponse> for MempoolCommuni
                 MempoolResponse::GetTransactions(self.get_txs(n_txs))
             }
         }
+    }
+}
+
+#[async_trait]
+impl ComponentRunner for MempoolCommunicationWrapper {
+    async fn start(&mut self) -> Result<(), ComponentStartError> {
+        self.mempool.start().await
     }
 }

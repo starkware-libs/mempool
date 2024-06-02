@@ -12,10 +12,13 @@ workspace = true
 testing = []
 
 [dependencies]
+async-trait.workspace = true
 axum.workspace = true
 blockifier.workspace = true
 cairo-lang-starknet-classes.workspace = true
 hyper.workspace = true
+futures.workspace = true
+starknet_mempool_infra = { path = "../mempool_infra", version = "0.0" }
 papyrus_config.workspace = true
 reqwest.workspace = true
 serde.workspace = true

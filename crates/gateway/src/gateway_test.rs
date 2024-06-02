@@ -10,6 +10,7 @@ use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool::communication::create_mempool_server;
 use starknet_mempool::mempool::Mempool;
+use starknet_mempool_infra::component_server::CommunicationServer;
 use starknet_mempool_types::communication::{MempoolClientImpl, MempoolRequestAndResponseSender};
 use tokio::sync::mpsc::channel;
 use tokio::task;

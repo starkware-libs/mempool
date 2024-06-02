@@ -2,12 +2,19 @@ use std::clone::Clone;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
-use starknet_mempool_types::communication::SharedMempoolClient;
+use starknet_mempool_infra::component_runner::{
+    ComponentCreator, ComponentRunner, ComponentStartError,
+};
+use starknet_mempool_infra::empty_server::{create_empty_server, EmptyServer};
+use starknet_mempool_types::communication::{
+    MempoolClientImpl, MempoolRequest, MempoolResponse, SharedMempoolClient,
+};
 use starknet_mempool_types::mempool_types::{Account, MempoolInput};
 
 use crate::config::{GatewayConfig, GatewayNetworkConfig};
@@ -56,7 +63,14 @@ impl Gateway {
         Gateway { config, app_state }
     }
 
-    pub async fn run(self) -> Result<(), GatewayRunError> {
+    pub fn change_state_reader_factory(
+        &mut self,
+        state_reader_factory: Arc<dyn StateReaderFactory>,
+    ) {
+        self.app_state.state_reader_factory = state_reader_factory;
+    }
+
+    pub async fn run(&mut self) -> Result<(), GatewayRunError> {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let GatewayNetworkConfig { ip, port } = self.config.network_config;
         let addr = SocketAddr::new(ip, port);
@@ -66,11 +80,11 @@ impl Gateway {
         Ok(axum::Server::bind(&addr).serve(app.into_make_service()).await?)
     }
 
-    pub fn app(self) -> Router {
+    pub fn app(&self) -> Router {
         Router::new()
             .route("/is_alive", get(is_alive))
             .route("/add_tx", post(add_tx))
-            .with_state(self.app_state)
+            .with_state(self.app_state.clone())
     }
 }
 
@@ -123,4 +137,33 @@ fn process_tx(
         tx: external_tx_to_thin_tx(&tx, tx_hash),
         account: Account { sender_address: get_sender_address(&tx), ..Default::default() },
     })
+}
+
+pub type GatewayCommunicationServer = EmptyServer<Gateway>;
+
+pub fn create_gateway_server(gateway: Gateway) -> GatewayCommunicationServer {
+    create_empty_server(gateway)
+}
+
+impl ComponentCreator<GatewayConfig, MempoolRequest, MempoolResponse> for Gateway {
+    fn create(config: GatewayConfig, client: Option<Arc<MempoolClientImpl>>) -> Self {
+        if client.is_none() {
+            panic!("SharedMempoolClient is required to create Gateway.");
+        }
+
+        let state_reader_factory: Arc<dyn StateReaderFactory> =
+            Arc::new(crate::state_reader_test_utils::local_test_state_reader_factory());
+        Gateway::new(config, state_reader_factory, client.unwrap())
+    }
+}
+
+#[async_trait]
+impl ComponentRunner for Gateway {
+    async fn start(&mut self) -> Result<(), ComponentStartError> {
+        println!("Gateway::start()");
+        match self.run().await {
+            Ok(_) => Ok(()),
+            Err(_) => Err(ComponentStartError::InternalComponentError),
+        }
+    }
 }

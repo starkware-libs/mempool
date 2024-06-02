@@ -10,13 +10,20 @@ use starknet_gateway::config::{
     StatelessTransactionValidatorConfig,
 };
 use starknet_gateway::errors::GatewayError;
-use starknet_gateway::gateway::Gateway;
 use starknet_gateway::starknet_api_test_utils::external_tx_to_json;
-use starknet_mempool_types::communication::SharedMempoolClient;
+use starknet_mempool_node::components::Components;
+use starknet_mempool_node::config::MempoolNodeConfig;
 
 use crate::state_reader::rpc_test_state_reader_factory;
 
-pub async fn create_gateway(mempool_client: SharedMempoolClient) -> Gateway {
+pub async fn adjust_gateway_state_reader(components: &mut Components) {
+    if let Some(gateway) = components.gateway.as_mut() {
+        let state_reader_factory = Arc::new(rpc_test_state_reader_factory().await);
+        gateway.change_state_reader_factory(state_reader_factory);
+    }
+}
+
+fn create_gateway_config() -> GatewayConfig {
     let stateless_tx_validator_config = StatelessTransactionValidatorConfig {
         validate_non_zero_l1_gas_fee: true,
         max_calldata_length: 10,
@@ -28,15 +35,11 @@ pub async fn create_gateway(mempool_client: SharedMempoolClient) -> Gateway {
     let network_config = GatewayNetworkConfig { ip: socket.ip(), port: socket.port() };
     let stateful_tx_validator_config = StatefulTransactionValidatorConfig::create_for_testing();
 
-    let gateway_config = GatewayConfig {
-        network_config,
-        stateless_tx_validator_config,
-        stateful_tx_validator_config,
-    };
+    GatewayConfig { network_config, stateless_tx_validator_config, stateful_tx_validator_config }
+}
 
-    let state_reader_factory = Arc::new(rpc_test_state_reader_factory().await);
-
-    Gateway::new(gateway_config, state_reader_factory, mempool_client)
+pub async fn create_config() -> MempoolNodeConfig {
+    MempoolNodeConfig { gateway_config: create_gateway_config(), ..MempoolNodeConfig::default() }
 }
 
 /// A test utility client for interacting with a gateway server.

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use starknet_mempool_infra::component_runner::{ComponentRunner, ComponentStartError};
 
 pub(crate) type ValueA = u32;
 pub(crate) type ValueB = u8;
@@ -33,6 +34,14 @@ impl ComponentA {
     }
 }
 
+#[async_trait]
+impl ComponentRunner for ComponentA {
+    async fn start(&mut self) -> Result<(), ComponentStartError> {
+        println!("ComponentA::start()");
+        Ok(())
+    }
+}
+
 pub(crate) struct ComponentB {
     value: ValueB,
     _a: Box<dyn ComponentATrait>,
@@ -48,5 +57,13 @@ impl ComponentBTrait for ComponentB {
 impl ComponentB {
     pub fn new(value: ValueB, a: Box<dyn ComponentATrait>) -> Self {
         Self { value, _a: a }
+    }
+}
+
+#[async_trait]
+impl ComponentRunner for ComponentB {
+    async fn start(&mut self) -> Result<(), ComponentStartError> {
+        println!("ComponentB::start()");
+        Ok(())
     }
 }

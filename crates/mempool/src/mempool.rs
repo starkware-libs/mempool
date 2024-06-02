@@ -1,8 +1,16 @@
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
+use std::future::pending;
+use std::sync::Arc;
 
+use async_trait::async_trait;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
+use starknet_mempool_infra::component_client::DummyClient;
+use starknet_mempool_infra::component_runner::{
+    ComponentCreator, ComponentRunner, ComponentStartError,
+};
+use starknet_mempool_infra::empty_config::EmptyConfig;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, MempoolInput, MempoolResult, ThinTransaction,
@@ -93,5 +101,23 @@ impl Mempool {
         _state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
         todo!()
+    }
+}
+
+impl ComponentCreator<EmptyConfig, (), ()> for Mempool {
+    fn create(_config: EmptyConfig, client: Option<Arc<DummyClient>>) -> Self {
+        if client.is_some() {
+            panic!("Mempool does not require a client.");
+        }
+        Mempool::empty()
+    }
+}
+
+#[async_trait]
+impl ComponentRunner for Mempool {
+    async fn start(&mut self) -> Result<(), ComponentStartError> {
+        println!("Mempool::start()");
+        let () = pending().await;
+        Ok(())
     }
 }
