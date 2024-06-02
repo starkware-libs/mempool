@@ -3,7 +3,9 @@ use axum::response::{IntoResponse, Response};
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
+use cairo_lang_starknet_classes::compiler_version::VersionId;
 use starknet_api::block::BlockNumber;
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -55,6 +57,16 @@ pub enum StatelessTransactionValidatorError {
 #[derive(Debug, Error)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum DeclareTransactionError {
+    #[error("Length of Sierra program: {length}. Sierra program: {program_prefix:?}")]
+    SierraProgramTooShort { length: usize, program_prefix: [StarkFelt; 2] },
+    #[error("Invalid character in Sierra version: {version:?}.")]
+    InvalidSierraVersion { version: [StarkFelt; 3] },
+    // The checks for this are probably already covered in the compiler's repo: See
+    // `StarknetSierraCompilationError::UnsupportedSierraVersion`.
+    #[error("Sierra version {version} is below the minimum version {min_version}.")]
+    VersionBelowMinimum { version: VersionId, min_version: VersionId },
+    #[error("Sierra version {version} is above the maximum version {max_version}.")]
+    VersionAboveMaximum { version: VersionId, max_version: VersionId },
     #[error(
         "Declared contract class {bytecode_language} bytecode size is {bytecode_size}. It must be \
          less then {max_bytecode_size}."

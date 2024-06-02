@@ -47,7 +47,17 @@ pub fn external_tx_for_testing(
 ) -> ExternalTransaction {
     match tx_type {
         TransactionType::Declare => {
-            external_declare_tx(declare_tx_args!(resource_bounds, signature))
+            // Minimal contract class.
+            let contract_class = ContractClass {
+                sierra_program: vec![
+                    StarkFelt::from_u128(1),
+                    StarkFelt::from_u128(3),
+                    StarkFelt::from_u128(0),
+                ],
+                // contract_class_version: "0.1.0".to_owned(),
+                ..Default::default()
+            };
+            external_declare_tx(declare_tx_args!(resource_bounds, signature, contract_class))
         }
         TransactionType::DeployAccount => external_deploy_account_tx(
             deploy_account_tx_args!(resource_bounds, constructor_calldata: calldata, signature),
