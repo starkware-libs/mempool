@@ -1,4 +1,5 @@
 use assert_matches::assert_matches;
+use cairo_lang_starknet_classes::compiler_version::VersionId;
 use rstest::rstest;
 use starknet_api::external_transaction::{ContractClass, ResourceBoundsMapping};
 use starknet_api::hash::StarkFelt;
@@ -12,7 +13,8 @@ use crate::starknet_api_test_utils::{
     zero_resource_bounds_mapping, TransactionType, NON_EMPTY_RESOURCE_BOUNDS,
 };
 use crate::stateless_transaction_validator::{
-    StatelessTransactionValidator, StatelessTransactionValidatorError,
+    StatelessTransactionValidator, StatelessTransactionValidatorError, MIN_SIERRA_VERSION,
+    SIERRA_VERSION,
 };
 
 const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig =
@@ -182,6 +184,74 @@ fn test_signature_too_long(
             max_signature_length: 1
         }
     );
+}
+
+#[rstest]
+fn test_declare_sierra_program_too_short(
+    #[values(
+        vec![],
+        vec![stark_felt!(1_u128)],
+        vec![stark_felt!(1_u128), stark_felt!(3_u128)]
+    )]
+    sierra_program: Vec<StarkFelt>,
+) {
+    let tx_validator =
+        StatelessTransactionValidator { config: DEFAULT_VALIDATOR_CONFIG_FOR_TESTING };
+
+    let sierra_program_length = sierra_program.len();
+    let contract_class = ContractClass { sierra_program, ..Default::default() };
+    let tx = external_declare_tx(declare_tx_args!(contract_class));
+
+    assert_matches!(
+        tx_validator.validate(&tx).unwrap_err(),
+        StatelessTransactionValidatorError::SierraProgramTooShort { length, .. }
+        if length == sierra_program_length
+    );
+}
+
+#[rstest]
+#[case::invalid_sierra_version(
+    vec![
+            stark_felt!(1_u128),
+            stark_felt!(3_u128),
+            stark_felt!(0x10000000000000000_u128), // Does not fit into a usize.
+    ],
+    StatelessTransactionValidatorError::InvalidSierraVersion {
+            version: [
+                stark_felt!(1_u128),
+                stark_felt!(3_u128),
+                stark_felt!(0x10000000000000000_u128)
+            ]
+        }
+    )
+]
+#[case::sierra_version_too_low(
+    vec![stark_felt!(0_u128), stark_felt!(3_u128), stark_felt!(0_u128)],
+    StatelessTransactionValidatorError::SierraVersionOutOfRange {
+            version: VersionId{major: 0, minor: 3, patch: 0},
+            min_version: MIN_SIERRA_VERSION,
+            max_version: SIERRA_VERSION,
+    })
+]
+#[case::sierra_version_too_high(
+    vec![stark_felt!(1_u128), stark_felt!(6_u128), stark_felt!(0_u128)],
+    StatelessTransactionValidatorError::SierraVersionOutOfRange {
+            version: VersionId { major: 1, minor: 6, patch: 0 },
+            min_version: MIN_SIERRA_VERSION,
+            max_version: SIERRA_VERSION
+    })
+]
+fn test_declare_sierra_version(
+    #[case] sierra_program: Vec<StarkFelt>,
+    #[case] expected_error: StatelessTransactionValidatorError,
+) {
+    let tx_validator =
+        StatelessTransactionValidator { config: DEFAULT_VALIDATOR_CONFIG_FOR_TESTING };
+
+    let contract_class = ContractClass { sierra_program, ..Default::default() };
+    let tx = external_declare_tx(declare_tx_args!(contract_class));
+
+    assert_eq!(tx_validator.validate(&tx).unwrap_err(), expected_error);
 }
 
 #[test]

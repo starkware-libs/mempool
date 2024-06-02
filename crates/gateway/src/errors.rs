@@ -3,7 +3,9 @@ use axum::response::{IntoResponse, Response};
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
+use cairo_lang_starknet_classes::compiler_version::VersionId;
 use starknet_api::block::BlockNumber;
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -46,6 +48,15 @@ pub enum StatelessTransactionValidatorError {
         (allowed length: {max_signature_length})."
     )]
     SignatureTooLong { signature_length: usize, max_signature_length: usize },
+    #[error("Length of Sierra program: {length}. Sierra program: {program_prefix:?}")]
+    SierraProgramTooShort { length: usize, program_prefix: [StarkFelt; 2] },
+    #[error("Invalid character in Sierra version: {version:?}.")]
+    InvalidSierraVersion { version: [StarkFelt; 3] },
+    #[error(
+        "Compiled versions older than {min_version} or newer than {max_version} are not \
+         supported. Got {version}."
+    )]
+    SierraVersionOutOfRange { version: VersionId, min_version: VersionId, max_version: VersionId },
     #[error(
         "Cannot declare contract class with bytecode size of {bytecode_size}; max allowed size: \
          {max_bytecode_size}."
