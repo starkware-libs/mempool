@@ -1,7 +1,9 @@
+use cairo_lang_starknet_classes::compiler_version::VersionId;
 use starknet_api::external_transaction::{
     ExternalDeclareTransaction, ExternalDeclareTransactionV3, ExternalDeployAccountTransaction,
     ExternalInvokeTransaction, ExternalTransaction, ResourceBoundsMapping,
 };
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Resource;
 
 use crate::config::StatelessTransactionValidatorConfig;
@@ -9,6 +11,11 @@ use crate::errors::{
     DeclareTransactionError, StatelessTransactionValidatorError,
     StatelessTransactionValidatorResult,
 };
+
+// TODO: Get from config. Validate the config - make sure Sierra version is:
+// cairo_lang_starknet_classes::compiler_version::current_sierra_version_id.
+pub const SIERRA_VERSION: VersionId = VersionId { major: 1, minor: 5, patch: 0 };
+pub const MIN_SIERRA_VERSION: VersionId = VersionId { major: 1, minor: 1, patch: 0 };
 
 #[cfg(test)]
 #[path = "stateless_transaction_validator_test.rs"]
@@ -106,7 +113,41 @@ impl StatelessTransactionValidator {
         &self,
         tx: &ExternalDeclareTransactionV3,
     ) -> StatelessTransactionValidatorResult<()> {
+        let sierra_program = &tx.contract_class.sierra_program;
+        self.validate_sierra_version(sierra_program)?;
         self.validate_class_length(&tx.contract_class)?;
+
+        Ok(())
+    }
+
+    fn validate_sierra_version(
+        &self,
+        sierra_program: &[StarkFelt],
+    ) -> StatelessTransactionValidatorResult<()> {
+        let sierra_version = sierra_version_from_sierra_program(sierra_program)?;
+
+        // Check that the version is not too old.
+        if less_then_version_id(sierra_version, MIN_SIERRA_VERSION) {
+            return Err(StatelessTransactionValidatorError::DeclareTransactionError(
+                DeclareTransactionError::VersionBelowMinimum {
+                    version: sierra_version,
+                    min_version: MIN_SIERRA_VERSION,
+                },
+            ));
+        }
+        // Check that the version is lower than the latest version allowing higher patch versions
+        // (i.e. we ignore the Z part in a version X.Y.Z).
+        let latest_minor_sierra_version = VersionId { patch: 0, ..SIERRA_VERSION };
+        let minor_sierra_version = VersionId { patch: 0, ..sierra_version };
+
+        if less_then_version_id(latest_minor_sierra_version, minor_sierra_version) {
+            return Err(StatelessTransactionValidatorError::DeclareTransactionError(
+                DeclareTransactionError::VersionAboveMaximum {
+                    version: sierra_version,
+                    max_version: SIERRA_VERSION,
+                },
+            ));
+        }
 
         Ok(())
     }
@@ -156,6 +197,43 @@ fn validate_class_size(
     }
 
     Ok(())
+}
+
+fn sierra_version_from_sierra_program(
+    sierra_program: &[StarkFelt],
+) -> Result<VersionId, DeclareTransactionError> {
+    let len_of_sierra_program = sierra_program.len();
+    if len_of_sierra_program < 3 {
+        let mut sierra_version = [StarkFelt::default(); 2];
+        sierra_version[..len_of_sierra_program]
+            .copy_from_slice(&sierra_program[..len_of_sierra_program]);
+
+        return Err(DeclareTransactionError::SierraProgramTooShort {
+            length: len_of_sierra_program,
+            program_prefix: sierra_version,
+        });
+    }
+
+    let mut version_as_felts = [StarkFelt::default(); 3];
+    version_as_felts.copy_from_slice(&sierra_program[..3]);
+    let map_err = || DeclareTransactionError::InvalidSierraVersion { version: version_as_felts };
+    Ok(VersionId {
+        major: sierra_program[0].try_into().map_err(|_| map_err())?,
+        minor: sierra_program[1].try_into().map_err(|_| map_err())?,
+        patch: sierra_program[2].try_into().map_err(|_| map_err())?,
+    })
+}
+
+fn less_then_version_id(lhs_version_id: VersionId, rhs_version_id: VersionId) -> bool {
+    match lhs_version_id.major.cmp(&rhs_version_id.major) {
+        std::cmp::Ordering::Less => true,
+        std::cmp::Ordering::Greater => false,
+        std::cmp::Ordering::Equal => match lhs_version_id.minor.cmp(&rhs_version_id.minor) {
+            std::cmp::Ordering::Less => true,
+            std::cmp::Ordering::Greater => false,
+            std::cmp::Ordering::Equal => lhs_version_id.patch < rhs_version_id.patch,
+        },
+    }
 }
 
 fn validate_resource_is_non_zero(
