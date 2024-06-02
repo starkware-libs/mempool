@@ -72,6 +72,8 @@ pub struct StatelessTransactionValidatorConfig {
 
     pub max_bytecode_size: usize,
     pub max_raw_class_size: usize,
+    // TODO(Arni): Add sierra version limitations. Validate the Sierra version is:
+    // cairo_lang_starknet_classes::compiler_version::current_sierra_version_id.
 }
 
 impl SerializeConfig for StatelessTransactionValidatorConfig {
