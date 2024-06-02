@@ -8,7 +8,7 @@ type ValueA = u32;
 type ValueB = u8;
 
 use crate::component_server::{
-    ComponentMessageExecutor, ComponentServer, MessageAndResponseSender,
+    ComponentRequestAndResponseSender, ComponentRequestHandler, ComponentServer,
 };
 
 #[async_trait]
@@ -64,9 +64,9 @@ impl ComponentATrait for ComponentClient<ComponentAMessages, ComponentAResponses
 }
 
 #[async_trait]
-impl ComponentMessageExecutor<ComponentAMessages, ComponentAResponses> for ComponentA {
-    async fn execute(&mut self, message: ComponentAMessages) -> ComponentAResponses {
-        match message {
+impl ComponentRequestHandler<ComponentAMessages, ComponentAResponses> for ComponentA {
+    async fn handle_request(&mut self, request: ComponentAMessages) -> ComponentAResponses {
+        match request {
             ComponentAMessages::AGetValue => ComponentAResponses::Value(self.a_get_value().await),
         }
     }
@@ -111,24 +111,26 @@ impl ComponentBTrait for ComponentClient<ComponentBMessages, ComponentBResponses
 }
 
 #[async_trait]
-impl ComponentMessageExecutor<ComponentBMessages, ComponentBResponses> for ComponentB {
-    async fn execute(&mut self, message: ComponentBMessages) -> ComponentBResponses {
-        match message {
+impl ComponentRequestHandler<ComponentBMessages, ComponentBResponses> for ComponentB {
+    async fn handle_request(&mut self, request: ComponentBMessages) -> ComponentBResponses {
+        match request {
             ComponentBMessages::BGetValue => ComponentBResponses::Value(self.b_get_value().await),
         }
     }
 }
 
 async fn verify_response(
-    tx_a: Sender<MessageAndResponseSender<ComponentAMessages, ComponentAResponses>>,
+    tx_a: Sender<ComponentRequestAndResponseSender<ComponentAMessages, ComponentAResponses>>,
     expected_value: ValueA,
 ) {
     let (tx_a_main, mut rx_a_main) = channel::<ComponentAResponses>(1);
 
-    let message_and_res_tx: MessageAndResponseSender<ComponentAMessages, ComponentAResponses> =
-        MessageAndResponseSender { message: ComponentAMessages::AGetValue, tx: tx_a_main };
+    let request_and_res_tx: ComponentRequestAndResponseSender<
+        ComponentAMessages,
+        ComponentAResponses,
+    > = ComponentRequestAndResponseSender { request: ComponentAMessages::AGetValue, tx: tx_a_main };
 
-    tx_a.send(message_and_res_tx).await.unwrap();
+    tx_a.send(request_and_res_tx).await.unwrap();
 
     let res = rx_a_main.recv().await.unwrap();
     match res {
@@ -144,9 +146,9 @@ async fn test_setup() {
     let expected_value: ValueA = setup_value.into();
 
     let (tx_a, rx_a) =
-        channel::<MessageAndResponseSender<ComponentAMessages, ComponentAResponses>>(32);
+        channel::<ComponentRequestAndResponseSender<ComponentAMessages, ComponentAResponses>>(32);
     let (tx_b, rx_b) =
-        channel::<MessageAndResponseSender<ComponentBMessages, ComponentBResponses>>(32);
+        channel::<ComponentRequestAndResponseSender<ComponentBMessages, ComponentBResponses>>(32);
 
     let a_client = ComponentClient::new(tx_a.clone());
     let b_client = ComponentClient::new(tx_b.clone());
