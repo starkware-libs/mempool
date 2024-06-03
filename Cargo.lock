@@ -3230,7 +3230,6 @@ dependencies = [
  "axum",
  "blockifier",
  "cairo-lang-starknet-classes",
- "hyper",
  "mempool_infra",
  "papyrus_config",
  "pretty_assertions",

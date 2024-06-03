@@ -23,6 +23,7 @@ const Configuration = {
         'scope-enum': [2, 'always', [
             'ci',
             'gateway',
+            'tests-integration',
             'mempool',
             'mempool_node',
         ]],
