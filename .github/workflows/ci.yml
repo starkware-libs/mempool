@@ -70,3 +70,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run Machete (detect unused dependencies)
         uses: bnjbvr/cargo-machete@main
+
+  taplo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install taplo
+        run: cargo install taplo-cli --locked
+      - name: Run Taplo
+        id: taplo
+        run: taplo fmt --check --diff
