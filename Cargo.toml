@@ -2,9 +2,9 @@
 members = [
     "crates/gateway",
     "crates/mempool",
-    "crates/mempool_types",
-    "crates/mempool_node",
     "crates/mempool_infra",
+    "crates/mempool_node",
+    "crates/mempool_types",
     "crates/starknet_sierra_compile",
     "crates/task_executor",
     "crates/test_utils",
@@ -18,11 +18,11 @@ repository = "https://github.com/starkware-libs/mempool/"
 license = "Apache-2.0"
 
 [workspace.lints.rust]
-warnings = "deny"
 future-incompatible = "deny"
 nonstandard-style = "deny"
 rust-2018-idioms = "deny"
 unused = "deny"
+warnings = "deny"
 
 [workspace.lints.clippy]
 as_conversions = "deny"
@@ -45,6 +45,7 @@ colored = "2.1.0"
 const_format = "0.2.30"
 derive_more = "0.99"
 hyper = { version = "0.14", features = ["client", "http1"] }
+itertools = "0.13.0"
 papyrus_config = "0.3.0"
 pretty_assertions = "1.4.0"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
