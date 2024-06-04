@@ -56,3 +56,55 @@ impl PartialOrd for PrioritizedTransaction {
         Some(self.cmp(other))
     }
 }
+
+pub enum PriorityQueueTxResult {
+    Duplicate,
+    Replace(ThinTransaction),
+    New,
+    Ignore,
+}
+
+// TODO: remove when is used.
+#[allow(dead_code)]
+// Assumption: there are no gaps, and the transactions are received in order.
+pub struct AddressPriorityQueue(pub Vec<ThinTransaction>);
+
+// TODO: remove when is used.
+#[allow(dead_code)]
+impl AddressPriorityQueue {
+    pub fn push(&mut self, tx: ThinTransaction) {
+        self.0.push(tx);
+    }
+
+    pub fn top(&self) -> Option<ThinTransaction> {
+        self.0.first().cloned()
+    }
+
+    pub fn pop(&mut self) -> Option<ThinTransaction> {
+        Some(self.0.remove(0))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn handle_tx(&mut self, new_tx: ThinTransaction) -> PriorityQueueTxResult {
+        if self.0.contains(&new_tx) {
+            return PriorityQueueTxResult::Duplicate;
+        }
+
+        for (index, tx) in self.0.iter_mut().enumerate() {
+            if new_tx.sender_address == tx.sender_address && new_tx.nonce == tx.nonce {
+                if new_tx.tip < tx.tip {
+                    return PriorityQueueTxResult::Ignore;
+                }
+                let old_tx = self.0.remove(index);
+                self.0.insert(index, new_tx);
+                return PriorityQueueTxResult::Replace(old_tx);
+            }
+        }
+
+        self.push(new_tx);
+        PriorityQueueTxResult::New
+    }
+}
