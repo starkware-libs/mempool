@@ -34,7 +34,7 @@ macro_rules! add_tx_input {
 
 #[fixture]
 fn mempool() -> Mempool {
-    create_for_testing([])
+    create_mempool_for_testing([])
 }
 
 #[rstest]
@@ -48,7 +48,7 @@ fn test_get_txs(#[case] requested_txs: usize) {
     let (tx_tip_10_address_2, account3) =
         add_tx_input!(Tip(10), TransactionHash(StarkFelt::THREE), contract_address!("0x2"));
 
-    let mut mempool = create_for_testing([
+    let mut mempool = create_mempool_for_testing([
         MempoolInput { tx: tx_tip_50_address_0.clone(), account: account1 },
         MempoolInput { tx: tx_tip_100_address_1.clone(), account: account2 },
         MempoolInput { tx: tx_tip_10_address_2.clone(), account: account3 },
@@ -73,10 +73,13 @@ fn test_get_txs(#[case] requested_txs: usize) {
     assert_eq!(txs, sorted_txs[..max_requested_txs].to_vec());
 
     // checks that the transactions that were not returned are still in the mempool.
-    let actual_addresses: Vec<&ContractAddress> = mempool.state.keys().collect();
+    let actual_addresses: Vec<ContractAddress> =
+        mempool.txs_queue.iter().map(|tx| tx.sender_address).collect();
     let expected_remaining_addresses: Vec<&ContractAddress> =
         expected_addresses[max_requested_txs..].iter().collect();
-    assert_eq!(actual_addresses, expected_remaining_addresses,);
+    for address in expected_remaining_addresses {
+        assert!(actual_addresses.contains(address));
+    }
 }
 
 #[rstest]
@@ -91,7 +94,7 @@ fn test_mempool_initialization_with_duplicate_sender_addresses() {
     let inputs = vec![MempoolInput { tx, account }, MempoolInput { tx: same_tx, account }];
 
     // This call should panic because of duplicate sender addresses
-    let _mempool = create_for_testing(inputs.into_iter());
+    let _mempool = create_mempool_for_testing(inputs.into_iter());
 }
 
 #[rstest]
@@ -107,9 +110,18 @@ fn test_add_tx(mut mempool: Mempool) {
     assert_matches!(mempool.add_tx(tx_tip_80_address_2.clone(), account3), Ok(()));
 
     assert_eq!(mempool.state.len(), 3);
-    mempool.state.contains_key(&account1.address);
-    mempool.state.contains_key(&account2.address);
-    mempool.state.contains_key(&account3.address);
+    assert!(mempool.state.contains_key(&account1.address));
+    assert!(mempool.state.contains_key(&account2.address));
+    assert!(mempool.state.contains_key(&account3.address));
+
+    let account_1_queue = mempool.tx_store.address_to_queue.get(&account1.address).unwrap();
+    assert_eq!(tx_tip_50_address_0, account_1_queue.0.first().unwrap().clone());
+
+    let account_1_queue = mempool.tx_store.address_to_queue.get(&account2.address).unwrap();
+    assert_eq!(tx_tip_100_address_1, account_1_queue.0.first().unwrap().clone());
+
+    let account_2_queue = mempool.tx_store.address_to_queue.get(&account3.address).unwrap();
+    assert_eq!(tx_tip_80_address_2, account_2_queue.0.first().unwrap().clone());
 
     check_mempool_txs_eq(
         &mempool,
@@ -140,7 +152,7 @@ fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
 }
 
 // TODO: remove network code once server abstraction is merged, then move into mempool with cfg.
-fn create_for_testing(inputs: impl IntoIterator<Item = MempoolInput>) -> Mempool {
+fn create_mempool_for_testing(inputs: impl IntoIterator<Item = MempoolInput>) -> Mempool {
     let (_, rx_gateway_to_mempool) = channel::<GatewayToMempoolMessage>(1);
     let (tx_mempool_to_gateway, _) = channel::<MempoolToGatewayMessage>(1);
     let gateway_network =
