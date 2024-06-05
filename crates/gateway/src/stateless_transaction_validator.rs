@@ -1,11 +1,14 @@
 use starknet_api::external_transaction::{
-    ExternalDeployAccountTransaction, ExternalInvokeTransaction, ExternalTransaction,
-    ResourceBoundsMapping,
+    ExternalDeclareTransaction, ExternalDeclareTransactionV3, ExternalDeployAccountTransaction,
+    ExternalInvokeTransaction, ExternalTransaction, ResourceBoundsMapping,
 };
 use starknet_api::transaction::Resource;
 
 use crate::config::StatelessTransactionValidatorConfig;
-use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionValidatorResult};
+use crate::errors::{
+    DeclareTransactionError, StatelessTransactionValidatorError,
+    StatelessTransactionValidatorResult,
+};
 
 #[cfg(test)]
 #[path = "stateless_transaction_validator_test.rs"]
@@ -24,6 +27,9 @@ impl StatelessTransactionValidator {
         self.validate_resource_bounds(tx)?;
         self.validate_tx_size(tx)?;
 
+        if let ExternalTransaction::Declare(ExternalDeclareTransaction::V3(declare_tx)) = tx {
+            self.validate_declare_tx(declare_tx)?;
+        }
         Ok(())
     }
 
@@ -95,9 +101,62 @@ impl StatelessTransactionValidator {
 
         Ok(())
     }
+
+    fn validate_declare_tx(
+        &self,
+        tx: &ExternalDeclareTransactionV3,
+    ) -> StatelessTransactionValidatorResult<()> {
+        self.validate_class_length(&tx.contract_class)?;
+
+        Ok(())
+    }
+
+    fn validate_class_length(
+        &self,
+        contract_class: &starknet_api::external_transaction::ContractClass,
+    ) -> StatelessTransactionValidatorResult<()> {
+        let bytecode_size = contract_class.sierra_program.len();
+        let serialized_class = serde_json::to_string(&contract_class)
+            .expect("Unexpected error serializing contract class.");
+        let raw_class_size = serialized_class.len();
+
+        Ok(validate_class_size(
+            "Sierra".to_string(),
+            bytecode_size,
+            self.config.max_bytecode_size,
+            raw_class_size,
+            self.config.max_raw_class_size,
+        )?)
+    }
 }
 
 // Utilities.
+
+fn validate_class_size(
+    bytecode_language: String,
+    bytecode_size: usize,
+    max_bytecode_size: usize,
+    raw_class_size: usize,
+    max_raw_class_size: usize,
+) -> Result<(), DeclareTransactionError> {
+    if bytecode_size > max_bytecode_size {
+        return Err(DeclareTransactionError::BytecodeSizeTooLarge {
+            bytecode_language,
+            bytecode_size,
+            max_bytecode_size,
+        });
+    }
+
+    if raw_class_size > max_raw_class_size {
+        return Err(DeclareTransactionError::ContractClassObjectSizeTooLarge {
+            bytecode_language,
+            contract_class_object_size: raw_class_size,
+            max_contract_class_object_size: max_raw_class_size,
+        });
+    }
+
+    Ok(())
+}
 
 fn validate_resource_is_non_zero(
     resource_bounds_mapping: &ResourceBoundsMapping,
