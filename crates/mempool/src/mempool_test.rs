@@ -1,7 +1,7 @@
 use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
 use rstest::{fixture, rstest};
-use starknet_api::core::{ContractAddress, PatriciaKey};
+use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
 use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_api::{contract_address, patricia_key};
@@ -14,17 +14,26 @@ use crate::mempool::{Account, Mempool, MempoolInput};
 /// Creates a valid input for mempool's `add_tx` with optional default value for
 /// `sender_address`.
 /// Usage:
-/// 1. add_tx_input!(tip, tx_hash, address)
-/// 2. add_tx_input!(tip, tx_hash)
+/// 1. add_tx_input!(tip, tx_hash, address, nonce)
+/// 2. add_tx_input!(tip, tx_hash, address)
+/// 3. add_tx_input!(tip, tx_hash)
 // TODO: Return MempoolInput once it's used in `add_tx`.
+// TODO: remove unused macro_rules warning when the macro is used.
+#[allow(unused_macro_rules)]
 macro_rules! add_tx_input {
-    ($tip:expr, $tx_hash:expr, $address:expr) => {{
+    // Pattern for all four arguments
+    ($tip:expr, $tx_hash:expr, $address:expr, $nonce:expr) => {{
         let account = Account { address: $address, ..Default::default() };
-        let tx = create_thin_tx_for_testing($tip, $tx_hash, $address);
+        let tx = create_thin_tx_for_testing($tip, $tx_hash, $address, $nonce);
         (tx, account)
     }};
+    // Pattern for three arguments: tip, tx_hash, address
+    ($tip:expr, $tx_hash:expr, $address:expr) => {
+        add_tx_input!($tip, $tx_hash, $address, Nonce::default())
+    };
+    // Pattern for two arguments: tip, tx_hash
     ($tip:expr, $tx_hash:expr) => {
-        add_tx_input!($tip, $tx_hash, ContractAddress::default())
+        add_tx_input!($tip, $tx_hash, ContractAddress::default(), Nonce::default())
     };
 }
 
