@@ -46,6 +46,33 @@ pub enum StatelessTransactionValidatorError {
         (allowed length: {max_signature_length})."
     )]
     SignatureTooLong { signature_length: usize, max_signature_length: usize },
+    #[error(transparent)]
+    DeclareTransactionError(#[from] DeclareTransactionError),
+    #[error("Error serializing object: {object_name}")]
+    SerializationError { object_name: String },
+}
+
+#[derive(Debug, Error)]
+#[cfg_attr(test, derive(PartialEq))]
+pub enum DeclareTransactionError {
+    #[error(
+        "Declared contract class {bytecode_language} bytecode size is {bytecode_size}. It must be \
+         less then {max_bytecode_size}."
+    )]
+    BytecodeSizeTooLarge {
+        bytecode_language: String,
+        bytecode_size: usize,
+        max_bytecode_size: usize,
+    },
+    #[error(
+        "Declared contract class {bytecode_language} size is {contract_class_object_size}. It \
+         must be less then {max_contract_class_object_size}."
+    )]
+    ContractClassObjectSizeTooLarge {
+        bytecode_language: String,
+        contract_class_object_size: usize,
+        max_contract_class_object_size: usize,
+    },
 }
 
 pub type StatelessTransactionValidatorResult<T> = Result<T, StatelessTransactionValidatorError>;
