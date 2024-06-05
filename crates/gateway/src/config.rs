@@ -69,6 +69,9 @@ pub struct StatelessTransactionValidatorConfig {
 
     pub max_calldata_length: usize,
     pub max_signature_length: usize,
+
+    pub max_bytecode_size: usize,
+    pub max_raw_class_size: usize,
 }
 
 impl SerializeConfig for StatelessTransactionValidatorConfig {
