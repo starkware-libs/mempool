@@ -11,9 +11,10 @@ use starknet_gateway::config::{
 use starknet_gateway::gateway::Gateway;
 use starknet_gateway::starknet_api_test_utils::invoke_tx;
 use starknet_gateway::state_reader_test_utils::test_state_reader_factory;
-use starknet_mempool::mempool::{create_mempool_server, Mempool};
+use starknet_mempool::mempool::Mempool;
+use starknet_mempool::mempool_communication::create_mempool_server;
 use starknet_mempool_integration_tests::integration_test_utils::GatewayClient;
-use starknet_mempool_types::mempool_types::{
+use starknet_mempool_types::mempool_communication_types::{
     MempoolClient, MempoolClientImpl, MempoolRequestAndResponseSender,
 };
 use tokio::sync::mpsc::channel;
