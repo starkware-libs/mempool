@@ -3,6 +3,7 @@ use axum::response::{IntoResponse, Response};
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
+use cairo_vm::types::errors::program_errors::ProgramError;
 use starknet_api::block::BlockNumber;
 use starknet_api::transaction::{Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
@@ -12,10 +13,14 @@ use tokio::task::JoinError;
 /// Errors directed towards the end-user, as a result of gateway requests.
 #[derive(Debug, Error)]
 pub enum GatewayError {
+    #[error(transparent)]
+    CompilationError(#[from] starknet_sierra_compile::compile::CompilationUtilError),
     #[error("Internal server error: {0}")]
     InternalServerError(#[from] JoinError),
     #[error("Error sending message: {0}")]
     MessageSendError(String),
+    #[error(transparent)]
+    ProgramError(#[from] ProgramError),
     #[error(transparent)]
     StatefulTransactionValidatorError(#[from] StatefulTransactionValidatorError),
     #[error(transparent)]

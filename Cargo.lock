@@ -5483,6 +5483,7 @@ dependencies = [
  "axum",
  "blockifier 0.7.0-dev.1 (git+https://github.com/starkware-libs/blockifier.git?rev=6057646f)",
  "cairo-lang-starknet-classes",
+ "cairo-vm",
  "hyper",
  "papyrus_config",
  "pretty_assertions",
@@ -5493,6 +5494,7 @@ dependencies = [
  "starknet_api",
  "starknet_mempool",
  "starknet_mempool_types",
+ "starknet_sierra_compile",
  "thiserror",
  "tokio",
  "validator",
@@ -5594,8 +5596,10 @@ dependencies = [
  "cairo-lang-sierra",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
+ "num-bigint",
  "serde",
  "serde_json",
+ "starknet_api",
  "thiserror",
 ]
 
