@@ -15,6 +15,7 @@ testing = []
 axum.workspace = true
 blockifier.workspace = true
 cairo-lang-starknet-classes.workspace = true
+cairo-vm.workspace = true
 hyper.workspace = true
 indexmap.workspace = true
 papyrus_common.workspace = true
@@ -27,6 +28,7 @@ serde_json.workspace = true
 starknet_api.workspace = true
 starknet_client.workspace = true
 starknet_mempool_types = { path = "../mempool_types", version = "0.0" }
+starknet_sierra_compile ={ path = "../starknet_sierra_compile", version = "0.0" }
 strum.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true

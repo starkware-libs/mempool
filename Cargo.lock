@@ -5290,6 +5290,7 @@ dependencies = [
  "axum",
  "blockifier",
  "cairo-lang-starknet-classes",
+ "cairo-vm",
  "hyper",
  "indexmap 2.2.6",
  "papyrus_common",
@@ -5305,6 +5306,7 @@ dependencies = [
  "starknet_client",
  "starknet_mempool",
  "starknet_mempool_types",
+ "starknet_sierra_compile",
  "strum 0.24.1",
  "tempfile",
  "thiserror",
@@ -5398,8 +5400,10 @@ dependencies = [
  "cairo-lang-sierra",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
+ "num-bigint",
  "serde",
  "serde_json",
+ "starknet_api",
  "thiserror",
 ]
 
