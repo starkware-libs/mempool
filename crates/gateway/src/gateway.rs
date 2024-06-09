@@ -1,13 +1,19 @@
 use std::clone::Clone;
 use std::net::SocketAddr;
+use std::panic;
 use std::sync::Arc;
 
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use starknet_api::external_transaction::ExternalTransaction;
+use blockifier::execution::contract_class::{ClassInfo, ContractClassV1};
+use cairo_lang_utils::bigint::BigUintAsHex;
+use num_bigint::BigUint;
+use starknet_api::external_transaction::{ExternalDeclareTransaction, ExternalTransaction};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::mempool_types::{Account, MempoolClient, MempoolInput};
+use starknet_sierra_compile::compile::{compile_sierra_to_casm, CompilationUtilError};
 
 use crate::config::{GatewayConfig, GatewayNetworkConfig};
 use crate::errors::{GatewayError, GatewayRunError};
@@ -117,11 +123,114 @@ fn process_tx(
     // Perform stateless validations.
     stateless_tx_validator.validate(&tx)?;
 
-    // TODO(Yael, 19/5/2024): pass the relevant class_info and deploy_account_hash.
-    let tx_hash = stateful_tx_validator.run_validate(state_reader_factory, &tx, None, None)?;
+    // Compile Sierra to Casm.
+    let optional_class_info = get_optional_class_info(&tx)?;
 
+    // TODO(Yael, 19/5/2024): pass the relevant class_info and deploy_account_hash.
+    let tx_hash =
+        stateful_tx_validator.run_validate(state_reader_factory, &tx, optional_class_info, None)?;
+
+    // TODO(Arni): Add the Sierra and the Casm to the mempool input.
     Ok(MempoolInput {
         tx: external_tx_to_thin_tx(&tx, tx_hash),
         account: Account { sender_address: get_sender_address(&tx), ..Default::default() },
     })
+}
+
+fn get_optional_class_info(tx: &ExternalTransaction) -> GatewayResult<Option<ClassInfo>> {
+    if let ExternalTransaction::Declare(ExternalDeclareTransaction::V3(tx)) = tx {
+        let starknet_api_contract_class: starknet_api::external_transaction::ContractClass =
+            tx.contract_class.clone();
+        let sierra_program_length = starknet_api_contract_class.sierra_program.len();
+        let abi_length = starknet_api_contract_class.abi.len();
+        let cairo_lang_contract_class =
+            starknet_api_contract_class_to_cairo_lang_contract_class(starknet_api_contract_class);
+
+        // Compile Sierra to Casm.
+        let catch_unwind_result =
+            panic::catch_unwind(|| compile_sierra_to_casm(cairo_lang_contract_class));
+        let casm_contract_class = match catch_unwind_result {
+            Ok(compilation_result) => compilation_result?,
+            Err(_) => {
+                // TODO(Arni): Log the panic.
+                return Err(GatewayError::CompilationUtilError(
+                    CompilationUtilError::CompilationPanic,
+                ));
+            }
+        };
+
+        // TODO: Handle unwrap.
+        // Convert Casm contract class to Starknet contract class directly.
+        let raw_contract_class = serde_json::to_string(&casm_contract_class).unwrap();
+        let contact_class_v1: ContractClassV1 =
+            ContractClassV1::try_from_json_string(&raw_contract_class).unwrap();
+
+        let blockifier_contract_class: blockifier::execution::contract_class::ContractClass =
+            contact_class_v1.into();
+        let class_info =
+            ClassInfo::new(&blockifier_contract_class, sierra_program_length, abi_length)
+                .expect("Expects a Cairo 1 contract class");
+        Ok(Some(class_info))
+    } else {
+        Ok(None)
+    }
+}
+
+fn starknet_api_contract_class_to_cairo_lang_contract_class(
+    starknet_api_contract_class: starknet_api::external_transaction::ContractClass,
+) -> cairo_lang_starknet_classes::contract_class::ContractClass {
+    let sierra_program = starknet_api_contract_class
+        .sierra_program
+        .into_iter()
+        .map(stark_felt_to_big_uint_as_hex)
+        .collect();
+    let contract_class_version = starknet_api_contract_class.contract_class_version;
+    let entry_points_by_type = entry_point_by_type_to_contract_entry_points(
+        starknet_api_contract_class.entry_points_by_type,
+    );
+
+    cairo_lang_starknet_classes::contract_class::ContractClass {
+        sierra_program,
+        sierra_program_debug_info: None,
+        contract_class_version,
+        entry_points_by_type,
+        // The Abi is irrelevant to the computlation.
+        abi: None,
+    }
+}
+
+fn entry_point_by_type_to_contract_entry_points(
+    entry_points_by_type: starknet_api::external_transaction::EntryPointByType,
+) -> cairo_lang_starknet_classes::contract_class::ContractEntryPoints {
+    let starknet_api::external_transaction::EntryPointByType { constructor, external, l1handler } =
+        entry_points_by_type;
+    cairo_lang_starknet_classes::contract_class::ContractEntryPoints {
+        external: starknet_api_entry_points_to_contract_entry_points(external),
+        l1_handler: starknet_api_entry_points_to_contract_entry_points(l1handler),
+        constructor: starknet_api_entry_points_to_contract_entry_points(constructor),
+    }
+}
+
+fn starknet_api_entry_points_to_contract_entry_points(
+    entry_points: Vec<starknet_api::state::EntryPoint>,
+) -> Vec<cairo_lang_starknet_classes::contract_class::ContractEntryPoint> {
+    entry_points.into_iter().map(entry_point_into_contract_entry_point).collect()
+}
+
+fn entry_point_into_contract_entry_point(
+    entry_point: starknet_api::state::EntryPoint,
+) -> cairo_lang_starknet_classes::contract_class::ContractEntryPoint {
+    cairo_lang_starknet_classes::contract_class::ContractEntryPoint {
+        selector: stark_felt_to_big_uint(entry_point.selector.0),
+        function_idx: entry_point.function_idx.0,
+    }
+}
+
+fn stark_felt_to_big_uint_as_hex(stark_felt: StarkFelt) -> BigUintAsHex {
+    BigUintAsHex { value: stark_felt_to_big_uint(stark_felt) }
+}
+
+fn stark_felt_to_big_uint(stark_felt: StarkFelt) -> BigUint {
+    // TODO: Solve the unwrap.
+    BigUint::from_radix_be(stark_felt.bytes(), 256).unwrap()
 }
