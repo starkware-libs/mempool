@@ -12,6 +12,8 @@ use tokio::task::JoinError;
 /// Errors directed towards the end-user, as a result of gateway requests.
 #[derive(Debug, Error)]
 pub enum GatewayError {
+    #[error(transparent)]
+    CompilationUtilError(#[from] starknet_sierra_compile::compile::CompilationUtilError),
     #[error("Internal server error: {0}")]
     InternalServerError(#[from] JoinError),
     #[error("Error sending message: {0}")]
