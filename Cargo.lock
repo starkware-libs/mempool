@@ -5301,6 +5301,7 @@ dependencies = [
  "starknet_sierra_compile",
  "strum 0.24.1",
  "tempfile",
+ "test_utils",
  "thiserror",
  "tokio",
  "validator",

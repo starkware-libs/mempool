@@ -1,3 +1,7 @@
+use std::env;
+use std::fs::File;
+use std::path::Path;
+
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager};
 use serde_json::to_string_pretty;
@@ -15,6 +19,7 @@ use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, PaymasterData, ResourceBounds, Tip,
     TransactionSignature, TransactionVersion,
 };
+use test_utils::{get_absolute_path, DECLARE_V3_TX_FILE, TEST_FILES_FOLDER};
 
 use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 
@@ -84,6 +89,14 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
         },
         l2_gas: ResourceBounds::default(),
     }
+}
+
+pub fn declare_tx() -> ExternalTransaction {
+    env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Couldn't set working dir.");
+    let json_file_path = Path::new(DECLARE_V3_TX_FILE);
+    let json_file = File::open(json_file_path).unwrap();
+    let tx: ExternalTransaction = serde_json::from_reader(json_file).unwrap();
+    tx
 }
 
 pub fn invoke_tx() -> ExternalTransaction {
