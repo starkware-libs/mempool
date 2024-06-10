@@ -27,6 +27,7 @@ starknet_sierra_compile ={ path = "../starknet_sierra_compile", version = "0.0" 
 thiserror.workspace = true
 tokio.workspace = true
 validator.workspace = true
+test_utils = { path = "../test_utils", version = "0.0"}
 
 [dev-dependencies]
 assert_matches.workspace = true

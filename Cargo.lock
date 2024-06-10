@@ -5302,6 +5302,7 @@ dependencies = [
  "starknet_mempool",
  "starknet_mempool_types",
  "starknet_sierra_compile",
+ "test_utils",
  "thiserror",
  "tokio",
  "validator",
