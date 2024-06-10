@@ -9,75 +9,53 @@ mod common;
 use std::net::{IpAddr, SocketAddr};
 
 use async_trait::async_trait;
-use common::{ComponentATrait, ComponentBTrait};
+use common::{AClientTrait, BClientTrait};
 use component_a_service::remote_a_client::RemoteAClient;
 use component_a_service::remote_a_server::{RemoteA, RemoteAServer};
 use component_a_service::{AGetValueMessage, AGetValueReturnMessage};
 use component_b_service::remote_b_client::RemoteBClient;
 use component_b_service::remote_b_server::{RemoteB, RemoteBServer};
 use component_b_service::{BGetValueMessage, BGetValueReturnMessage};
+use starknet_mempool_infra::component_client::ClientError;
+use starknet_mempool_infra::component_client_rpc::ComponentClientRpc;
+use starknet_mempool_infra::component_server_rpc::{ComponentServerRpc, ServerStart};
 use tokio::task;
 use tonic::transport::Server;
-use tonic::{Request, Response, Status};
+use tonic::{Response, Status};
 
-use crate::common::{ComponentA, ComponentB, ValueA, ValueB};
+use crate::common::{ClientResult, ComponentA, ComponentB, ValueA, ValueB};
 
-fn construct_url(ip_address: IpAddr, port: u16) -> String {
-    match ip_address {
-        IpAddr::V4(ip_address) => format!("http://{}:{}/", ip_address, port),
-        IpAddr::V6(ip_address) => format!("http://[{}]:{}/", ip_address, port),
-    }
-}
+#[async_trait]
+impl AClientTrait for ComponentClientRpc<ComponentA> {
+    async fn a_get_value(&self) -> ClientResult<ValueA> {
+        let mut client = match RemoteAClient::connect(self.dst.clone()).await {
+            Ok(client) => client,
+            Err(e) => return Err(ClientError::ConnectionFailure(e)),
+        };
 
-struct ComponentAClientRpc {
-    dst: String,
-}
+        let response = match client.remote_a_get_value(AGetValueMessage {}).await {
+            Ok(response) => response,
+            Err(e) => return Err(ClientError::ResponseFailure(e)),
+        };
 
-impl ComponentAClientRpc {
-    fn new(ip_address: IpAddr, port: u16) -> Self {
-        Self { dst: construct_url(ip_address, port) }
+        Ok(response.into_inner().value)
     }
 }
 
 #[async_trait]
-impl ComponentATrait for ComponentAClientRpc {
-    async fn a_get_value(&self) -> ValueA {
-        let Ok(mut client) = RemoteAClient::connect(self.dst.clone()).await else {
-            panic!("Could not connect to server");
+impl BClientTrait for ComponentClientRpc<ComponentB> {
+    async fn b_get_value(&self) -> ClientResult<ValueB> {
+        let mut client = match RemoteBClient::connect(self.dst.clone()).await {
+            Ok(client) => client,
+            Err(e) => return Err(ClientError::ConnectionFailure(e)),
         };
 
-        let Ok(response) = client.remote_a_get_value(Request::new(AGetValueMessage {})).await
-        else {
-            panic!("Could not get response from server");
+        let response = match client.remote_b_get_value(BGetValueMessage {}).await {
+            Ok(response) => response,
+            Err(e) => return Err(ClientError::ResponseFailure(e)),
         };
 
-        response.get_ref().value
-    }
-}
-
-struct ComponentBClientRpc {
-    dst: String,
-}
-
-impl ComponentBClientRpc {
-    fn new(ip_address: IpAddr, port: u16) -> Self {
-        Self { dst: construct_url(ip_address, port) }
-    }
-}
-
-#[async_trait]
-impl ComponentBTrait for ComponentBClientRpc {
-    async fn b_get_value(&self) -> ValueB {
-        let Ok(mut client) = RemoteBClient::connect(self.dst.clone()).await else {
-            panic!("Could not connect to server");
-        };
-
-        let Ok(response) = client.remote_b_get_value(Request::new(BGetValueMessage {})).await
-        else {
-            panic!("Could not get response from server");
-        };
-
-        response.get_ref().value.try_into().unwrap()
+        Ok(response.into_inner().value.try_into().unwrap())
     }
 }
 
@@ -91,51 +69,37 @@ impl RemoteA for ComponentA {
     }
 }
 
-struct ComponentAServerRpc {
-    a: Option<ComponentA>,
-    address: SocketAddr,
-}
-
-impl ComponentAServerRpc {
-    fn new(a: ComponentA, ip_address: IpAddr, port: u16) -> Self {
-        Self { a: Some(a), address: SocketAddr::new(ip_address, port) }
-    }
-
-    async fn start(&mut self) {
-        let svc = RemoteAServer::new(self.a.take().unwrap());
-        Server::builder().add_service(svc).serve(self.address).await.unwrap();
-    }
-}
-
 #[async_trait]
 impl RemoteB for ComponentB {
     async fn remote_b_get_value(
         &self,
         _request: tonic::Request<BGetValueMessage>,
     ) -> Result<Response<BGetValueReturnMessage>, Status> {
-        Ok(Response::new(BGetValueReturnMessage { value: self.b_get_value().await.into() }))
+        Ok(Response::new(BGetValueReturnMessage { value: self.b_get_value().into() }))
     }
 }
 
-struct ComponentBServerRpc {
-    b: Option<ComponentB>,
-    address: SocketAddr,
+#[async_trait]
+impl ServerStart for ComponentA {
+    async fn start_server(self, address: SocketAddr) {
+        let svc = RemoteAServer::new(self);
+        Server::builder().add_service(svc).serve(address).await.unwrap();
+    }
 }
 
-impl ComponentBServerRpc {
-    fn new(b: ComponentB, ip_address: IpAddr, port: u16) -> Self {
-        Self { b: Some(b), address: SocketAddr::new(ip_address, port) }
-    }
-
-    async fn start(&mut self) {
-        let svc = RemoteBServer::new(self.b.take().unwrap());
-        Server::builder().add_service(svc).serve(self.address).await.unwrap();
+#[async_trait]
+impl ServerStart for ComponentB {
+    async fn start_server(self, address: SocketAddr) {
+        let svc = RemoteBServer::new(self);
+        Server::builder().add_service(svc).serve(address).await.unwrap();
     }
 }
 
 async fn verify_response(ip_address: IpAddr, port: u16, expected_value: ValueA) {
-    let a_client = ComponentAClientRpc::new(ip_address, port);
-    assert_eq!(a_client.a_get_value().await, expected_value);
+    let a_client = ComponentClientRpc::new(ip_address, port);
+
+    let returned_value = a_client.a_get_value().await.expect("Value should be returned");
+    assert_eq!(returned_value, expected_value);
 }
 
 #[tokio::test]
@@ -147,14 +111,14 @@ async fn test_setup() {
     let a_port = 10000;
     let b_port = 10001;
 
-    let a_client = ComponentAClientRpc::new(local_ip, a_port);
-    let b_client = ComponentBClientRpc::new(local_ip, b_port);
+    let a_client = ComponentClientRpc::new(local_ip, a_port);
+    let b_client = ComponentClientRpc::new(local_ip, b_port);
 
     let component_a = ComponentA::new(Box::new(b_client));
     let component_b = ComponentB::new(setup_value, Box::new(a_client));
 
-    let mut component_a_server = ComponentAServerRpc::new(component_a, local_ip, a_port);
-    let mut component_b_server = ComponentBServerRpc::new(component_b, local_ip, b_port);
+    let mut component_a_server = ComponentServerRpc::new(component_a, local_ip, a_port);
+    let mut component_b_server = ComponentServerRpc::new(component_b, local_ip, b_port);
 
     task::spawn(async move {
         component_a_server.start().await;
