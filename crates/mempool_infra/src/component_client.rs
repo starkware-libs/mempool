@@ -1,5 +1,7 @@
 use thiserror::Error;
 use tokio::sync::mpsc::{channel, Sender};
+use tonic::transport::Error as TonicError;
+use tonic::Status as TonicStatus;
 
 use crate::component_definitions::ComponentRequestAndResponseSender;
 
@@ -36,4 +38,8 @@ where
 pub enum ClientError {
     #[error("Got an unexpected response type.")]
     UnexpectedResponse,
+    #[error("Failed to connect to the server")]
+    ConnectionFailure(TonicError),
+    #[error("Failed to get a response from the server")]
+    ResponseFailure(TonicStatus),
 }
