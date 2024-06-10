@@ -6,7 +6,7 @@ pub trait ComponentRequestHandler<Request, Response> {
     async fn handle_request(&mut self, request: Request) -> Response;
 }
 
-pub struct ComponentRequestAndResponseSender<Request, Response>
+pub struct RequestWithResponder<Request, Response>
 where
     Request: Send + Sync,
     Response: Send + Sync,

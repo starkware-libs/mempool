@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_mempool_infra::component_client::{ClientError, ComponentClient};
-use starknet_mempool_infra::component_definitions::ComponentRequestAndResponseSender;
+use starknet_mempool_infra::component_definitions::RequestWithResponder;
 use thiserror::Error;
 
 use crate::errors::MempoolError;
@@ -68,8 +68,7 @@ pub enum MempoolResponse {
 }
 
 pub type MempoolClientImpl = ComponentClient<MempoolRequest, MempoolResponse>;
-pub type MempoolRequestAndResponseSender =
-    ComponentRequestAndResponseSender<MempoolRequest, MempoolResponse>;
+pub type MempoolRequestWithResponder = RequestWithResponder<MempoolRequest, MempoolResponse>;
 
 #[async_trait]
 impl MempoolClient for MempoolClientImpl {

@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::Receiver;
 
-use crate::component_definitions::{ComponentRequestAndResponseSender, ComponentRequestHandler};
+use crate::component_definitions::{ComponentRequestHandler, RequestWithResponder};
 
 pub struct ComponentServer<Component, Request, Response>
 where
@@ -9,7 +9,7 @@ where
     Response: Send + Sync,
 {
     component: Component,
-    rx: Receiver<ComponentRequestAndResponseSender<Request, Response>>,
+    rx: Receiver<RequestWithResponder<Request, Response>>,
 }
 
 impl<Component, Request, Response> ComponentServer<Component, Request, Response>
@@ -20,7 +20,7 @@ where
 {
     pub fn new(
         component: Component,
-        rx: Receiver<ComponentRequestAndResponseSender<Request, Response>>,
+        rx: Receiver<RequestWithResponder<Request, Response>>,
     ) -> Self {
         Self { component, rx }
     }

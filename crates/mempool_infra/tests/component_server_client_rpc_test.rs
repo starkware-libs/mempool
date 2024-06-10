@@ -9,16 +9,17 @@ mod common;
 use std::net::{IpAddr, SocketAddr};
 
 use async_trait::async_trait;
-use common::{ComponentATrait, ComponentBTrait};
+use common::{ClientATrait, ClientBTrait};
 use component_a_service::remote_a_client::RemoteAClient;
 use component_a_service::remote_a_server::{RemoteA, RemoteAServer};
 use component_a_service::{AGetValueMessage, AGetValueReturnMessage};
 use component_b_service::remote_b_client::RemoteBClient;
 use component_b_service::remote_b_server::{RemoteB, RemoteBServer};
 use component_b_service::{BGetValueMessage, BGetValueReturnMessage};
+use starknet_mempool_infra::component_client::ClientError;
 use tokio::task;
 use tonic::transport::Server;
-use tonic::{Request, Response, Status};
+use tonic::{Response, Status};
 
 use crate::common::{ComponentA, ComponentB, ValueA, ValueB};
 
@@ -40,18 +41,17 @@ impl ComponentAClientRpc {
 }
 
 #[async_trait]
-impl ComponentATrait for ComponentAClientRpc {
-    async fn a_get_value(&self) -> ValueA {
+impl ClientATrait for ComponentAClientRpc {
+    async fn a_get_value(&self) -> Result<ValueA, ClientError> {
         let Ok(mut client) = RemoteAClient::connect(self.dst.clone()).await else {
-            panic!("Could not connect to server");
+            return Err(ClientError::ConnectionFailure);
         };
 
-        let Ok(response) = client.remote_a_get_value(Request::new(AGetValueMessage {})).await
-        else {
-            panic!("Could not get response from server");
+        let Ok(response) = client.remote_a_get_value(AGetValueMessage {}).await else {
+            return Err(ClientError::ResponseFailure);
         };
 
-        response.get_ref().value
+        Ok(response.get_ref().value)
     }
 }
 
@@ -66,18 +66,17 @@ impl ComponentBClientRpc {
 }
 
 #[async_trait]
-impl ComponentBTrait for ComponentBClientRpc {
-    async fn b_get_value(&self) -> ValueB {
+impl ClientBTrait for ComponentBClientRpc {
+    async fn b_get_value(&self) -> Result<ValueB, ClientError> {
         let Ok(mut client) = RemoteBClient::connect(self.dst.clone()).await else {
-            panic!("Could not connect to server");
+            return Err(ClientError::ConnectionFailure);
         };
 
-        let Ok(response) = client.remote_b_get_value(Request::new(BGetValueMessage {})).await
-        else {
-            panic!("Could not get response from server");
+        let Ok(response) = client.remote_b_get_value(BGetValueMessage {}).await else {
+            return Err(ClientError::ResponseFailure);
         };
 
-        response.get_ref().value.try_into().unwrap()
+        Ok(response.get_ref().value.try_into().unwrap())
     }
 }
 
@@ -135,7 +134,11 @@ impl ComponentBServerRpc {
 
 async fn verify_response(ip_address: IpAddr, port: u16, expected_value: ValueA) {
     let a_client = ComponentAClientRpc::new(ip_address, port);
-    assert_eq!(a_client.a_get_value().await, expected_value);
+
+    match a_client.a_get_value().await {
+        Ok(returned_value) => assert_eq!(returned_value, expected_value),
+        Err(error) => panic!("{error}"),
+    }
 }
 
 #[tokio::test]
