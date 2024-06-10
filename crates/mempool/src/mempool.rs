@@ -8,7 +8,7 @@ use starknet_mempool_infra::component_definitions::ComponentRequestHandler;
 use starknet_mempool_infra::component_server::ComponentServer;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
-    Account, AccountState, MempoolInput, MempoolRequest, MempoolRequestAndResponseSender,
+    Account, AccountState, MempoolInput, MempoolRequest, MempoolRequestWithResponder,
     MempoolResponse, MempoolResult, ThinTransaction,
 };
 use tokio::sync::mpsc::Receiver;
@@ -138,7 +138,7 @@ type MempoolCommunicationServer =
 
 pub fn create_mempool_server(
     mempool: Mempool,
-    rx_mempool: Receiver<MempoolRequestAndResponseSender>,
+    rx_mempool: Receiver<MempoolRequestWithResponder>,
 ) -> MempoolCommunicationServer {
     let mempool_communication_wrapper = MempoolCommunicationWrapper::new(mempool);
     ComponentServer::new(mempool_communication_wrapper, rx_mempool)

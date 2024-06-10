@@ -68,7 +68,7 @@ pub enum MempoolResponse {
 }
 
 pub type MempoolClientImpl = ComponentClient<MempoolRequest, MempoolResponse>;
-pub type MempoolRequestAndResponseSender =
+pub type MempoolRequestWithResponder =
     ComponentRequestAndResponseSender<MempoolRequest, MempoolResponse>;
 
 #[async_trait]

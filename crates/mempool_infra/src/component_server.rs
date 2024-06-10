@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::Receiver;
 
-use crate::component_definitions::{ComponentRequestAndResponseSender, ComponentRequestHandler};
+use crate::component_definitions::{ComponentRequestHandler, ComponentRequestAndResponseSender};
 
 pub struct ComponentServer<Component, Request, Response>
 where
