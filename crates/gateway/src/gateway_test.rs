@@ -19,8 +19,8 @@ use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionVali
 use crate::gateway::{add_tx, AppState};
 use crate::starknet_api_test_utils::invoke_tx;
 use crate::state_reader_test_utils::local_test_state_reader_factory;
-use crate::stateful_transaction_validator::StatefulTransactionValidator;
-use crate::stateless_transaction_validator::StatelessTransactionValidator;
+use crate::stateful_tx_validator::StatefulTransactionValidator;
+use crate::stateless_tx_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 const MEMPOOL_INVOCATIONS_QUEUE_SIZE: usize = 32;

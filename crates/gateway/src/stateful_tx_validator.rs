@@ -14,8 +14,8 @@ use crate::state_reader::{MempoolStateReader, StateReaderFactory};
 use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 #[cfg(test)]
-#[path = "stateful_transaction_validator_test.rs"]
-mod stateful_transaction_validator_test;
+#[path = "stateful_tx_validator_test.rs"]
+mod stateful_tx_validator_test;
 
 pub struct StatefulTransactionValidator {
     pub config: StatefulTransactionValidatorConfig,

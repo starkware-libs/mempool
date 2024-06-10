@@ -16,7 +16,7 @@ use crate::starknet_api_test_utils::{
     VALID_L1_GAS_MAX_PRICE_PER_UNIT,
 };
 use crate::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
-use crate::stateful_transaction_validator::StatefulTransactionValidator;
+use crate::stateful_tx_validator::StatefulTransactionValidator;
 
 #[rstest]
 #[case::valid_invoke_tx(

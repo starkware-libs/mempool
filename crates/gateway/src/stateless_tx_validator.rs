@@ -8,8 +8,8 @@ use crate::config::StatelessTransactionValidatorConfig;
 use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionValidatorResult};
 
 #[cfg(test)]
-#[path = "stateless_transaction_validator_test.rs"]
-mod stateless_transaction_validator_test;
+#[path = "stateless_tx_validator_test.rs"]
+mod stateless_tx_validator_test;
 
 #[derive(Clone)]
 pub struct StatelessTransactionValidator {

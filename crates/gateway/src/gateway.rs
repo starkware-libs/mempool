@@ -13,8 +13,8 @@ use crate::config::{GatewayConfig, GatewayNetworkConfig};
 use crate::errors::{GatewayError, GatewayRunError};
 use crate::starknet_api_test_utils::get_sender_address;
 use crate::state_reader::StateReaderFactory;
-use crate::stateful_transaction_validator::StatefulTransactionValidator;
-use crate::stateless_transaction_validator::StatelessTransactionValidator;
+use crate::stateful_tx_validator::StatefulTransactionValidator;
+use crate::stateless_tx_validator::StatelessTransactionValidator;
 use crate::utils::external_tx_to_thin_tx;
 
 #[cfg(test)]

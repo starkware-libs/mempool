@@ -9,7 +9,7 @@ use crate::starknet_api_test_utils::{
     create_resource_bounds_mapping, external_tx_for_testing, non_zero_resource_bounds_mapping,
     zero_resource_bounds_mapping, TransactionType, NON_EMPTY_RESOURCE_BOUNDS,
 };
-use crate::stateless_transaction_validator::{
+use crate::stateless_tx_validator::{
     StatelessTransactionValidator, StatelessTransactionValidatorConfig,
     StatelessTransactionValidatorError,
 };
