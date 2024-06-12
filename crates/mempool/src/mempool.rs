@@ -26,7 +26,10 @@ pub struct Mempool {
     txs_queue: TransactionPriorityQueue,
     // All transactions currently held in the mempool.
     tx_store: TransactionStore,
+    // Transactions proposed for sequencing but are not yet receive an acknowledgment confirming
+    // their receipt.
     staging: StagingArea,
+    tx_offset: usize,
     state: HashMap<ContractAddress, AccountState>,
 }
 
@@ -37,6 +40,7 @@ impl Mempool {
             tx_store: TransactionStore::default(),
             state: HashMap::default(),
             staging: StagingArea::default(),
+            tx_offset: 0,
         };
 
         for MempoolInput { tx, account: Account { sender_address, state } } in inputs.into_iter() {
@@ -66,21 +70,46 @@ impl Mempool {
         Mempool::new([])
     }
 
-    /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
-    /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
+    /// Retrieves up to `n_txs` transactions with the highest priority from the mempool starts from
+    /// `offset`. Transactions are guaranteed to be unique across calls until the next `get_txs`
+    /// or `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push
     // back. TODO: Consider renaming to `pop_txs` to be more consistent with the standard
     // library.
-    pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
-        let pq_txs = self.txs_queue.pop_last_chunk(n_txs);
-
+    pub fn get_txs(&mut self, n_txs: usize, offset: usize) -> MempoolResult<Vec<ThinTransaction>> {
+        if offset > self.tx_offset {
+            return Err(MempoolError::OffsetTooLarge {
+                requested: offset,
+                maximum: self.tx_offset,
+            });
+        }
+        if offset < self.tx_offset - self.staging.len() {
+            return Err(MempoolError::OffsetTooSmall {
+                requested: offset,
+                minimum: self.tx_offset - self.staging.len(),
+            });
+        }
         let mut txs: Vec<ThinTransaction> = Vec::default();
+
+        // Resend transactions that were not yet acknowledged.
+        let n_resent_txs = self.tx_offset - offset;
+        self.staging.remove(self.staging.len() - n_resent_txs);
+        let tx_hashes = self.staging.get(n_resent_txs);
+        for tx_hash in tx_hashes {
+            let tx = self.tx_store.get(&tx_hash)?;
+            txs.push(tx.clone());
+        }
+
+        let pq_txs = self.txs_queue.pop_last_chunk(n_txs - n_resent_txs);
         for pq_tx in &pq_txs {
             let tx = self.tx_store.get(&pq_tx.tx_hash)?;
             self.state.remove(&tx.sender_address);
             self.staging.insert(tx.tx_hash)?;
             txs.push(tx.clone());
         }
+
+        // Update the offset.
+        self.tx_offset += n_txs - n_resent_txs;
 
         Ok(txs)
     }
@@ -164,8 +193,8 @@ impl MempoolCommunicationWrapper {
         self.mempool.add_tx(mempool_input.tx, mempool_input.account)
     }
 
-    fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
-        self.mempool.get_txs(n_txs)
+    fn get_txs(&mut self, n_txs: usize, offset: usize) -> MempoolResult<Vec<ThinTransaction>> {
+        self.mempool.get_txs(n_txs, offset)
     }
 }
 
@@ -176,8 +205,8 @@ impl ComponentRequestHandler<MempoolRequest, MempoolResponse> for MempoolCommuni
             MempoolRequest::AddTransaction(mempool_input) => {
                 MempoolResponse::AddTransaction(self.add_tx(mempool_input))
             }
-            MempoolRequest::GetTransactions(n_txs) => {
-                MempoolResponse::GetTransactions(self.get_txs(n_txs))
+            MempoolRequest::GetTransactions(n_txs, offset) => {
+                MempoolResponse::GetTransactions(self.get_txs(n_txs, offset))
             }
         }
     }
