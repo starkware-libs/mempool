@@ -1,8 +1,8 @@
 use assert_matches::assert_matches;
 use rstest::rstest;
 use starknet_api::calldata;
-use starknet_api::external_transaction::ResourceBoundsMapping;
 use starknet_api::hash::StarkFelt;
+use starknet_api::rpc_transaction::ResourceBoundsMapping;
 use starknet_api::transaction::{Calldata, Resource, ResourceBounds, TransactionSignature};
 
 use crate::starknet_api_test_utils::{

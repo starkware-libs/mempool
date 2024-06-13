@@ -1,6 +1,5 @@
-use starknet_api::external_transaction::{
-    ExternalDeployAccountTransaction, ExternalInvokeTransaction, ExternalTransaction,
-    ResourceBoundsMapping,
+use starknet_api::rpc_transaction::{
+    RPCDeployAccountTransaction, RPCInvokeTransaction, RPCTransaction, ResourceBoundsMapping,
 };
 use starknet_api::transaction::Resource;
 
@@ -17,7 +16,7 @@ pub struct StatelessTransactionValidator {
 }
 
 impl StatelessTransactionValidator {
-    pub fn validate(&self, tx: &ExternalTransaction) -> StatelessTransactionValidatorResult<()> {
+    pub fn validate(&self, tx: &RPCTransaction) -> StatelessTransactionValidatorResult<()> {
         // TODO(Arni, 1/5/2024): Add a mechanism that validate the sender address is not blocked.
         // TODO(Arni, 1/5/2024): Validate transaction version.
 
@@ -29,7 +28,7 @@ impl StatelessTransactionValidator {
 
     fn validate_resource_bounds(
         &self,
-        tx: &ExternalTransaction,
+        tx: &RPCTransaction,
     ) -> StatelessTransactionValidatorResult<()> {
         let resource_bounds_mapping = tx.resource_bounds();
 
@@ -43,10 +42,7 @@ impl StatelessTransactionValidator {
         Ok(())
     }
 
-    fn validate_tx_size(
-        &self,
-        tx: &ExternalTransaction,
-    ) -> StatelessTransactionValidatorResult<()> {
+    fn validate_tx_size(&self, tx: &RPCTransaction) -> StatelessTransactionValidatorResult<()> {
         self.validate_tx_calldata_size(tx)?;
         self.validate_tx_signature_size(tx)?;
 
@@ -55,17 +51,17 @@ impl StatelessTransactionValidator {
 
     fn validate_tx_calldata_size(
         &self,
-        tx: &ExternalTransaction,
+        tx: &RPCTransaction,
     ) -> StatelessTransactionValidatorResult<()> {
         let calldata = match tx {
-            ExternalTransaction::Declare(_) => {
+            RPCTransaction::Declare(_) => {
                 // Declare transaction has no calldata.
                 return Ok(());
             }
-            ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(tx)) => {
+            RPCTransaction::DeployAccount(RPCDeployAccountTransaction::V3(tx)) => {
                 &tx.constructor_calldata
             }
-            ExternalTransaction::Invoke(ExternalInvokeTransaction::V3(tx)) => &tx.calldata,
+            RPCTransaction::Invoke(RPCInvokeTransaction::V3(tx)) => &tx.calldata,
         };
 
         let calldata_length = calldata.0.len();
@@ -81,7 +77,7 @@ impl StatelessTransactionValidator {
 
     fn validate_tx_signature_size(
         &self,
-        tx: &ExternalTransaction,
+        tx: &RPCTransaction,
     ) -> StatelessTransactionValidatorResult<()> {
         let signature = tx.signature();
 
