@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
+use assert_matches::assert_matches;
 use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use blockifier::context::ChainInfo;
+use blockifier::execution::contract_class::ContractClass;
 use blockifier::test_utils::CairoVersion;
 use rstest::{fixture, rstest};
-use starknet_api::rpc_transaction::RPCTransaction;
+use starknet_api::core::CompiledClassHash;
+use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool::communication::create_mempool_server;
 use starknet_mempool::mempool::Mempool;
@@ -16,6 +19,7 @@ use tokio::sync::mpsc::channel;
 use tokio::task;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
+use crate::errors::GatewayError;
 use crate::gateway::{add_tx, compile_contract_class, AppState, SharedMempoolClient};
 use crate::starknet_api_test_utils::{declare_tx, deploy_account_tx, invoke_tx};
 use crate::state_reader_test_utils::{
@@ -98,6 +102,47 @@ async fn test_add_tx(
 
     assert_eq!(status_code, StatusCode::OK, "{response_bytes:?}");
     assert_eq!(tx_hash, serde_json::from_slice(response_bytes).unwrap());
+}
+
+#[test]
+fn test_compile_contract_class_failure() {
+    let mut declare_tx_v3 = match declare_tx() {
+        RPCTransaction::Declare(RPCDeclareTransaction::V3(declare_tx)) => declare_tx,
+        _ => panic!("Invalid transaction type"),
+    };
+    let expected_hash_result = declare_tx_v3.compiled_class_hash;
+    let supplied_hash = CompiledClassHash::default();
+
+    declare_tx_v3.compiled_class_hash = supplied_hash;
+    let declare_tx = RPCDeclareTransaction::V3(declare_tx_v3);
+
+    let result = compile_contract_class(&declare_tx);
+    assert_matches!(
+        result.unwrap_err(),
+        GatewayError::CompiledClassHashMismatch { supplied, hash_result }
+        if supplied == supplied_hash && hash_result == expected_hash_result
+    );
+}
+
+#[test]
+fn test_compile_contract_class() {
+    let declare_tx = match declare_tx() {
+        RPCTransaction::Declare(declare_tx) => declare_tx,
+        _ => panic!("Invalid transaction type"),
+    };
+    let RPCDeclareTransaction::V3(declare_tx_v3) = &declare_tx;
+    let contract_class = &declare_tx_v3.contract_class;
+
+    let result = compile_contract_class(&declare_tx);
+    assert_matches!(
+        result,
+        Ok(class_info)
+        if (
+            matches!(class_info.contract_class(), ContractClass::V1(_))
+            && class_info.sierra_program_length() == contract_class.sierra_program.len()
+            && class_info.abi_length() == contract_class.abi.len()
+        )
+    );
 }
 
 async fn to_bytes(res: Response) -> Bytes {
