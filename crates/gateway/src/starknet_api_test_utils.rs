@@ -10,7 +10,6 @@ use starknet_api::external_transaction::{
     ExternalInvokeTransaction, ExternalInvokeTransactionV3, ExternalTransaction,
     ResourceBoundsMapping,
 };
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, PaymasterData, ResourceBounds, Tip,
     TransactionSignature, TransactionVersion,
@@ -49,9 +48,11 @@ pub fn external_tx_for_testing(
         TransactionType::Declare => {
             external_declare_tx(declare_tx_args!(resource_bounds, signature))
         }
-        TransactionType::DeployAccount => external_deploy_account_tx(
-            deploy_account_tx_args!(resource_bounds, constructor_calldata: calldata, signature),
-        ),
+        TransactionType::DeployAccount => external_deploy_account_tx(deploy_account_tx_args!(
+            resource_bounds,
+            constructor_calldata: calldata,
+            signature
+        )),
         TransactionType::Invoke => {
             external_invoke_tx(invoke_tx_args!(signature, resource_bounds, calldata))
         }
@@ -86,23 +87,6 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
     }
 }
 
-pub fn invoke_tx() -> ExternalTransaction {
-    let cairo_version = CairoVersion::Cairo1;
-    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let account_address = account_contract.get_instance_address(0);
-    let test_contract = FeatureContract::TestContract(cairo_version);
-    let test_contract_address = test_contract.get_instance_address(0);
-    let calldata = create_trivial_calldata(test_contract_address);
-    let mut nonce_manager = NonceManager::default();
-    let nonce = nonce_manager.next(account_address);
-    external_invoke_tx(invoke_tx_args!(
-        signature: TransactionSignature(vec![StarkFelt::ZERO]),
-        sender_address: account_address,
-        resource_bounds: executable_resource_bounds_mapping(),
-        nonce,
-        calldata,
-    ))
-}
 // TODO(Ayelet, 28/5/2025): Try unifying the macros.
 // TODO(Ayelet, 28/5/2025): Consider moving the macros StarkNet API.
 #[macro_export]
@@ -347,4 +331,32 @@ pub fn external_tx_to_json(tx: &ExternalTransaction) -> String {
 
     // Serialize back to pretty JSON string
     to_string_pretty(&tx_json).expect("Failed to serialize transaction")
+}
+
+pub fn invoke_tx(cairo_version: CairoVersion) -> ExternalTransaction {
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let sender_address = account_contract.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
+
+    external_invoke_tx(invoke_tx_args!(
+        resource_bounds: executable_resource_bounds_mapping(),
+        nonce : nonce_manager.next(sender_address),
+        sender_address,
+        calldata: create_trivial_calldata(test_contract.get_instance_address(0))
+    ))
+}
+
+//  TODO(Yael 18/6/2024): Get a final decision from product whether to support Cairo0.
+pub fn deploy_account_tx() -> ExternalTransaction {
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let sender_address = account_contract.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
+
+    external_deploy_account_tx(deploy_account_tx_args!(
+        nonce: nonce_manager.next(sender_address),
+        deployer_address: sender_address,
+        class_hash: account_contract.get_class_hash(),
+        resource_bounds: executable_resource_bounds_mapping(),
+    ))
 }

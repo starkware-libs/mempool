@@ -9,7 +9,9 @@ use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader as BlockifierStateReader, StateResult};
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
-use blockifier::test_utils::initial_test_state::test_state_reader;
+use blockifier::test_utils::initial_test_state::{
+    fund_account as local_test_state_fund_account, test_state_reader,
+};
 use blockifier::test_utils::{
     CairoVersion, BALANCE, CURRENT_BLOCK_TIMESTAMP, DEFAULT_ETH_L1_GAS_PRICE,
     DEFAULT_STRK_L1_GAS_PRICE,
@@ -27,7 +29,10 @@ use papyrus_storage::{open_storage, StorageConfig, StorageReader};
 use starknet_api::block::{
     BlockBody, BlockHeader, BlockNumber, BlockTimestamp, GasPrice, GasPricePerToken,
 };
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, Nonce,
+};
+use starknet_api::external_transaction::{ExternalDeployAccountTransaction, ExternalTransaction};
 use starknet_api::hash::StarkFelt;
 use starknet_api::stark_felt;
 use starknet_api::state::{StorageKey, ThinStateDiff};
@@ -95,7 +100,8 @@ impl StateReaderFactory for TestStateReaderFactory {
     }
 }
 
-pub fn local_test_state_reader_factory() -> TestStateReaderFactory {
+pub fn local_test_state_reader_factory(zero_balance: bool) -> TestStateReaderFactory {
+    let account_balance = if zero_balance { 0 } else { BALANCE };
     let cairo_version = CairoVersion::Cairo1;
     let block_context = &BlockContext::create_for_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
@@ -103,7 +109,7 @@ pub fn local_test_state_reader_factory() -> TestStateReaderFactory {
 
     let state_reader = test_state_reader(
         block_context.chain_info(),
-        BALANCE,
+        account_balance,
         &[(account_contract, 1), (test_contract, 1)],
     );
 
@@ -113,6 +119,32 @@ pub fn local_test_state_reader_factory() -> TestStateReaderFactory {
             blockifier_state_reader: state_reader,
         },
     }
+}
+
+pub fn local_test_state_reader_factory_for_deploy_account(
+    deploy_tx: &ExternalTransaction,
+) -> TestStateReaderFactory {
+    let mut state_reader_factory = local_test_state_reader_factory(false);
+
+    // Fund the deployed_account_address.
+    if let ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(deploy_tx)) =
+        &deploy_tx
+    {
+        let deployed_account_address = calculate_contract_address(
+            deploy_tx.contract_address_salt,
+            deploy_tx.class_hash,
+            &deploy_tx.constructor_calldata,
+            ContractAddress::default(),
+        )
+        .unwrap();
+        local_test_state_fund_account(
+            BlockContext::create_for_testing().chain_info(),
+            deployed_account_address,
+            BALANCE,
+            &mut state_reader_factory.state_reader.blockifier_state_reader,
+        );
+    }
+    state_reader_factory
 }
 
 pub async fn rpc_test_state_reader_factory() -> RpcStateReaderFactory {
@@ -160,7 +192,12 @@ pub fn initialize_papyrus_test_state(
             declared_classes.insert(contract.get_class_hash(), Default::default());
             deployed_contracts
                 .insert(contract.get_instance_address(instance), contract.get_class_hash());
-            storage_diffs.extend(fund_account(contract, instance, initial_balances, chain_info));
+            storage_diffs.extend(papyrus_test_state_fund_account(
+                contract,
+                instance,
+                initial_balances,
+                chain_info,
+            ));
         }
     }
 
@@ -222,7 +259,7 @@ fn test_block_header(block_number: BlockNumber) -> BlockHeader {
     }
 }
 
-fn fund_account(
+fn papyrus_test_state_fund_account(
     contract: &FeatureContract,
     instance: u16,
     initial_balances: u128,

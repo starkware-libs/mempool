@@ -2,6 +2,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
+use blockifier::test_utils::CairoVersion;
 use rstest::rstest;
 use starknet_api::transaction::Tip;
 use starknet_gateway::config::{
@@ -71,8 +72,8 @@ async fn test_end_to_end() {
     let gateway_mempool_client = Arc::new(MempoolClientImpl::new(tx_mempool.clone()));
     let socket_addr = set_up_gateway(gateway_mempool_client).await;
 
-    // Send a transaction.
-    let external_tx = invoke_tx();
+    // Send a transaction.``
+    let external_tx = invoke_tx(CairoVersion::Cairo1);
     let gateway_client = GatewayClient::new(socket_addr);
     gateway_client.assert_add_tx_success(&external_tx).await;
 
