@@ -1,8 +1,14 @@
+use blockifier::abi::abi_utils::get_fee_token_var_address;
+use blockifier::context::{BlockContext, ChainInfo};
 use blockifier::test_utils::contracts::FeatureContract;
-use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager};
+use blockifier::test_utils::dict_state_reader::DictStateReader;
+use blockifier::test_utils::initial_test_state::test_state_reader;
+use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager, BALANCE};
+use blockifier::transaction::objects::FeeType;
 use serde_json::to_string_pretty;
-use starknet_api::calldata;
-use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, Nonce,
+};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::external_transaction::{
     ContractClass, ExternalDeclareTransaction, ExternalDeclareTransactionV3,
@@ -15,7 +21,10 @@ use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, PaymasterData, ResourceBounds, Tip,
     TransactionSignature, TransactionVersion,
 };
+use starknet_api::{calldata, stark_felt};
+use strum::IntoEnumIterator;
 
+use crate::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
 use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 
 pub const VALID_L1_GAS_MAX_AMOUNT: u64 = 2214;
@@ -49,9 +58,11 @@ pub fn external_tx_for_testing(
         TransactionType::Declare => {
             external_declare_tx(declare_tx_args!(resource_bounds, signature))
         }
-        TransactionType::DeployAccount => external_deploy_account_tx(
-            deploy_account_tx_args!(resource_bounds, constructor_calldata: calldata, signature),
-        ),
+        TransactionType::DeployAccount => external_deploy_account_tx(deploy_account_tx_args!(
+            resource_bounds,
+            constructor_calldata: calldata,
+            signature
+        )),
         TransactionType::Invoke => {
             external_invoke_tx(invoke_tx_args!(signature, resource_bounds, calldata))
         }
@@ -347,4 +358,96 @@ pub fn external_tx_to_json(tx: &ExternalTransaction) -> String {
 
     // Serialize back to pretty JSON string
     to_string_pretty(&tx_json).expect("Failed to serialize transaction")
+}
+
+pub struct TestTxParams {
+    pub state_reader_factory: TestStateReaderFactory,
+    pub external_tx: ExternalTransaction,
+}
+
+pub fn test_invoke_tx_params(invalid_balance: bool) -> TestTxParams {
+    let account_balance = if invalid_balance { 0 } else { BALANCE };
+    let cairo_version = CairoVersion::Cairo1;
+    let test_contract = FeatureContract::TestContract(cairo_version);
+    let test_contract_address = test_contract.get_instance_address(0);
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let sender_address = account_contract.get_instance_address(0);
+    let calldata = create_trivial_calldata(test_contract_address);
+    let mut nonce_manager = NonceManager::default();
+    let nonce = nonce_manager.next(sender_address);
+
+    let block_context = &BlockContext::create_for_testing();
+    let external_tx = external_invoke_tx(invoke_tx_args!(
+        resource_bounds: executable_resource_bounds_mapping(),
+        nonce,
+        sender_address,
+        calldata
+    ));
+    let state_reader = test_state_reader(
+        block_context.chain_info(),
+        account_balance,
+        &[(account_contract, 1), (test_contract, 1)],
+    );
+    let state_reader_factory = TestStateReaderFactory {
+        state_reader: TestStateReader {
+            block_info: block_context.block_info().clone(),
+            blockifier_state_reader: state_reader,
+        },
+    };
+    TestTxParams { state_reader_factory, external_tx }
+}
+
+pub fn test_deploy_account_tx_params() -> TestTxParams {
+    let account_balance = BALANCE;
+    let cairo_version = CairoVersion::Cairo1;
+    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
+    let sender_address = account_contract.get_instance_address(0);
+    let mut nonce_manager = NonceManager::default();
+    let nonce = nonce_manager.next(sender_address);
+
+    let block_context = &BlockContext::create_for_testing();
+    let external_tx = external_deploy_account_tx(deploy_account_tx_args!(
+        nonce,
+        deployer_address: sender_address,
+        class_hash: account_contract.get_class_hash(),
+        resource_bounds: executable_resource_bounds_mapping(),
+    ));
+    let mut state_reader =
+        test_state_reader(block_context.chain_info(), account_balance, &[(account_contract, 1)]);
+    if let ExternalTransaction::DeployAccount(ExternalDeployAccountTransaction::V3(deploy_tx)) =
+        &external_tx
+    {
+        fund_account_for_deploy(deploy_tx, &mut state_reader, block_context.chain_info(), BALANCE);
+    }
+
+    let state_reader_factory = TestStateReaderFactory {
+        state_reader: TestStateReader {
+            block_info: block_context.block_info().clone(),
+            blockifier_state_reader: state_reader,
+        },
+    };
+
+    TestTxParams { state_reader_factory, external_tx }
+}
+
+pub fn fund_account_for_deploy(
+    deploy_tx: &ExternalDeployAccountTransactionV3,
+    state_reader: &mut DictStateReader,
+    chain_info: &ChainInfo,
+    account_balance: u128,
+) {
+    let deployed_account_address = calculate_contract_address(
+        deploy_tx.contract_address_salt,
+        deploy_tx.class_hash,
+        &deploy_tx.constructor_calldata,
+        ContractAddress::default(),
+    )
+    .unwrap();
+    let deployed_account_balance_key = get_fee_token_var_address(deployed_account_address);
+    for fee_type in FeeType::iter() {
+        state_reader.storage_view.insert(
+            (chain_info.fee_token_address(&fee_type), deployed_account_balance_key),
+            stark_felt!(account_balance),
+        );
+    }
 }

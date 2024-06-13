@@ -1,8 +1,5 @@
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::context::BlockContext;
-use blockifier::test_utils::contracts::FeatureContract;
-use blockifier::test_utils::initial_test_state::test_state_reader;
-use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager};
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
@@ -10,23 +7,27 @@ use starknet_api::transaction::TransactionHash;
 
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
-use crate::invoke_tx_args;
 use crate::starknet_api_test_utils::{
-    executable_resource_bounds_mapping, external_invoke_tx, VALID_L1_GAS_MAX_AMOUNT,
+    test_deploy_account_tx_params, test_invoke_tx_params, TestTxParams, VALID_L1_GAS_MAX_AMOUNT,
     VALID_L1_GAS_MAX_PRICE_PER_UNIT,
 };
-use crate::state_reader_test_utils::{TestStateReader, TestStateReaderFactory};
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 
 #[rstest]
 #[case::valid_invoke_tx(
-    100000000000000000,
+    test_invoke_tx_params(false),
     Ok(TransactionHash(StarkFelt::try_from(
         "0x07459d76bd7adec02c25cf7ab0dcb95e9197101d4ada41cae6b465fcb78c0e47"
     ).unwrap()))
 )]
-#[case::invalid_invoke_tx(
-    0,
+#[case::valid_deploy_account_tx(
+    test_deploy_account_tx_params(),
+    Ok(TransactionHash(StarkFelt::try_from(
+        "0x07fb8387575c7f4daa5996a3bb4a3010f4f4af1009b393c73198b8bc5e788c8f"
+    ).unwrap()))
+)]
+#[case::invalid_tx(
+    test_invoke_tx_params(true),
     Err(StatefulTransactionValidatorError::StatefulValidatorError(
         StatefulValidatorError::TransactionPreValidationError(
             TransactionPreValidationError::TransactionFeeError(
@@ -41,29 +42,10 @@ use crate::stateful_transaction_validator::StatefulTransactionValidator;
     ))
 )]
 fn test_stateful_tx_validator(
-    #[case] account_balance: u128,
+    #[case] test_tx_params: TestTxParams,
     #[case] expected_result: StatefulTransactionValidatorResult<TransactionHash>,
 ) {
-    let cairo_version = CairoVersion::Cairo1;
     let block_context = &BlockContext::create_for_testing();
-    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let sender_address = account_contract.get_instance_address(0);
-    let test_contract = FeatureContract::TestContract(cairo_version);
-    let test_contract_address = test_contract.get_instance_address(0);
-
-    let state_reader = test_state_reader(
-        block_context.chain_info(),
-        account_balance,
-        &[(account_contract, 1), (test_contract, 1)],
-    );
-
-    let state_reader_factory = TestStateReaderFactory {
-        state_reader: TestStateReader {
-            block_info: block_context.block_info().clone(),
-            blockifier_state_reader: state_reader,
-        },
-    };
-
     let stateful_validator = StatefulTransactionValidator {
         config: StatefulTransactionValidatorConfig {
             max_nonce_for_validation_skip: Default::default(),
@@ -73,15 +55,11 @@ fn test_stateful_tx_validator(
         },
     };
 
-    let calldata = create_trivial_calldata(test_contract_address);
-    let mut nonce_manager = NonceManager::default();
-    let nonce = nonce_manager.next(sender_address);
-    let external_tx = external_invoke_tx(invoke_tx_args!(
-        resource_bounds: executable_resource_bounds_mapping(),
-        nonce,
-        sender_address,
-        calldata));
-
-    let result = stateful_validator.run_validate(&state_reader_factory, &external_tx, None, None);
+    let result = stateful_validator.run_validate(
+        &test_tx_params.state_reader_factory,
+        &test_tx_params.external_tx,
+        None,
+        None,
+    );
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }
