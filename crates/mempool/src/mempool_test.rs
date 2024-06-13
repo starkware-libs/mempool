@@ -75,7 +75,7 @@ fn test_get_txs(#[case] requested_txs: usize) {
 
     let sorted_txs = vec![tx_tip_100_address_1, tx_tip_50_address_0, tx_tip_10_address_2];
 
-    let txs = mempool.get_txs(requested_txs).unwrap();
+    let txs = mempool.get_txs(requested_txs, 0).unwrap();
 
     // This ensures we do not exceed the priority queue's limit of 3 transactions.
     let max_requested_txs = requested_txs.min(3);
@@ -89,6 +89,44 @@ fn test_get_txs(#[case] requested_txs: usize) {
     let expected_remaining_addresses: Vec<&ContractAddress> =
         expected_addresses[max_requested_txs..].iter().collect();
     assert_eq!(actual_addresses, expected_remaining_addresses,);
+}
+
+#[rstest]
+fn test_get_txs_illegal_scenarios() {
+    let (tx_tip_50_address_0, account1) = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
+    let (tx_tip_100_address_1, account2) =
+        add_tx_input!(Tip(100), TransactionHash(StarkFelt::TWO), contract_address!("0x1"));
+    let (tx_tip_10_address_2, account3) =
+        add_tx_input!(Tip(10), TransactionHash(StarkFelt::THREE), contract_address!("0x2"));
+
+    let mut mempool = Mempool::new([
+        MempoolInput { tx: tx_tip_50_address_0.clone(), account: account1 },
+        MempoolInput { tx: tx_tip_100_address_1.clone(), account: account2 },
+        MempoolInput { tx: tx_tip_10_address_2.clone(), account: account3 },
+    ]);
+    let sorted_txs = vec![tx_tip_100_address_1, tx_tip_50_address_0, tx_tip_10_address_2];
+
+    // Request the first two transactions.
+    let txs = mempool.get_txs(2, 0).unwrap();
+    // checks that the returned transactions are the ones with the highest priority.
+    assert_eq!(txs.len(), 2);
+    assert_eq!(txs, sorted_txs[..2].to_vec());
+
+    // Request again the first two transactions.
+    let txs = mempool.get_txs(2, 0).unwrap();
+    assert_eq!(txs.len(), 2);
+    assert_eq!(txs, sorted_txs[..2].to_vec());
+
+    // Illegal scenario: get txs of a larger offset.
+    let res = mempool.get_txs(2, 3);
+    assert!(matches!(res, Err(MempoolError::OffsetTooLarge { requested: 3, maximum: 2 })));
+
+    // Acknowledge confirming the first tx.
+    mempool.get_txs(1, 2).unwrap();
+
+    // Illegal scenario: get txs of a smaller offset.
+    let res = mempool.get_txs(1, 0);
+    assert!(matches!(res, Err(MempoolError::OffsetTooSmall { requested: 0, minimum: 2 })));
 }
 
 #[rstest]
@@ -162,7 +200,7 @@ fn test_commit_block() {
 
     let sorted_txs = vec![tx_tip_100_address_1, tx_tip_50_address_0];
 
-    let txs = mempool.get_txs(2).unwrap();
+    let txs = mempool.get_txs(2, 0).unwrap();
 
     // checks that the returned transactions are the ones with the highest priority.
     assert_eq!(txs.len(), 2);
@@ -170,7 +208,7 @@ fn test_commit_block() {
 
     mempool.commit_block(&[TransactionHash(StarkFelt::TWO)], HashMap::default()).unwrap();
 
-    let _txs = mempool.get_txs(1).unwrap();
+    let _txs = mempool.get_txs(1, 2).unwrap();
     mempool.commit_block(&[TransactionHash(StarkFelt::ONE)], HashMap::default()).unwrap();
 }
 

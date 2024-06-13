@@ -52,13 +52,17 @@ pub type MempoolClientResult<T> = Result<T, MempoolClientError>;
 #[async_trait]
 pub trait MempoolClient: Send + Sync {
     async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolClientResult<()>;
-    async fn get_txs(&self, n_txs: usize) -> MempoolClientResult<Vec<ThinTransaction>>;
+    async fn get_txs(
+        &self,
+        n_txs: usize,
+        offset: usize,
+    ) -> MempoolClientResult<Vec<ThinTransaction>>;
 }
 
 #[derive(Debug)]
 pub enum MempoolRequest {
     AddTransaction(MempoolInput),
-    GetTransactions(usize),
+    GetTransactions(usize, usize),
 }
 
 #[derive(Debug)]
@@ -83,8 +87,12 @@ impl MempoolClient for MempoolClientImpl {
         }
     }
 
-    async fn get_txs(&self, n_txs: usize) -> MempoolClientResult<Vec<ThinTransaction>> {
-        let request = MempoolRequest::GetTransactions(n_txs);
+    async fn get_txs(
+        &self,
+        n_txs: usize,
+        offset: usize,
+    ) -> MempoolClientResult<Vec<ThinTransaction>> {
+        let request = MempoolRequest::GetTransactions(n_txs, offset);
         let res = self.send(request).await;
         match res {
             MempoolResponse::GetTransactions(Ok(res)) => Ok(res),

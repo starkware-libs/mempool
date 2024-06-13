@@ -3,6 +3,7 @@ use starknet_mempool_types::errors::MempoolError;
 
 #[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
 pub struct StagingArea(Vec<TransactionHash>);
+
 impl StagingArea {
     pub fn insert(&mut self, tx_hash: TransactionHash) -> Result<(), MempoolError> {
         if self.0.contains(&tx_hash) {
@@ -17,5 +18,9 @@ impl StagingArea {
         (0..n).for_each(|_| {
             self.0.remove(0);
         });
+    }
+
+    pub fn get(&mut self, n: usize) -> Vec<TransactionHash> {
+        self.0[self.0.len() - n..].to_vec()
     }
 }

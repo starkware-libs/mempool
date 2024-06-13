@@ -77,7 +77,7 @@ async fn test_end_to_end() {
     gateway_client.assert_add_tx_success(&external_tx).await;
 
     let batcher_mempool_client = MempoolClientImpl::new(tx_mempool.clone());
-    let mempool_message = batcher_mempool_client.get_txs(2).await.unwrap();
+    let mempool_message = batcher_mempool_client.get_txs(2, 0).await.unwrap();
 
     assert_eq!(mempool_message.len(), 1);
     assert_eq!(mempool_message[0].tip, Tip(0));
