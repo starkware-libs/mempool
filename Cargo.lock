@@ -5289,6 +5289,7 @@ dependencies = [
  "assert_matches",
  "axum",
  "blockifier",
+ "cairo-felt",
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
  "hyper",

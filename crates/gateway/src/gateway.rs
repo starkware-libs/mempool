@@ -7,12 +7,14 @@ use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use blockifier::execution::contract_class::{ClassInfo, ContractClassV1};
+use cairo_felt::Felt252;
 use cairo_lang_starknet_classes::contract_class::{
     ContractClass as CairoLangContractClass, ContractEntryPoint as CairoLangContractEntryPoint,
     ContractEntryPoints as CairoLangContractEntryPoints,
 };
 use cairo_lang_utils::bigint::BigUintAsHex;
 use num_bigint::BigUint;
+use starknet_api::core::CompiledClassHash;
 use starknet_api::external_transaction::{
     ContractClass as StarknetApiContractClass, EntryPointByType as StarknetApiEntryPointByType,
     ExternalDeclareTransaction, ExternalTransaction,
@@ -169,6 +171,16 @@ fn get_optional_class_info(tx: &ExternalTransaction) -> GatewayResult<Option<Cla
         }
     };
 
+    // TODO: Handle unwrap.
+    let hash_result =
+        CompiledClassHash(felt_to_stark_felt(&casm_contract_class.compiled_class_hash()));
+    if hash_result != tx.compiled_class_hash {
+        return Err(GatewayError::CompiledClassHashMismatch {
+            supplied: tx.compiled_class_hash,
+            hash_result,
+        });
+    }
+
     // Convert Casm contract class to Starknet contract class directly.
     let raw_contract_class = serde_json::to_string(&casm_contract_class).unwrap();
     let contact_class_v1: ContractClassV1 =
@@ -237,4 +249,10 @@ fn stark_felt_to_big_uint(stark_felt: StarkFelt) -> BigUint {
     // When the value of radix is 256, the following function always returns a Some value.
     let radix = 256;
     BigUint::from_radix_be(stark_felt.bytes(), radix).expect("Unexpected None value.")
+}
+
+// TODO(Arni): Move to starknet_api. This function already exists in the blockifier repo.
+pub fn felt_to_stark_felt(felt: &Felt252) -> StarkFelt {
+    let biguint = format!("{:#x}", felt.to_biguint());
+    StarkFelt::try_from(biguint.as_str()).expect("Felt252 must be in StarkFelt's range.")
 }

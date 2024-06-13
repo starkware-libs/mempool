@@ -4,6 +4,7 @@ use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
 use starknet_api::block::BlockNumber;
+use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -22,6 +23,11 @@ pub enum GatewayError {
     StatefulTransactionValidatorError(#[from] StatefulTransactionValidatorError),
     #[error(transparent)]
     StatelessTransactionValidatorError(#[from] StatelessTransactionValidatorError),
+    #[error(
+        "The supplied compiled class hash {supplied:?} does not match the hash of the Casm class \
+         compiled from the supplied Sierra {hash_result:?}."
+    )]
+    CompiledClassHashMismatch { supplied: CompiledClassHash, hash_result: CompiledClassHash },
 }
 
 impl IntoResponse for GatewayError {

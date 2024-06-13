@@ -39,6 +39,7 @@ axum = "0.6.12"
 blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "6babc28a", features = [
     "testing",
 ] }
+cairo-felt = "0.9.1"
 cairo-lang-sierra = "2.6.0"
 cairo-lang-starknet-classes = "2.6.0"
 cairo-lang-utils = "2.6.0"
