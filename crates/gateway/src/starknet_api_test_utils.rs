@@ -94,6 +94,9 @@ pub fn declare_tx() -> RPCTransaction {
     env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Couldn't set working dir.");
     let json_file_path = Path::new(CONTRACT_CLASS_FILE);
     let contract_class = serde_json::from_reader(File::open(json_file_path).unwrap()).unwrap();
+    let compiled_class_hash = CompiledClassHash(stark_felt!(
+        "0x01e4f1248860f32c336f93f2595099aaa4959be515e40b75472709ef5243ae17"
+    ));
 
     let cairo_version = CairoVersion::Cairo1;
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
@@ -106,7 +109,8 @@ pub fn declare_tx() -> RPCTransaction {
         sender_address: account_address,
         resource_bounds: executable_resource_bounds_mapping(),
         nonce,
-        contract_class
+        class_hash: compiled_class_hash,
+        contract_class,
     ))
 }
 
