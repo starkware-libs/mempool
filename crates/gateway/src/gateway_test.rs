@@ -16,7 +16,7 @@ use tokio::sync::mpsc::channel;
 use tokio::task;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
-use crate::gateway::{add_tx, AppState};
+use crate::gateway::{add_tx, AppState, SharedMempoolClient};
 use crate::starknet_api_test_utils::invoke_tx;
 use crate::state_reader_test_utils::local_test_state_reader_factory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
@@ -25,7 +25,7 @@ use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 const MEMPOOL_INVOCATIONS_QUEUE_SIZE: usize = 32;
 
-pub fn app_state(mempool_client: Arc<dyn MempoolClient>) -> AppState {
+pub fn app_state(mempool_client: SharedMempoolClient) -> AppState {
     AppState {
         stateless_tx_validator: StatelessTransactionValidator {
             config: StatelessTransactionValidatorConfig {
