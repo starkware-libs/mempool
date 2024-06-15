@@ -25,7 +25,7 @@ use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 const MEMPOOL_INVOCATIONS_QUEUE_SIZE: usize = 32;
 
-pub fn app_state(mempool_client: Arc<dyn MempoolClient>) -> AppState {
+fn app_state(mempool_client: Arc<dyn MempoolClient>) -> AppState {
     AppState {
         stateless_tx_validator: StatelessTransactionValidator {
             config: StatelessTransactionValidatorConfig {

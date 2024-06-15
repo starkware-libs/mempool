@@ -10,6 +10,8 @@ workspace = true
 
 [dependencies]
 axum.workspace = true
+hyper.workspace = true
+itertools.workspace = true
 reqwest.workspace = true
 starknet_api.workspace = true
 starknet_gateway = { path = "../gateway", version = "0.0", features = ["testing"] }

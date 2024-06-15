@@ -7,7 +7,7 @@ use crate::executor::TaskExecutor;
 #[path = "tokio_executor_test.rs"]
 pub mod test;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TokioExecutor {
     // Invariant: the handle must remain private to ensure all tasks spawned via this
     // executor originate from the same handle, maintaining control and consistency.

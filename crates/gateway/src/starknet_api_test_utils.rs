@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager};
 use serde_json::to_string_pretty;
@@ -10,7 +12,6 @@ use starknet_api::external_transaction::{
     ExternalInvokeTransaction, ExternalInvokeTransactionV3, ExternalTransaction,
     ResourceBoundsMapping,
 };
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, PaymasterData, ResourceBounds, Tip,
     TransactionSignature, TransactionVersion,
@@ -82,23 +83,70 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
     )
 }
 
+// Convenience method for generating a single invoke-tx trivial fields; for multiple,
+// nonce-incrementing transactions, use the transaction generator directly.
 pub fn invoke_tx() -> ExternalTransaction {
-    let cairo_version = CairoVersion::Cairo1;
-    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let account_address = account_contract.get_instance_address(0);
-    let test_contract = FeatureContract::TestContract(cairo_version);
-    let test_contract_address = test_contract.get_instance_address(0);
-    let calldata = create_trivial_calldata(test_contract_address);
-    let mut nonce_manager = NonceManager::default();
-    let nonce = nonce_manager.next(account_address);
-    external_invoke_tx(invoke_tx_args!(
-        signature: TransactionSignature(vec![StarkFelt::ZERO]),
-        sender_address: account_address,
-        resource_bounds: executable_resource_bounds_mapping(),
-        nonce,
-        calldata,
-    ))
+    MultiAccountTransactionGenerator::new(1).generate(0, invoke_tx_args!())
 }
+
+type TransactionGeneratorAccountId = u16;
+pub struct MultiAccountTransactionGenerator {
+    account_contracts: HashMap<TransactionGeneratorAccountId, ContractAddress>,
+    // Invariant: nonces managed internally thorugh `generate` API.
+    internal_nonce_manager: NonceManager,
+}
+
+impl MultiAccountTransactionGenerator {
+    pub fn new(n_accounts: TransactionGeneratorAccountId) -> Self {
+        let default_account_contract =
+            FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+        Self::new_for_account_contract(default_account_contract, n_accounts)
+    }
+
+    pub fn new_for_account_contract(
+        account_contract: FeatureContract,
+        n_accounts: TransactionGeneratorAccountId,
+    ) -> Self {
+        if let FeatureContract::AccountWithoutValidations(CairoVersion::Cairo0) = account_contract {
+            panic!("Cairo0 support untested, remove this check once support is verified.");
+        }
+
+        // *Generates* address for the `instance_id`'th account being tested.
+        // TODO: rename `get_instance_address` to `generate_instance_address``
+        let account_contracts = (0..n_accounts)
+            .map(|account_id| (account_id, account_contract.get_instance_address(account_id)))
+            .collect();
+
+        Self { internal_nonce_manager: NonceManager::default(), account_contracts }
+    }
+
+    pub fn generate(
+        &mut self,
+        account_id: TransactionGeneratorAccountId,
+        invoke_tx_args_overrides: InvokeTxArgs,
+    ) -> ExternalTransaction {
+        // Currently hardcoding the test contract, address, and calldata for calling a trivial
+        // function in this test contract; when customization is needed, parameterize them.
+        let default_test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+        let test_contract_address = default_test_contract.get_instance_address(0);
+
+        let trivial_function_calldata_for_default_test_contract =
+            create_trivial_calldata(test_contract_address);
+
+        let sender_address = self.account_contracts[&account_id];
+        let nonce = self.internal_nonce_manager.next(sender_address);
+
+        external_invoke_tx(invoke_tx_args!(
+            signature: TransactionSignature(vec![nonce.0]),
+            sender_address,
+            resource_bounds: executable_resource_bounds_mapping(),
+            nonce,
+            calldata: trivial_function_calldata_for_default_test_contract,
+            ..invoke_tx_args_overrides
+        ))
+    }
+}
+
 // TODO(Ayelet, 28/5/2025): Try unifying the macros.
 // TODO(Ayelet, 28/5/2025): Consider moving the macros StarkNet API.
 #[macro_export]

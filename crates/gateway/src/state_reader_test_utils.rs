@@ -104,7 +104,7 @@ pub fn local_test_state_reader_factory() -> TestStateReaderFactory {
     let state_reader = test_state_reader(
         block_context.chain_info(),
         BALANCE,
-        &[(account_contract, 1), (test_contract, 1)],
+        &[(account_contract, 2), (test_contract, 1)],
     );
 
     TestStateReaderFactory {
@@ -115,7 +115,9 @@ pub fn local_test_state_reader_factory() -> TestStateReaderFactory {
     }
 }
 
-pub async fn rpc_test_state_reader_factory() -> RpcStateReaderFactory {
+pub async fn rpc_test_state_reader_factory(
+    n_initiailized_account_contracts: u16,
+) -> RpcStateReaderFactory {
     let cairo_version = CairoVersion::Cairo1;
     let block_context = BlockContext::create_for_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
@@ -124,7 +126,7 @@ pub async fn rpc_test_state_reader_factory() -> RpcStateReaderFactory {
     let storage_reader = initialize_papyrus_test_state(
         block_context.chain_info(),
         BALANCE,
-        &[(account_contract, 1), (test_contract, 1)],
+        &[(account_contract, n_initiailized_account_contracts), (test_contract, 2)],
     );
     let addr = run_papyrus_rpc_server(storage_reader).await;
 

@@ -1,11 +1,12 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use itertools::zip_eq;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_gateway::config::GatewayNetworkConfig;
 use starknet_gateway::errors::GatewayError;
-use starknet_gateway::gateway::Gateway;
+use starknet_gateway::starknet_api_test_utils::MultiAccountTransactionGenerator;
 use starknet_mempool::mempool::{create_mempool_server, Mempool};
 use starknet_mempool_types::mempool_types::{
     MempoolClient, MempoolClientImpl, MempoolRequestAndResponseSender, ThinTransaction,
@@ -16,8 +17,9 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc::channel;
 use tokio::task::JoinHandle;
 
-use crate::integration_test_utils::GatewayClient;
+use crate::integration_test_utils::{create_gateway, GatewayClient};
 
+#[derive(Debug)]
 pub struct IntegrationTestSetup {
     pub task_executor: TokioExecutor,
     pub gateway_client: GatewayClient,
@@ -29,7 +31,16 @@ pub struct IntegrationTestSetup {
 }
 
 impl IntegrationTestSetup {
-    pub async fn new() -> Self {
+    pub async fn new_with_tx_generator(
+        n_accounts: u16,
+    ) -> (Self, MultiAccountTransactionGenerator) {
+        let integration_test_setup = Self::new(n_accounts).await;
+        let tx_generator = MultiAccountTransactionGenerator::new(n_accounts);
+
+        (integration_test_setup, tx_generator)
+    }
+
+    pub async fn new(n_accounts: u16) -> Self {
         let handle = Handle::current();
         let task_executor = TokioExecutor::new(handle);
 
@@ -40,7 +51,7 @@ impl IntegrationTestSetup {
             channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
         // Build and run gateway; initialize a gateway client.
         let gateway_mempool_client = MempoolClientImpl::new(tx_mempool.clone());
-        let gateway = Gateway::create_for_testing(Arc::new(gateway_mempool_client)).await;
+        let gateway = create_gateway(Arc::new(gateway_mempool_client), n_accounts).await;
         let GatewayNetworkConfig { ip, port } = gateway.config.network_config;
         let gateway_client = GatewayClient::new(SocketAddr::from((ip, port)));
         let gateway_handle = task_executor.spawn_with_handle(async move {
@@ -72,6 +83,7 @@ impl IntegrationTestSetup {
     }
 
     pub async fn assert_add_tx_success(&self, tx: &ExternalTransaction) -> TransactionHash {
+        dbg!(&tx);
         self.gateway_client.assert_add_tx_success(tx).await
     }
 
@@ -85,5 +97,19 @@ impl IntegrationTestSetup {
             .spawn(async move { batcher_mempool_client.get_txs(n_txs).await.unwrap() })
             .await
             .unwrap()
+    }
+
+    pub async fn assert_get_txs_eq(
+        &mut self,
+        n_txs: usize,
+        expected_tx_hashes: &[TransactionHash],
+    ) {
+        let mempool_txs = self.get_txs(n_txs).await;
+
+        assert!(
+            zip_eq(expected_tx_hashes, mempool_txs)
+                // Deref the inner mempool tx type.
+                .all(|(&expected_tx_hash, mempool_tx)| expected_tx_hash == mempool_tx.tx_hash)
+        );
     }
 }

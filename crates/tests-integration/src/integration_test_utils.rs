@@ -12,10 +12,13 @@ use starknet_gateway::config::{
 use starknet_gateway::errors::GatewayError;
 use starknet_gateway::gateway::Gateway;
 use starknet_gateway::starknet_api_test_utils::external_tx_to_json;
-use starknet_gateway::state_reader_test_utils::rpc_test_state_reader_factory;
+use starknet_gateway::state_reader_test_utils::local_test_state_reader_factory;
 use starknet_mempool_types::mempool_types::MempoolClient;
 
-pub async fn create_gateway(mempool_client: Arc<dyn MempoolClient>) -> Gateway {
+pub async fn create_gateway(
+    mempool_client: Arc<dyn MempoolClient>,
+    _n_initiailized_account_contracts: u16,
+) -> Gateway {
     let stateless_tx_validator_config = StatelessTransactionValidatorConfig {
         validate_non_zero_l1_gas_fee: true,
         max_calldata_length: 10,
@@ -33,12 +36,13 @@ pub async fn create_gateway(mempool_client: Arc<dyn MempoolClient>) -> Gateway {
         stateful_tx_validator_config,
     };
 
-    let state_reader_factory = Arc::new(rpc_test_state_reader_factory().await);
+    let state_reader_factory = Arc::new(local_test_state_reader_factory());
 
     Gateway::new(gateway_config, state_reader_factory, mempool_client)
 }
 
 /// A test utility client for interacting with a gateway server.
+#[derive(Debug)]
 pub struct GatewayClient {
     socket: SocketAddr,
     client: Client,
@@ -52,6 +56,7 @@ impl GatewayClient {
 
     pub async fn assert_add_tx_success(&self, tx: &ExternalTransaction) -> TransactionHash {
         let response = self.add_tx(tx).await;
+        dbg!(&response);
         assert!(response.status().is_success());
 
         response.json().await.unwrap()

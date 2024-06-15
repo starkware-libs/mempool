@@ -3,7 +3,7 @@ use tokio::sync::mpsc::{channel, Sender};
 
 use crate::component_definitions::ComponentRequestAndResponseSender;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ComponentClient<Request, Response>
 where
     Request: Send + Sync,
