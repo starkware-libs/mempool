@@ -2,8 +2,10 @@ use starknet_api::external_transaction::{
     ExternalDeclareTransaction, ExternalDeployAccountTransaction, ExternalInvokeTransaction,
     ExternalTransaction, ResourceBoundsMapping,
 };
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Resource;
 
+use crate::compiler_version::VersionId;
 use crate::config::StatelessTransactionValidatorConfig;
 use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionValidatorResult};
 
@@ -106,7 +108,18 @@ impl StatelessTransactionValidator {
         let contract_class = match declare_tx {
             ExternalDeclareTransaction::V3(tx) => &tx.contract_class,
         };
+        self.validate_sierra_version(&contract_class.sierra_program)?;
         self.validate_class_length(contract_class)
+    }
+
+    fn validate_sierra_version(
+        &self,
+        sierra_program: &[StarkFelt],
+    ) -> StatelessTransactionValidatorResult<()> {
+        // TODO(Arni): Validate the sierra version is supported.
+        let _sierra_version = sierra_program_version_id(sierra_program)?;
+
+        Ok(())
     }
 
     fn validate_class_length(
@@ -133,6 +146,36 @@ impl StatelessTransactionValidator {
 
         Ok(())
     }
+}
+
+fn sierra_program_version_id(
+    sierra_program: &[StarkFelt],
+) -> StatelessTransactionValidatorResult<VersionId> {
+    let length_of_version = sierra_program.len();
+
+    if length_of_version < 3 {
+        return Err(StatelessTransactionValidatorError::InvalidSierraVersion {
+            index: length_of_version,
+            felt_status: "missing".into(),
+        });
+    }
+
+    fn get_version_component_from_sierra_program(
+        index: usize,
+        sierra_program: &[StarkFelt],
+    ) -> StatelessTransactionValidatorResult<usize> {
+        let felt = sierra_program[index];
+        felt.try_into().map_err(|_| StatelessTransactionValidatorError::InvalidSierraVersion {
+            index,
+            felt_status: format!("out of range: {}", felt),
+        })
+    }
+
+    Ok(VersionId {
+        major: get_version_component_from_sierra_program(0, sierra_program)?,
+        minor: get_version_component_from_sierra_program(1, sierra_program)?,
+        patch: get_version_component_from_sierra_program(2, sierra_program)?,
+    })
 }
 
 fn validate_resource_is_non_zero(

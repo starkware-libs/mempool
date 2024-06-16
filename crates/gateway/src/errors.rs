@@ -46,6 +46,8 @@ pub enum StatelessTransactionValidatorError {
         (allowed length: {max_signature_length})."
     )]
     SignatureTooLong { signature_length: usize, max_signature_length: usize },
+    #[error("Invalid Sierra version: felt at index {index} is {felt_status}.")]
+    InvalidSierraVersion { index: usize, felt_status: String },
     #[error(
         "Cannot declare contract class with bytecode size of {bytecode_size}; max allowed size: \
          {max_bytecode_size}."

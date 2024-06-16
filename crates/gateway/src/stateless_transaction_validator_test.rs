@@ -184,6 +184,50 @@ fn test_signature_too_long(
     );
 }
 
+#[rstest]
+#[case::sierra_program_length_zero(
+    vec![],
+    StatelessTransactionValidatorError::InvalidSierraVersion {
+        index: 0, felt_status: "missing".into()
+    }
+)]
+#[case::sierra_program_length_one(
+    vec![stark_felt!(1_u128)],
+    StatelessTransactionValidatorError::InvalidSierraVersion {
+        index: 1, felt_status: "missing".into()
+    }
+)]
+#[case::sierra_program_length_two(
+    vec![stark_felt!(1_u128), stark_felt!(3_u128)],
+    StatelessTransactionValidatorError::InvalidSierraVersion {
+        index: 2, felt_status: "missing".into()
+    }
+)]
+#[case::invalid_character_in_sierra_version(
+    vec![
+            stark_felt!(1_u128),
+            stark_felt!(3_u128),
+            stark_felt!(0x10000000000000000_u128), // Does not fit into a usize.
+    ],
+    StatelessTransactionValidatorError::InvalidSierraVersion {
+            index: 2,
+            felt_status: "out of range: 0x0000000000000000000000000000000000000000000000010000000000000000".into()
+        }
+    )
+]
+fn test_invalid_sierra_version(
+    #[case] sierra_program: Vec<StarkFelt>,
+    #[case] expected_error: StatelessTransactionValidatorError,
+) {
+    let tx_validator =
+        StatelessTransactionValidator { config: DEFAULT_VALIDATOR_CONFIG_FOR_TESTING };
+
+    let contract_class = ContractClass { sierra_program, ..Default::default() };
+    let tx = external_declare_tx(declare_tx_args!(contract_class));
+
+    assert_eq!(tx_validator.validate(&tx).unwrap_err(), expected_error);
+}
+
 #[test]
 fn test_declare_bytecode_size_too_long() {
     let config_max_bytecode_size = 10;
