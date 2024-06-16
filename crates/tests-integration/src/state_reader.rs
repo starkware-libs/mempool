@@ -59,7 +59,7 @@ pub async fn rpc_test_state_reader_factory() -> RpcStateReaderFactory {
     }
 }
 
-pub fn initialize_papyrus_test_state(
+fn initialize_papyrus_test_state(
     chain_info: &ChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u16)],
