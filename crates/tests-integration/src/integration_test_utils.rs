@@ -18,7 +18,7 @@ use crate::state_reader::rpc_test_state_reader_factory;
 
 pub async fn create_gateway(
     mempool_client: SharedMempoolClient,
-    n_initialized_account_contracts: u16,
+    n_initialized_account_contracts: usize,
 ) -> Gateway {
     let stateless_tx_validator_config = StatelessTransactionValidatorConfig {
         validate_non_zero_l1_gas_fee: true,
@@ -37,6 +37,7 @@ pub async fn create_gateway(
         stateful_tx_validator_config,
     };
 
+    let n_initialized_account_contracts = u16::try_from(n_initialized_account_contracts).unwrap();
     let state_reader_factory =
         Arc::new(rpc_test_state_reader_factory(n_initialized_account_contracts).await);
 

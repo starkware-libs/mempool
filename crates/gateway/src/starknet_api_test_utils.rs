@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager};
 use serde_json::to_string_pretty;
@@ -85,6 +87,117 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
         },
         ResourceBounds::default(),
     )
+}
+
+// Convenience method for generating a single invoke transaction with trivial fields.
+// For multiple, nonce-incrementing transactions, use the transaction generator directly.
+pub fn invoke_tx() -> ExternalTransaction {
+    let n_accounts = 1;
+    MultiAccountTransactionGenerator::new(n_accounts).account(0).generate_default()
+}
+
+type TransactionGeneratorAccountId = u16;
+
+/// Manages transaction generation for multiple pre-funded accounts, internally bumping nonces
+/// as needed.
+///
+/// **Currently supports:**
+/// - Single contract type
+/// - Only supports invokes, which are all a trivial method in the contract type.
+///
+/// # Example
+///
+/// ```
+/// use starknet_gateway::invoke_tx_args;
+/// use starknet_gateway::starknet_api_test_utils::MultiAccountTransactionGenerator;
+///
+/// let mut tx_generator = MultiAccountTransactionGenerator::new(2); // Initialize with 2 accounts.
+/// let account_0_tx_with_nonce_0 = tx_generator.account(0).generate_default();
+/// let account_1_tx_with_nonce_0 = tx_generator.account(1).generate_default();
+/// let account_0_tx_with_nonce_1 = tx_generator.account(0).generate_default();
+/// ```
+// Note: when moving this to starknet api crate, see if blockifier's
+// [blockifier::transaction::test_utils::FaultyAccountTxCreatorArgs] can be made to use this.
+pub struct MultiAccountTransactionGenerator {
+    // Invariant: coupled with nonce_manager.
+    account_contracts: HashMap<TransactionGeneratorAccountId, FeatureContract>,
+    // Invariant: nonces managed internally thorugh `generate` API.
+    nonce_manager: NonceManager,
+}
+
+impl MultiAccountTransactionGenerator {
+    pub fn new(n_accounts: usize) -> Self {
+        let default_account_contract =
+            FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+        let accounts = std::iter::repeat(default_account_contract).take(n_accounts);
+        Self::new_for_account_contracts(accounts)
+    }
+
+    pub fn new_for_account_contracts(accounts: impl IntoIterator<Item = FeatureContract>) -> Self {
+        let enumerated_accounts = (0..).zip(accounts);
+        let account_contracts = enumerated_accounts.collect();
+
+        Self { account_contracts, nonce_manager: NonceManager::default() }
+    }
+
+    pub fn account(
+        &mut self,
+        account_id: TransactionGeneratorAccountId,
+    ) -> AccountTransactionGenerator<'_> {
+        AccountTransactionGenerator { account_id, generator: self }
+    }
+}
+
+/// Manages transaction generation for a single account.
+/// Supports faulty transaction generation via [AccountTransactionGenerator::generate_raw].
+///
+/// This struct provides methods to generate both default and fully customized transactions,
+/// with room for future extensions.
+///
+/// TODO: add more transaction generation methods as needed.
+pub struct AccountTransactionGenerator<'a> {
+    account_id: TransactionGeneratorAccountId,
+    generator: &'a mut MultiAccountTransactionGenerator,
+}
+
+impl<'a> AccountTransactionGenerator<'a> {
+    /// Generate a valid `ExternalTransaction` with default parameters.
+    pub fn generate_default(&mut self) -> ExternalTransaction {
+        let sender_address = self.sender_address();
+        let nonce = self.nonce();
+
+        let invoke_args = invoke_tx_args!(
+            signature: TransactionSignature(vec![nonce.0]),
+            sender_address,
+            resource_bounds: executable_resource_bounds_mapping(),
+            nonce,
+            calldata: create_trivial_calldata(sender_address),
+        );
+        external_invoke_tx(invoke_args)
+    }
+
+    /// Generates an `ExternalTransaction` with fully custom parameters.
+    ///
+    /// Caller must manually handle bumping nonce and fetching the correct sender address via
+    /// [AccountTransactionGenerator::nonce] and [AccountTransactionGenerator::sender_address].
+    /// See [AccountTransactionGenerator::generate_default] to have these filled up by default.
+    ///
+    /// Note: This is a best effort attempt to make the API more useful; amend or add new methods
+    /// as needed.
+    pub fn generate_raw(&mut self, invoke_tx_args: InvokeTxArgs) -> ExternalTransaction {
+        external_invoke_tx(invoke_tx_args)
+    }
+
+    pub fn sender_address(&mut self) -> ContractAddress {
+        let account_id = &self.account_id;
+        self.generator.account_contracts[account_id].get_instance_address(self.account_id)
+    }
+
+    /// Retrieves the nonce for the current account, and __increments__ it internally.
+    pub fn nonce(&mut self) -> Nonce {
+        let sender_address = self.sender_address();
+        self.generator.nonce_manager.next(sender_address)
+    }
 }
 
 // TODO(Ayelet, 28/5/2025): Try unifying the macros.
