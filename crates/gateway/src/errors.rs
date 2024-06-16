@@ -9,6 +9,8 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
+use crate::compiler_version::VersionIdError;
+
 /// Errors directed towards the end-user, as a result of gateway requests.
 #[derive(Debug, Error)]
 pub enum GatewayError {
@@ -46,6 +48,8 @@ pub enum StatelessTransactionValidatorError {
         (allowed length: {max_signature_length})."
     )]
     SignatureTooLong { signature_length: usize, max_signature_length: usize },
+    #[error("Invalid Sierra version: felt at index {index} is {felt_status}.")]
+    InvalidSierraVersion { index: usize, felt_status: String },
     #[error(
         "Cannot declare contract class with bytecode size of {bytecode_size}; max allowed size: \
          {max_bytecode_size}."
@@ -59,6 +63,13 @@ pub enum StatelessTransactionValidatorError {
         contract_class_object_size: usize,
         max_contract_class_object_size: usize,
     },
+}
+
+impl From<VersionIdError> for StatelessTransactionValidatorError {
+    fn from(val: VersionIdError) -> Self {
+        let VersionIdError::InvalidVersion { index, felt_status } = val;
+        StatelessTransactionValidatorError::InvalidSierraVersion { index, felt_status }
+    }
 }
 
 pub type StatelessTransactionValidatorResult<T> = Result<T, StatelessTransactionValidatorError>;
