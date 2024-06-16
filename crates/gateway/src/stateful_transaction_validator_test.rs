@@ -1,6 +1,5 @@
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::context::BlockContext;
-use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
@@ -20,7 +19,7 @@ use crate::stateful_transaction_validator::StatefulTransactionValidator;
 
 #[rstest]
 #[case::valid_invoke_tx(
-    invoke_tx(CairoVersion::Cairo1),
+    invoke_tx(),
     local_test_state_reader_factory(false),
     Ok(TransactionHash(StarkFelt::try_from(
         "0x07459d76bd7adec02c25cf7ab0dcb95e9197101d4ada41cae6b465fcb78c0e47"
@@ -34,7 +33,7 @@ use crate::stateful_transaction_validator::StatefulTransactionValidator;
     ).unwrap()))
 )]
 #[case::invalid_tx(
-    invoke_tx(CairoVersion::Cairo1),
+    invoke_tx(),
     local_test_state_reader_factory(true),
     Err(StatefulTransactionValidatorError::StatefulValidatorError(
         StatefulValidatorError::TransactionPreValidationError(

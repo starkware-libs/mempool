@@ -5,7 +5,6 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use blockifier::context::ChainInfo;
-use blockifier::test_utils::CairoVersion;
 use rstest::rstest;
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
@@ -52,7 +51,7 @@ pub fn app_state(
 // TODO(Ayelet): add test cases for declare.
 #[tokio::test]
 #[rstest]
-#[case::valid_invoke_tx(invoke_tx(CairoVersion::Cairo1), local_test_state_reader_factory(false))]
+#[case::valid_invoke_tx(invoke_tx(), local_test_state_reader_factory(false))]
 #[case::valid_deploy_account_tx(
     deploy_account_tx(),
     local_test_state_reader_factory_for_deploy_account(&tx)

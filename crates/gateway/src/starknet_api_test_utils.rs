@@ -91,7 +91,7 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
 
 // Convenience method for generating a single invoke transaction with trivial fields.
 // For multiple, nonce-incrementing transactions, use the transaction generator directly.
-pub fn invoke_tx() -> ExternalTransaction {
+pub fn invoke_tx() -> RPCTransaction {
     let n_accounts = 1;
     MultiAccountTransactionGenerator::new(n_accounts).account(0).generate_default()
 }
@@ -162,7 +162,7 @@ pub struct AccountTransactionGenerator<'a> {
 
 impl<'a> AccountTransactionGenerator<'a> {
     /// Generate a valid `ExternalTransaction` with default parameters.
-    pub fn generate_default(&mut self) -> ExternalTransaction {
+    pub fn generate_default(&mut self) -> RPCTransaction {
         let sender_address = self.sender_address();
         let nonce = self.nonce();
 
@@ -176,6 +176,27 @@ impl<'a> AccountTransactionGenerator<'a> {
         external_invoke_tx(invoke_args)
     }
 
+    /// Generates a valid transaction, allowing overrides only for fields that don't
+    /// affect validity.
+    ///
+    /// To overrides the remaining fields use [AccountTransactionGenerator::generate_raw].
+    pub fn generate_valid_with_overrides(
+        &mut self,
+        invoke_tx_args: InvokeTxArgs,
+    ) -> RPCTransaction {
+        let sender_address = self.sender_address();
+        let nonce = self.nonce();
+
+        let invoke_args = invoke_tx_args!(
+            sender_address,
+            resource_bounds: executable_resource_bounds_mapping(),
+            nonce,
+            calldata: create_trivial_calldata(sender_address),
+            ..invoke_tx_args
+        );
+        external_invoke_tx(invoke_args)
+    }
+
     /// Generates an `ExternalTransaction` with fully custom parameters.
     ///
     /// Caller must manually handle bumping nonce and fetching the correct sender address via
@@ -184,7 +205,7 @@ impl<'a> AccountTransactionGenerator<'a> {
     ///
     /// Note: This is a best effort attempt to make the API more useful; amend or add new methods
     /// as needed.
-    pub fn generate_raw(&mut self, invoke_tx_args: InvokeTxArgs) -> ExternalTransaction {
+    pub fn generate_raw(&mut self, invoke_tx_args: InvokeTxArgs) -> RPCTransaction {
         external_invoke_tx(invoke_tx_args)
     }
 
@@ -434,20 +455,6 @@ pub fn external_tx_to_json(tx: &RPCTransaction) -> String {
 
     // Serialize back to pretty JSON string
     to_string_pretty(&tx_json).expect("Failed to serialize transaction")
-}
-
-pub fn invoke_tx(cairo_version: CairoVersion) -> RPCTransaction {
-    let test_contract = FeatureContract::TestContract(cairo_version);
-    let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
-    let sender_address = account_contract.get_instance_address(0);
-    let mut nonce_manager = NonceManager::default();
-
-    external_invoke_tx(invoke_tx_args!(
-        resource_bounds: executable_resource_bounds_mapping(),
-        nonce : nonce_manager.next(sender_address),
-        sender_address,
-        calldata: create_trivial_calldata(test_contract.get_instance_address(0))
-    ))
 }
 
 //  TODO(Yael 18/6/2024): Get a final decision from product whether to support Cairo0.
