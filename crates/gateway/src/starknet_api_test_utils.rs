@@ -181,6 +181,24 @@ impl<'a> AccountTransactionGenerator<'a> {
         FeatureContract::TestContract(cairo_version).get_instance_address(self.account_id)
     }
 
+    /// Generates a valid transaction, allowing overrides only for fields that don't
+    /// affect validity.
+    ///
+    /// To overrides the remaining fields use [AccountTransactionGenerator::generate_raw].
+    pub fn generate_valid_with_overrides(
+        &mut self,
+        invoke_tx_args: InvokeTxArgs,
+    ) -> RPCTransaction {
+        let invoke_args = invoke_tx_args!(
+            sender_address: self.sender_address(),
+            resource_bounds: executable_resource_bounds_mapping(),
+            nonce: self.nonce(),
+            calldata: create_trivial_calldata(self.test_contract_address()),
+            ..invoke_tx_args
+        );
+        external_invoke_tx(invoke_args)
+    }
+
     /// Generates an `RPCTransaction` with fully custom parameters.
     ///
     /// Caller must manually handle bumping nonce and fetching the correct sender address via
