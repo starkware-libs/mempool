@@ -43,7 +43,7 @@ type ContractClassesMap =
 /// Creates a papyrus storage reader and Spawns a papyrus rpc server for it.
 /// A variable number of identical accounts and test contracts are initialized and funded.
 pub async fn rpc_test_state_reader_factory(
-    n_initialized_account_contracts: u16,
+    n_initialized_accounts: u16,
 ) -> RpcStateReaderFactory {
     const RPC_SPEC_VERION: &str = "V0_7";
     const JSON_RPC_VERSION: &str = "2.0";
@@ -55,7 +55,7 @@ pub async fn rpc_test_state_reader_factory(
     let storage_reader = initialize_papyrus_test_state(
         block_context.chain_info(),
         BALANCE,
-        &[(account_contract, n_initialized_account_contracts), (test_contract, 1)],
+        &[(account_contract, n_initialized_accounts), (test_contract, 1)],
     );
     let addr = run_papyrus_rpc_server(storage_reader).await;
 
