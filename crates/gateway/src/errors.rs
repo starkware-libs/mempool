@@ -4,6 +4,7 @@ use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
 use starknet_api::block::BlockNumber;
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
 use thiserror::Error;
@@ -46,6 +47,8 @@ pub enum StatelessTransactionValidatorError {
         (allowed length: {max_signature_length})."
     )]
     SignatureTooLong { signature_length: usize, max_signature_length: usize },
+    #[error("Invalid Sierra version: {version:?}.")]
+    InvalidSierraVersion { version: [StarkFelt; 3] },
     #[error(
         "Cannot declare contract class with bytecode size of {bytecode_size}; max allowed size: \
          {max_bytecode_size}."
