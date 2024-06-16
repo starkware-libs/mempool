@@ -5345,6 +5345,7 @@ dependencies = [
  "axum",
  "blockifier",
  "indexmap 2.2.6",
+ "itertools 0.13.0",
  "papyrus_common",
  "papyrus_rpc",
  "papyrus_storage",

@@ -12,6 +12,7 @@ workspace = true
 axum.workspace = true
 blockifier.workspace = true
 indexmap.workspace = true
+itertools.workspace = true
 papyrus_common.workspace = true
 papyrus_rpc.workspace = true
 papyrus_storage.workspace = true

@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use itertools::zip_eq;
 use starknet_api::external_transaction::ExternalTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_gateway::config::GatewayNetworkConfig;
@@ -97,5 +98,19 @@ impl IntegrationTestSetup {
             .spawn(async move { batcher_mempool_client.get_txs(n_txs).await.unwrap() })
             .await
             .unwrap()
+    }
+
+    pub async fn assert_get_txs_eq(
+        &mut self,
+        n_txs: usize,
+        expected_tx_hashes: &[TransactionHash],
+    ) {
+        let mempool_txs = self.get_txs(n_txs).await;
+
+        assert!(
+            zip_eq(expected_tx_hashes, mempool_txs)
+                // Deref the inner mempool tx type.
+                .all(|(&expected_tx_hash, mempool_tx)| expected_tx_hash == mempool_tx.tx_hash)
+        );
     }
 }
