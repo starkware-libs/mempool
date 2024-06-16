@@ -2,8 +2,10 @@ use starknet_api::external_transaction::{
     ExternalDeclareTransaction, ExternalDeployAccountTransaction, ExternalInvokeTransaction,
     ExternalTransaction, ResourceBoundsMapping,
 };
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Resource;
 
+use crate::compiler_version::VersionId;
 use crate::config::StatelessTransactionValidatorConfig;
 use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionValidatorResult};
 
@@ -106,7 +108,18 @@ impl StatelessTransactionValidator {
         let contract_class = match declare_tx {
             ExternalDeclareTransaction::V3(tx) => &tx.contract_class,
         };
+        self.validate_sierra_version(&contract_class.sierra_program)?;
         self.validate_class_length(contract_class)
+    }
+
+    fn validate_sierra_version(
+        &self,
+        sierra_program: &[StarkFelt],
+    ) -> StatelessTransactionValidatorResult<()> {
+        // TODO(Arni): Validate the sierra version is Supported.
+        let _sierra_version = sierra_program_version_id(sierra_program)?;
+
+        Ok(())
     }
 
     fn validate_class_length(
@@ -133,6 +146,25 @@ impl StatelessTransactionValidator {
 
         Ok(())
     }
+}
+
+fn sierra_program_version_id(
+    sierra_program: &[StarkFelt],
+) -> StatelessTransactionValidatorResult<VersionId> {
+    let length_of_version = sierra_program.len().min(3);
+    let mut version = [StarkFelt::default(); 3];
+    version[..length_of_version].copy_from_slice(&sierra_program[..length_of_version]);
+
+    if length_of_version < 3 {
+        return Err(StatelessTransactionValidatorError::InvalidSierraVersion { version });
+    }
+
+    let map_err = || StatelessTransactionValidatorError::InvalidSierraVersion { version };
+    Ok(VersionId {
+        major: sierra_program[0].try_into().map_err(|_| map_err())?,
+        minor: sierra_program[1].try_into().map_err(|_| map_err())?,
+        patch: sierra_program[2].try_into().map_err(|_| map_err())?,
+    })
 }
 
 fn validate_resource_is_non_zero(
