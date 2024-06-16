@@ -124,7 +124,7 @@ pub async fn rpc_test_state_reader_factory() -> RpcStateReaderFactory {
     let storage_reader = initialize_papyrus_test_state(
         block_context.chain_info(),
         BALANCE,
-        &[(account_contract, 1), (test_contract, 1)],
+        &[(account_contract, 2), (test_contract, 1)],
     );
     let addr = run_papyrus_rpc_server(storage_reader).await;
 
