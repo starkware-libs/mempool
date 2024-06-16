@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::net::IpAddr;
 
 use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use cairo_lang_starknet_classes::compiler_version::VersionId;
 use papyrus_config::dumping::{append_sub_config_name, ser_param, SerializeConfig};
 use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
 use serde::{Deserialize, Serialize};
@@ -61,7 +62,45 @@ impl Default for GatewayNetworkConfig {
     }
 }
 
-#[derive(Clone, Debug, Default, Serialize, Deserialize, Validate, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Validate, PartialEq)]
+pub struct ConfigVersionId {
+    pub major: usize,
+    pub minor: usize,
+    pub patch: usize,
+}
+
+impl From<ConfigVersionId> for VersionId {
+    fn from(val: ConfigVersionId) -> Self {
+        VersionId { major: val.major, minor: val.minor, patch: val.patch }
+    }
+}
+
+impl SerializeConfig for ConfigVersionId {
+    fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
+        BTreeMap::from_iter([
+            ser_param(
+                "major",
+                &self.major,
+                "The major version of the configuration.",
+                ParamPrivacyInput::Public,
+            ),
+            ser_param(
+                "minor",
+                &self.minor,
+                "The minor version of the configuration.",
+                ParamPrivacyInput::Public,
+            ),
+            ser_param(
+                "patch",
+                &self.patch,
+                "The patch version of the configuration.",
+                ParamPrivacyInput::Public,
+            ),
+        ])
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
 pub struct StatelessTransactionValidatorConfig {
     // If true, validates that the resource bounds are not zero.
     pub validate_non_zero_l1_gas_fee: bool,
@@ -72,13 +111,32 @@ pub struct StatelessTransactionValidatorConfig {
     // Declare txs specific config.
     pub max_bytecode_size: usize,
     pub max_raw_class_size: usize,
-    // TODO(Arni): Add sierra version limitations. Validate the Sierra version is:
-    // cairo_lang_starknet_classes::compiler_version::current_sierra_version_id.
+    pub min_sierra_version: ConfigVersionId,
+    pub max_sierra_version: ConfigVersionId,
+}
+
+impl Default for StatelessTransactionValidatorConfig {
+    fn default() -> Self {
+        StatelessTransactionValidatorConfig {
+            validate_non_zero_l1_gas_fee: false,
+            validate_non_zero_l2_gas_fee: false,
+            max_calldata_length: 0,
+            max_signature_length: 0,
+            max_bytecode_size: 0,
+            max_raw_class_size: 0,
+            min_sierra_version: ConfigVersionId { major: 0, minor: 0, patch: 0 },
+            max_sierra_version: ConfigVersionId {
+                major: usize::MAX,
+                minor: usize::MAX,
+                patch: usize::MAX,
+            },
+        }
+    }
 }
 
 impl SerializeConfig for StatelessTransactionValidatorConfig {
     fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
-        BTreeMap::from_iter([
+        let members = BTreeMap::from_iter([
             ser_param(
                 "validate_non_zero_l1_gas_fee",
                 &self.validate_non_zero_l1_gas_fee,
@@ -105,7 +163,15 @@ impl SerializeConfig for StatelessTransactionValidatorConfig {
                  value.",
                 ParamPrivacyInput::Public,
             ),
-        ])
+        ]);
+        vec![
+            members,
+            append_sub_config_name(self.min_sierra_version.dump(), "min_sierra_version"),
+            append_sub_config_name(self.max_sierra_version.dump(), "max_sierra_version"),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
     }
 }
 

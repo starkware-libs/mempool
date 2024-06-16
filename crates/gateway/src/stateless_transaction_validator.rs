@@ -9,10 +9,6 @@ use starknet_api::transaction::Resource;
 use crate::config::StatelessTransactionValidatorConfig;
 use crate::errors::{StatelessTransactionValidatorError, StatelessTransactionValidatorResult};
 
-// TODO(Arni): Get from config.
-pub const MAX_SIERRA_VERSION: VersionId = VersionId { major: 1, minor: 5, patch: 0 };
-pub const MIN_SIERRA_VERSION: VersionId = VersionId { major: 1, minor: 1, patch: 0 };
-
 #[cfg(test)]
 #[path = "stateless_transaction_validator_test.rs"]
 mod stateless_transaction_validator_test;
@@ -122,24 +118,26 @@ impl StatelessTransactionValidator {
     ) -> StatelessTransactionValidatorResult<()> {
         let sierra_version = sierra_program_version_id(sierra_program)?;
 
+        let min_sierra_version = self.config.min_sierra_version.into();
+        let max_sierra_version = self.config.max_sierra_version.into();
         // Check that the version is not too old.
-        if less_then(sierra_version, MIN_SIERRA_VERSION) {
+        if less_then(sierra_version, min_sierra_version) {
             return Err(StatelessTransactionValidatorError::UnsupportedSierraVersion {
                 version: sierra_version,
-                min_version: MIN_SIERRA_VERSION,
-                max_version: MAX_SIERRA_VERSION,
+                min_version: min_sierra_version,
+                max_version: max_sierra_version,
             });
         }
         // Check that the version is lower than the latest version allowing higher patch versions
         // (i.e. we ignore the Z part in a version X.Y.Z).
-        let max_minor_sierra_version = VersionId { patch: 0, ..MAX_SIERRA_VERSION };
+        let max_minor_sierra_version = VersionId { patch: 0, ..max_sierra_version };
         let minor_sierra_version = VersionId { patch: 0, ..sierra_version };
 
         if less_then(max_minor_sierra_version, minor_sierra_version) {
             return Err(StatelessTransactionValidatorError::UnsupportedSierraVersion {
                 version: sierra_version,
-                min_version: MIN_SIERRA_VERSION,
-                max_version: MAX_SIERRA_VERSION,
+                min_version: min_sierra_version,
+                max_version: max_sierra_version,
             });
         }
 

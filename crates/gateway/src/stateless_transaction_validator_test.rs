@@ -6,16 +6,18 @@ use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::{Calldata, Resource, ResourceBounds, TransactionSignature};
 use starknet_api::{calldata, stark_felt};
 
-use crate::config::StatelessTransactionValidatorConfig;
+use crate::config::{ConfigVersionId, StatelessTransactionValidatorConfig};
 use crate::declare_tx_args;
 use crate::starknet_api_test_utils::{
     create_resource_bounds_mapping, external_declare_tx, external_tx_for_testing,
     zero_resource_bounds_mapping, TransactionType, NON_EMPTY_RESOURCE_BOUNDS,
 };
 use crate::stateless_transaction_validator::{
-    StatelessTransactionValidator, StatelessTransactionValidatorError, MAX_SIERRA_VERSION,
-    MIN_SIERRA_VERSION,
+    StatelessTransactionValidator, StatelessTransactionValidatorError,
 };
+
+const MIN_SIERRA_VERSION: ConfigVersionId = ConfigVersionId { major: 1, minor: 1, patch: 0 };
+const MAX_SIERRA_VERSION: ConfigVersionId = ConfigVersionId { major: 1, minor: 5, patch: 0 };
 
 const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig =
     StatelessTransactionValidatorConfig {
@@ -25,6 +27,8 @@ const DEFAULT_VALIDATOR_CONFIG_FOR_TESTING: StatelessTransactionValidatorConfig 
         max_signature_length: 1,
         max_bytecode_size: 10000,
         max_raw_class_size: 100000,
+        min_sierra_version: MIN_SIERRA_VERSION,
+        max_sierra_version: MAX_SIERRA_VERSION,
     };
 
 #[rstest]
@@ -227,16 +231,16 @@ fn test_declare_sierra_program_too_short(
     vec![stark_felt!(0_u128), stark_felt!(3_u128), stark_felt!(0_u128)],
     StatelessTransactionValidatorError::UnsupportedSierraVersion {
             version: VersionId{major: 0, minor: 3, patch: 0},
-            min_version: MIN_SIERRA_VERSION,
-            max_version: MAX_SIERRA_VERSION,
+            min_version: MIN_SIERRA_VERSION.into(),
+            max_version: MAX_SIERRA_VERSION.into(),
     })
 ]
 #[case::sierra_version_too_high(
     vec![stark_felt!(1_u128), stark_felt!(6_u128), stark_felt!(0_u128)],
     StatelessTransactionValidatorError::UnsupportedSierraVersion {
             version: VersionId { major: 1, minor: 6, patch: 0 },
-            min_version: MIN_SIERRA_VERSION,
-            max_version: MAX_SIERRA_VERSION
+            min_version: MIN_SIERRA_VERSION.into(),
+            max_version: MAX_SIERRA_VERSION.into(),
     })
 ]
 fn test_declare_sierra_version(
@@ -254,9 +258,9 @@ fn test_declare_sierra_version(
 
 #[rstest]
 #[case::min_sierra_version(MIN_SIERRA_VERSION)]
-#[case::valid_sierra_version(VersionId { major: 1, minor: 3, patch: 0 })]
+#[case::valid_sierra_version(ConfigVersionId { major: 1, minor: 3, patch: 0 })]
 #[case::max_sierra_version(MAX_SIERRA_VERSION)]
-fn positive_flow_test_declare_sierra_version(#[case] sierra_version: VersionId) {
+fn positive_flow_test_declare_sierra_version(#[case] sierra_version: ConfigVersionId) {
     let tx_validator =
         StatelessTransactionValidator { config: DEFAULT_VALIDATOR_CONFIG_FOR_TESTING };
 
