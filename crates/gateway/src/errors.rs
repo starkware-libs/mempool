@@ -9,7 +9,7 @@ use starknet_api::StarknetApiError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
-use crate::compiler_version::VersionIdError;
+use crate::compiler_version::{VersionId, VersionIdError};
 
 /// Errors directed towards the end-user, as a result of gateway requests.
 #[derive(Debug, Error)]
@@ -50,6 +50,11 @@ pub enum StatelessTransactionValidatorError {
     SignatureTooLong { signature_length: usize, max_signature_length: usize },
     #[error("Invalid Sierra version: felt at index {index} is {felt_status}.")]
     InvalidSierraVersion { index: usize, felt_status: String },
+    #[error(
+        "Sierra versions older than {min_version} or newer than {max_version} are not supported. \
+         The Sierra version of the declared contract is {version}."
+    )]
+    UnsupportedSierraVersion { version: VersionId, min_version: VersionId, max_version: VersionId },
     #[error(
         "Cannot declare contract class with bytecode size of {bytecode_size}; max allowed size: \
          {max_bytecode_size}."
