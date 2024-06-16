@@ -5,6 +5,7 @@ use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_gateway::config::GatewayNetworkConfig;
 use starknet_gateway::errors::GatewayError;
+use starknet_gateway::starknet_api_test_utils::MultiAccountTransactionGenerator;
 use starknet_mempool::communication::create_mempool_server;
 use starknet_mempool::mempool::Mempool;
 use starknet_mempool_types::communication::{
@@ -30,7 +31,16 @@ pub struct IntegrationTestSetup {
 }
 
 impl IntegrationTestSetup {
-    pub async fn new(n_initialized_account_contracts: u16) -> Self {
+    pub async fn new_with_tx_generator(
+        n_accounts: usize,
+    ) -> (Self, MultiAccountTransactionGenerator) {
+        let integration_test_setup = Self::new(n_accounts).await;
+        let tx_generator = MultiAccountTransactionGenerator::new(n_accounts);
+
+        (integration_test_setup, tx_generator)
+    }
+
+    pub async fn new(n_accounts: usize) -> Self {
         let handle = Handle::current();
         let task_executor = TokioExecutor::new(handle);
 
@@ -41,8 +51,7 @@ impl IntegrationTestSetup {
             channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
         // Build and run gateway; initialize a gateway client.
         let gateway_mempool_client = MempoolClientImpl::new(tx_mempool.clone());
-        let gateway =
-            create_gateway(Arc::new(gateway_mempool_client), n_initialized_account_contracts).await;
+        let gateway = create_gateway(Arc::new(gateway_mempool_client), n_accounts).await;
         let GatewayNetworkConfig { ip, port } = gateway.config.network_config;
         let gateway_client = GatewayClient::new(SocketAddr::from((ip, port)));
         let gateway_handle = task_executor.spawn_with_handle(async move {

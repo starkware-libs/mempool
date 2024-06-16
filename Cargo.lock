@@ -556,7 +556,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.7.0-dev.1"
-source = "git+https://github.com/starkware-libs/blockifier.git?branch=main-mempool#6057646f81511f6df04fcab7f766c6302db951dc"
+source = "git+https://github.com/starkware-libs/blockifier.git?branch=main-mempool#cbfddc375cd5bde74170e9f72b7fe7e2d2a21555"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -3333,7 +3333,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.5",
 ]
 
 [[package]]
@@ -3727,7 +3727,7 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "681030a937600a36906c185595136d26abfebb4aa9c65701cefcaf8578bb982b"
 dependencies = [
- "proc-macro-crate 3.1.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.66",
