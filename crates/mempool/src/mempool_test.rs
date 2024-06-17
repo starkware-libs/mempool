@@ -96,48 +96,45 @@ fn test_new_success() {
 }
 
 #[rstest]
+#[case(0)] // Requesting 0 transactions
 #[case(3)] // Requesting exactly the number of transactions in the queue
 #[case(5)] // Requesting more transactions than are in the queue
 #[case(2)] // Requesting fewer transactions than are in the queue
 fn test_get_txs(#[case] requested_txs: usize) {
-    let (tx_tip_50_address_0, account1) = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
-    let (tx_tip_100_address_1, account2) =
-        add_tx_input!(Tip(100), TransactionHash(StarkFelt::TWO), contract_address!("0x1"));
-    let (tx_tip_10_address_2, account3) =
-        add_tx_input!(Tip(10), TransactionHash(StarkFelt::THREE), contract_address!("0x2"));
-    let (tx2_address_0, _) = add_tx_input!(
-        Tip(50),
-        TransactionHash(StarkFelt::ZERO),
+    let (tx_address_0_tip_50, account0) = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ZERO));
+    let (tx_address_0_nonce_1, _) = add_tx_input!(
+        Tip(100),
+        TransactionHash(StarkFelt::ONE),
         contract_address!("0x0"),
         Nonce(StarkFelt::ONE)
     );
+    let (tx_address_1_tip_100, account1) =
+        add_tx_input!(Tip(100), TransactionHash(StarkFelt::TWO), contract_address!("0x1"));
+    let (tx_address_2_tip_10, account2) =
+        add_tx_input!(Tip(10), TransactionHash(StarkFelt::THREE), contract_address!("0x2"));
 
     let inputs = [
-        MempoolInput { tx: tx_tip_50_address_0.clone(), account: account1 },
-        MempoolInput { tx: tx_tip_100_address_1.clone(), account: account2 },
-        MempoolInput { tx: tx_tip_10_address_2.clone(), account: account3 },
-        MempoolInput { tx: tx2_address_0.clone(), account: account1 },
+        MempoolInput { tx: tx_address_0_tip_50.clone(), account: account0 },
+        MempoolInput { tx: tx_address_0_nonce_1.clone(), account: account0 },
+        MempoolInput { tx: tx_address_1_tip_100.clone(), account: account1 },
+        MempoolInput { tx: tx_address_2_tip_10.clone(), account: account2 },
     ];
+    let n_txs_mempool = inputs.len();
 
     let mut mempool = Mempool::new(inputs).unwrap();
 
-    assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx_tip_50_address_0.clone())));
-    assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx_tip_100_address_1.clone())));
-    assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx_tip_10_address_2.clone())));
-    assert!(!mempool.tx_queue.contains(&PrioritizedTransaction(tx2_address_0.clone())));
+    assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx_address_0_tip_50.clone())));
+    assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx_address_1_tip_100.clone())));
+    assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx_address_2_tip_10.clone())));
+    assert!(!mempool.tx_queue.contains(&PrioritizedTransaction(tx_address_0_nonce_1.clone())));
 
-    let sorted_txs = vec![tx_tip_100_address_1, tx_tip_50_address_0, tx_tip_10_address_2];
+    let sorted_txs =
+        vec![tx_address_1_tip_100, tx_address_0_tip_50, tx_address_2_tip_10, tx_address_0_nonce_1];
 
     let txs = mempool.get_txs(requested_txs).unwrap();
 
-    // check that the account1's queue and the mempool's txs_queue are updated.
-    assert!(
-        mempool.address_to_queue.get(&account1.sender_address).unwrap().contains(&tx2_address_0)
-    );
-    assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx2_address_0)));
-
-    // This ensures we do not exceed the priority queue's limit of 3 transactions.
-    let max_requested_txs = requested_txs.min(3);
+    // This ensures we do not exceed the number of transactions available in the mempool.
+    let max_requested_txs = requested_txs.min(n_txs_mempool);
 
     // checks that the returned transactions are the ones with the highest priority.
     assert_eq!(txs.len(), max_requested_txs);
@@ -148,6 +145,11 @@ fn test_get_txs(#[case] requested_txs: usize) {
     for tx in expected_remaining_txs {
         assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx.clone())));
     }
+
+    // empty the mempool and check that get_txs returns an empty vec.
+    let _txs = mempool.get_txs(n_txs_mempool).unwrap();
+    let more_txs = mempool.get_txs(1).unwrap();
+    assert_eq!(more_txs.len(), 0);
 }
 
 #[rstest]
