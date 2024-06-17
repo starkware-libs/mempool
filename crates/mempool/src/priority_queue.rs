@@ -71,12 +71,13 @@ impl AddressPriorityQueue {
         self.0.push(tx);
     }
 
+    #[cfg(test)]
     pub fn top(&self) -> Option<&ThinTransaction> {
         self.0.first()
     }
 
-    pub fn pop_front(&mut self) -> ThinTransaction {
-        self.0.remove(0)
+    pub fn pop_front(&mut self) -> Option<ThinTransaction> {
+        if self.0.is_empty() { None } else { Some(self.0.remove(0)) }
     }
 
     pub fn is_empty(&self) -> bool {
