@@ -120,18 +120,13 @@ fn test_get_txs(#[case] requested_txs: usize) {
     assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx_tip_10_address_2.clone())));
     assert!(!mempool.tx_queue.contains(&PrioritizedTransaction(tx2_address_0.clone())));
 
-    let sorted_txs = vec![tx_tip_100_address_1, tx_tip_50_address_0, tx_tip_10_address_2];
+    let sorted_txs =
+        vec![tx_tip_100_address_1, tx_tip_50_address_0, tx_tip_10_address_2, tx2_address_0];
 
     let txs = mempool.get_txs(requested_txs).unwrap();
 
-    // check that the account1's queue and the mempool's txs_queue are updated.
-    assert!(
-        mempool.address_to_store.get(&account1.sender_address).unwrap().contains(&tx2_address_0)
-    );
-    assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx2_address_0)));
-
-    // This ensures we do not exceed the priority queue's limit of 3 transactions.
-    let max_requested_txs = requested_txs.min(3);
+    // This ensures we do not exceed the priority queue's limit of 4 transactions.
+    let max_requested_txs = requested_txs.min(4);
 
     // checks that the returned transactions are the ones with the highest priority.
     assert_eq!(txs.len(), max_requested_txs);
