@@ -39,23 +39,24 @@ impl Mempool {
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push
     // back.
     // TODO: Consider renaming to `pop_txs` to be more consistent with the standard library.
-    // TODO: If `n_txs` is greater than the number of transactions in `txs_queue`, it will also
-    // check and add transactions from `address_to_store`.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
-        let eligible_txs = self.tx_queue.pop_last_chunk(n_txs);
-        // TODO: add staging area.
-        // Remove transactions from mempool.
-        for tx in &eligible_txs {
-            if let Some(address_queue) = self.address_to_queue.get_mut(&tx.sender_address) {
-                address_queue.pop_front();
-                // Remove address from the mempool if no transactions from this account left.
-                if address_queue.is_empty() {
-                    self.address_to_queue.remove(&tx.sender_address);
-                // Push next nonce to priority queue.
-                } else if let Some(next_tx) = address_queue.top() {
-                    self.tx_queue.push(next_tx.clone());
+        let mut eligible_txs = Vec::new();
+        let mut remaining_txs = n_txs;
+
+        while remaining_txs > 0 {
+            let chunk = self.tx_queue.pop_last_chunk(remaining_txs);
+            if chunk.is_empty() {
+                break;
+            }
+
+            for tx in &chunk {
+                if let Some(next_tx) = self.get_next_eligible_tx(tx.sender_address) {
+                    self.tx_queue.push(next_tx);
                 }
             }
+
+            remaining_txs -= chunk.len();
+            eligible_txs.extend(chunk);
         }
 
         Ok(eligible_txs)
@@ -95,5 +96,21 @@ impl Mempool {
         }
 
         Ok(())
+    }
+
+    fn get_next_eligible_tx(&mut self, sender_address: ContractAddress) -> Option<ThinTransaction> {
+        // TODO: add staging area. Remove transactions from mempool.
+        if let Some(address_queue) = self.address_to_queue.get_mut(&sender_address) {
+            address_queue.pop_front();
+
+            // Remove address from the mempool if no transactions from this account left.
+            if address_queue.is_empty() {
+                self.address_to_queue.remove(&sender_address);
+            // Return next nonce transaction.
+            } else if let Some(_next_tx) = address_queue.top() {
+                return address_queue.pop_front();
+            }
+        }
+        None
     }
 }
