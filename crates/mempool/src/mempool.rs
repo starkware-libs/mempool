@@ -4,7 +4,7 @@ use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
-    AccountState, MempoolInput, MempoolResult, ThinTransaction,
+    Account, AccountState, MempoolInput, MempoolResult, ThinTransaction,
 };
 
 use crate::priority_queue::{AddressPriorityQueue, TransactionPriorityQueue};
@@ -66,9 +66,13 @@ impl Mempool {
     /// Adds a new transaction to the mempool.
     /// TODO: support fee escalation and transactions with future nonces.
     /// TODO: change input type to `MempoolInput`.
-    pub fn add_tx(&mut self, tx: ThinTransaction) -> MempoolResult<()> {
-        self.insert_tx(tx)?;
-        Ok(())
+    pub fn add_tx(&mut self, tx: ThinTransaction, account: Account) -> MempoolResult<()> {
+        if tx.nonce >= account.state.nonce {
+            self.insert_tx(tx)?;
+            Ok(())
+        } else {
+            Err(MempoolError::DuplicateTransaction { tx_hash: (tx.tx_hash) })
+        }
     }
 
     /// Update the mempool's internal state according to the committed block's transactions.
