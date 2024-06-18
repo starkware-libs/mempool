@@ -60,34 +60,18 @@ impl PartialOrd for PrioritizedTransaction {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, derive_more::Deref, derive_more::DerefMut)]
 // Assumption: there are no gaps, and the transactions are received in order.
 // TODO: support fee escalation
 // TODO: support transactions with future nonces.
 pub struct AddressPriorityQueue(Vec<ThinTransaction>);
 
 impl AddressPriorityQueue {
-    pub fn push(&mut self, tx: ThinTransaction) {
-        self.0.push(tx);
-    }
-
     pub fn top(&self) -> Option<&ThinTransaction> {
-        self.0.first()
+        self.first()
     }
 
     pub fn pop_front(&mut self) -> ThinTransaction {
-        self.0.remove(0)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn contains(&self, tx: &ThinTransaction) -> bool {
-        self.0.contains(tx)
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
+        self.remove(0)
     }
 }
