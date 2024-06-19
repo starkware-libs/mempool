@@ -22,7 +22,7 @@ use crate::stateful_transaction_validator::StatefulTransactionValidator;
 #[case::valid_invoke_tx(
     100000000000000000,
     Ok(TransactionHash(StarkFelt::try_from(
-        "0x07459d76bd7adec02c25cf7ab0dcb95e9197101d4ada41cae6b465fcb78c0e47"
+        "0x007d70505b4487a4e1c1a4b4e4342cb5aa9e73b86d031891170c45a57ad8b4e6"
     ).unwrap()))
 )]
 #[case::invalid_invoke_tx(

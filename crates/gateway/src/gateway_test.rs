@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use assert_matches::assert_matches;
 use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use blockifier::context::ChainInfo;
+use rstest::rstest;
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool::communication::create_mempool_server;
@@ -15,8 +15,8 @@ use tokio::sync::mpsc::channel;
 use tokio::task;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
-use crate::gateway::{add_tx, AppState, SharedMempoolClient};
-use crate::starknet_api_test_utils::invoke_tx;
+use crate::gateway::{add_tx, compile_contract_class, AppState, SharedMempoolClient};
+use crate::starknet_api_test_utils::{declare_tx, invoke_tx};
 use crate::state_reader_test_utils::local_test_state_reader_factory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
@@ -31,6 +31,8 @@ pub fn app_state(mempool_client: SharedMempoolClient) -> AppState {
                 validate_non_zero_l1_gas_fee: true,
                 max_calldata_length: 10,
                 max_signature_length: 2,
+                max_bytecode_size: 10000,
+                max_raw_class_size: 1000000,
                 ..Default::default()
             },
         },
@@ -44,7 +46,8 @@ pub fn app_state(mempool_client: SharedMempoolClient) -> AppState {
 
 // TODO(Ayelet): add test cases for declare and deploy account transactions.
 #[tokio::test]
-async fn test_add_tx() {
+#[rstest]
+async fn test_add_tx(#[values(declare_tx(), invoke_tx())] tx: RPCTransaction) {
     // TODO: Add fixture.
 
     let mempool = Mempool::new([]);
@@ -61,7 +64,6 @@ async fn test_add_tx() {
 
     let app_state = app_state(mempool_client);
 
-    let tx = invoke_tx();
     let tx_hash = calculate_hash(&tx);
     let response = add_tx(State(app_state), tx.into()).await.into_response();
 
@@ -77,14 +79,23 @@ async fn to_bytes(res: Response) -> Bytes {
 }
 
 fn calculate_hash(external_tx: &RPCTransaction) -> TransactionHash {
-    assert_matches!(
-        external_tx,
-        RPCTransaction::Invoke(_),
-        "Only Invoke supported for now, extend as needed."
-    );
+    match external_tx {
+        RPCTransaction::Invoke(_) | RPCTransaction::Declare(_) => {}
+        _ => {
+            panic!("Only Declare and Invoke are supported for now, extend as needed.");
+        }
+    }
 
-    let account_tx =
-        external_tx_to_account_tx(external_tx, None, &ChainInfo::create_for_testing().chain_id)
-            .unwrap();
+    let optional_class_info = match &external_tx {
+        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx).unwrap()),
+        _ => None,
+    };
+
+    let account_tx = external_tx_to_account_tx(
+        external_tx,
+        optional_class_info,
+        &ChainInfo::create_for_testing().chain_id,
+    )
+    .unwrap();
     get_tx_hash(&account_tx)
 }
