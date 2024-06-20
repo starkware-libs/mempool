@@ -90,4 +90,9 @@ impl AddressPriorityQueue {
     pub fn contains(&self, tx: &ThinTransaction) -> bool {
         self.0.contains(tx)
     }
+
+    #[cfg(any(feature = "testing", test))]
+    pub fn iter(&self) -> impl Iterator<Item = &ThinTransaction> {
+        self.0.iter()
+    }
 }
