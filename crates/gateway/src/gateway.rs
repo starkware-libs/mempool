@@ -10,8 +10,9 @@ use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::communication::SharedMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, MempoolInput};
 
-use crate::config::{GatewayConfig, GatewayNetworkConfig};
+use crate::config::{GatewayConfig, GatewayNetworkConfig, RpcStateReaderConfig};
 use crate::errors::{GatewayError, GatewayRunError};
+use crate::rpc_state_reader::RpcStateReaderFactory;
 use crate::starknet_api_test_utils::get_sender_address;
 use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
@@ -123,4 +124,17 @@ fn process_tx(
         tx: external_tx_to_thin_tx(&tx, tx_hash),
         account: Account { sender_address: get_sender_address(&tx), ..Default::default() },
     })
+}
+
+pub fn create_gateway(
+    config: GatewayConfig,
+    rpc_state_reader_config: RpcStateReaderConfig,
+    client: Option<SharedMempoolClient>,
+) -> Gateway {
+    if client.is_none() {
+        panic!("SharedMempoolClient is required to create Gateway.");
+    }
+
+    let state_reader_factory = Arc::new(RpcStateReaderFactory { config: rpc_state_reader_config });
+    Gateway::new(config, state_reader_factory, client.unwrap())
 }
