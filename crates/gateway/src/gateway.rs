@@ -124,3 +124,13 @@ fn process_tx(
         account: Account { sender_address: get_sender_address(&tx), ..Default::default() },
     })
 }
+
+pub fn create_gateway(config: GatewayConfig, client: Option<SharedMempoolClient>) -> Gateway {
+    if client.is_none() {
+        panic!("SharedMempoolClient is required to create Gateway.");
+    }
+
+    let state_reader_factory: Arc<dyn StateReaderFactory> =
+        Arc::new(crate::state_reader_test_utils::local_test_state_reader_factory());
+    Gateway::new(config, state_reader_factory, client.unwrap())
+}
