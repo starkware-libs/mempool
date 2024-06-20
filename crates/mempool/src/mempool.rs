@@ -9,6 +9,7 @@ use starknet_mempool_types::mempool_types::{
 };
 
 use crate::priority_queue::TransactionPriorityQueue;
+use crate::transactions_pool::TransactionsPool;
 
 #[cfg(test)]
 #[path = "mempool_test.rs"]
@@ -18,14 +19,18 @@ pub mod mempool_test;
 pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
     txs_queue: TransactionPriorityQueue,
+    tx_pool: TransactionsPool,
     state: HashMap<ContractAddress, AccountState>,
 }
 
 impl Mempool {
     // TODO(Mohammad): return `Result`, to consider invalid input.
     pub fn new(inputs: impl IntoIterator<Item = MempoolInput>) -> Self {
-        let mut mempool =
-            Mempool { txs_queue: TransactionPriorityQueue::default(), state: HashMap::default() };
+        let mut mempool = Mempool {
+            txs_queue: TransactionPriorityQueue::default(),
+            tx_pool: TransactionsPool::default(),
+            state: HashMap::default(),
+        };
 
         mempool.txs_queue = TransactionPriorityQueue::from(
             inputs
@@ -42,6 +47,14 @@ impl Mempool {
                          the mempool.",
                         input.account.sender_address,
                         input.tx
+                    );
+
+                    // Insert the transaction into the tx_pool.
+                    let res = mempool.tx_pool.push(input.tx.clone());
+                    assert!(
+                        res.is_ok(),
+                        "Transaction: {:?} already exists in the mempool.",
+                        input.tx.tx_hash
                     );
 
                     input.tx
@@ -65,6 +78,7 @@ impl Mempool {
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in &txs {
             self.state.remove(&tx.sender_address);
+            self.tx_pool.remove(&tx.tx_hash)?;
         }
 
         Ok(txs)
@@ -78,7 +92,9 @@ impl Mempool {
             Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash }),
             Vacant(entry) => {
                 entry.insert(account.state);
-                self.txs_queue.push(tx);
+                // TODO(Mohammad): use `handle_tx`.
+                self.txs_queue.push(tx.clone());
+                self.tx_pool.push(tx)?;
 
                 Ok(())
             }
