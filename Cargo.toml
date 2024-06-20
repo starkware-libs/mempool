@@ -5,6 +5,7 @@ members = [
     "crates/mempool_infra",
     "crates/mempool_node",
     "crates/mempool_types",
+    "crates/mock_batcher",
     "crates/starknet_sierra_compile",
     "crates/task_executor",
     "crates/test_utils",

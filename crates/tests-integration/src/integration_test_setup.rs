@@ -55,13 +55,17 @@ impl IntegrationTestSetup {
 
         // Build Batcher.
         // TODO(MockBatcher)
-        let batcher_mempool_client = MempoolClientImpl::new(tx_mempool.clone());
+        let batcher = MockBatcher::new();
+        MempoolClientImpl::new(tx_mempool.clone());
 
         // Build and run mempool.
         let mut mempool_server = create_mempool_server(Mempool::empty(), rx_mempool);
         let mempool_handle = task_executor.spawn_with_handle(async move {
             mempool_server.start().await;
         });
+
+        // same for batcher
+        let batcher = MockBatcher::new();
 
         Self {
             task_executor,
@@ -81,10 +85,13 @@ impl IntegrationTestSetup {
     }
 
     pub async fn get_txs(&mut self, n_txs: usize) -> Vec<ThinTransaction> {
-        let batcher_mempool_client = self.batcher_mempool_client.clone();
-        self.task_executor
-            .spawn(async move { batcher_mempool_client.get_txs(n_txs).await.unwrap() })
-            .await
-            .unwrap()
+        self.batcher.fetch_txs_from_mempool(n_txs).await
+    //     let batcher_mempool_client = self.batcher_mempool_client.clone();
+    //     self.task_executor
+    //         .spawn(async move {
+    //             batcher_mempool_client.get_txs(n_txs).await.unwrap()
+    //          })
+    //         .await
+    //         .unwrap()
     }
 }

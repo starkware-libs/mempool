@@ -5394,6 +5394,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "starknet_mock_batcher"
+version = "0.0.0"
+dependencies = [
+ "pretty_assertions",
+ "rstest",
+ "starknet_api",
+ "starknet_mempool",
+ "starknet_mempool_infra",
+ "starknet_mempool_types",
+ "tokio",
+]
+
+[[package]]
 name = "starknet_sierra_compile"
 version = "0.0.0"
 dependencies = [
