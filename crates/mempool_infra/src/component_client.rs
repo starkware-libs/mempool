@@ -11,6 +11,8 @@ where
     tx: Sender<ComponentRequestAndResponseSender<Request, Response>>,
 }
 
+pub type DummyClient = ComponentClient<(), ()>;
+
 impl<Request, Response> ComponentClient<Request, Response>
 where
     Request: Send + Sync,
