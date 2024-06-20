@@ -80,16 +80,12 @@ fn test_new_success() {
 
     let mempool = Mempool::new(inputs).unwrap();
 
-    // TODO(Ayelet): Extend `check_mempool_txs_eq` to `check_mempool` to verify `address_to_queue`
-    // and `state`.
-    assert!(
-        mempool.address_to_queue.get(&account0.sender_address).unwrap().contains(&tx_account_0)
-    );
-    assert!(
-        mempool.address_to_queue.get(&account1.sender_address).unwrap().contains(&tx_account_1)
-    );
-    assert!(
-        mempool.address_to_queue.get(&account0.sender_address).unwrap().contains(&tx2_account_0)
+    check_mempool_address_queues(
+        &mempool,
+        &[
+            (account0.sender_address, &[tx_account_0.clone(), tx2_account_0.clone()]),
+            (account1.sender_address, &[tx_account_1.clone()]),
+        ],
     );
 
     check_mempool_txs_eq(&mempool, &[tx_account_0, tx_account_1]);
@@ -131,9 +127,7 @@ fn test_get_txs(#[case] requested_txs: usize) {
     let txs = mempool.get_txs(requested_txs).unwrap();
 
     // check that the account1's queue and the mempool's txs_queue are updated.
-    assert!(
-        mempool.address_to_queue.get(&account1.sender_address).unwrap().contains(&tx2_address_0)
-    );
+    check_mempool_address_queues(&mempool, &[(account1.sender_address, &[tx2_address_0.clone()])]);
     assert!(mempool.tx_queue.contains(&PrioritizedTransaction(tx2_address_0)));
 
     // This ensures we do not exceed the priority queue's limit of 3 transactions.
@@ -201,6 +195,8 @@ fn test_add_tx_with_duplicate_tx(mut mempool: Mempool) {
     check_mempool_txs_eq(&mempool, &[tx])
 }
 
+// TODO(Ayelet): Combine `check_mempool_txs_eq` and `check_mempool_address_queues` into a single
+// `check_mempool` function. Extend the new function to also verify the `state` of the mempool.
 // Asserts that the transactions in the mempool are in ascending order as per the expected
 // transactions.
 #[track_caller]
@@ -212,6 +208,24 @@ fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
             // Deref the inner mempool tx type.
             .all(|(expected_tx, mempool_tx)| *expected_tx == **mempool_tx)
     );
+}
+
+#[track_caller]
+fn check_mempool_address_queues(
+    mempool: &Mempool,
+    expected_queues: &[(ContractAddress, &[ThinTransaction])],
+) {
+    for (sender_address, expected_txs) in expected_queues {
+        let address_queue =
+            mempool.address_to_queue.get(sender_address).expect("Address queue not found");
+        let queue_txs = address_queue.iter();
+
+        assert!(
+            zip_eq(expected_txs.iter(), queue_txs)
+                // Deref the inner mempool tx type.
+                .all(|(expected_tx, queue_tx)| *expected_tx == *queue_tx),
+        );
+    }
 }
 
 #[rstest]
