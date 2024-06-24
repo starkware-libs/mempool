@@ -1,16 +1,38 @@
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use starknet_mempool_infra::component_client::ClientResult;
+use starknet_mempool_infra::component_definitions::ComponentRequestHandler;
 
 pub(crate) type ValueA = u32;
 pub(crate) type ValueB = u8;
 
-pub(crate) type ResultA = ClientResult<ValueA>;
-pub(crate) type ResultB = ClientResult<ValueB>;
+pub type ResultA = ClientResult<ValueA>;
+pub type ResultB = ClientResult<ValueB>;
 
 // TODO(Tsabary): add more messages / functions to the components.
 
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ComponentARequest {
+    AGetValue,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ComponentAResponse {
+    Value(ValueA),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ComponentBRequest {
+    BGetValue,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum ComponentBResponse {
+    Value(ValueB),
+}
+
 #[async_trait]
-#[allow(dead_code)] // Used in integration tests, which are compiled as part of a different crate.
+#[allow(dead_code)] // Due to clippy flipping out for unknown reason
 pub(crate) trait ComponentAClientTrait: Send + Sync {
     async fn a_get_value(&self) -> ResultA;
 }
@@ -30,8 +52,16 @@ impl ComponentA {
     }
 
     pub async fn a_get_value(&self) -> ValueA {
-        let b_value = self.b.b_get_value().await.unwrap();
-        b_value.into()
+        self.b.b_get_value().await.unwrap().into()
+    }
+}
+
+#[async_trait]
+impl ComponentRequestHandler<ComponentARequest, ComponentAResponse> for ComponentA {
+    async fn handle_request(&mut self, request: ComponentARequest) -> ComponentAResponse {
+        match request {
+            ComponentARequest::AGetValue => ComponentAResponse::Value(self.a_get_value().await),
+        }
     }
 }
 
@@ -47,5 +77,14 @@ impl ComponentB {
 
     pub fn b_get_value(&self) -> ValueB {
         self.value
+    }
+}
+
+#[async_trait]
+impl ComponentRequestHandler<ComponentBRequest, ComponentBResponse> for ComponentB {
+    async fn handle_request(&mut self, request: ComponentBRequest) -> ComponentBResponse {
+        match request {
+            ComponentBRequest::BGetValue => ComponentBResponse::Value(self.b_get_value()),
+        }
     }
 }
