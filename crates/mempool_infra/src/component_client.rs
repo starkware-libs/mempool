@@ -1,3 +1,8 @@
+use std::net::IpAddr;
+
+use bincode::serialize;
+use hyper::{Body, Client, Request as HyperRequest, Uri};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc::{channel, Sender};
 
@@ -22,12 +27,12 @@ where
 
     // TODO(Tsabary, 1/5/2024): Consider implementation for messages without expected responses.
 
-    pub async fn send(&self, request: Request) -> Response {
+    pub async fn send(&self, request: Request) -> ClientResult<Response> {
         let (res_tx, mut res_rx) = channel::<Response>(1);
         let request_and_res_tx = ComponentRequestAndResponseSender { request, tx: res_tx };
         self.tx.send(request_and_res_tx).await.expect("Outbound connection should be open.");
 
-        res_rx.recv().await.expect("Inbound connection should be open.")
+        Ok(res_rx.recv().await.expect("Inbound connection should be open."))
     }
 }
 
@@ -40,6 +45,46 @@ where
 {
     fn clone(&self) -> Self {
         Self { tx: self.tx.clone() }
+    }
+}
+
+pub struct ComponentClientHttp<Component> {
+    uri: Uri,
+    _component: std::marker::PhantomData<Component>,
+}
+
+impl<Component> ComponentClientHttp<Component> {
+    pub fn new(ip_address: IpAddr, port: u16) -> Self {
+        let uri = match ip_address {
+            IpAddr::V4(ip_address) => format!("http://{}:{}/", ip_address, port).parse().unwrap(),
+            IpAddr::V6(ip_address) => format!("http://[{}]:{}/", ip_address, port).parse().unwrap(),
+        };
+        Self { uri, _component: Default::default() }
+    }
+
+    pub async fn send<Request, Response>(
+        &self,
+        component_request: Request,
+    ) -> ClientResult<Response>
+    where
+        Request: Serialize,
+        Response: for<'a> Deserialize<'a>,
+    {
+        let http_request = HyperRequest::post(self.uri.clone())
+            .header("Content-Type", "application/octet-stream")
+            .body(Body::from(
+                serialize(&component_request).expect("Request serialization should succeed"),
+            ))
+            .expect("Request builidng should succeed");
+
+        // TODO(uriel): Add configuration to control number of retries
+        let http_response =
+            Client::new().request(http_request).await.expect("Could not connect to server");
+        let body_bytes = hyper::body::to_bytes(http_response.into_body())
+            .await
+            .expect("Could not get response from server");
+
+        Ok(bincode::deserialize(&body_bytes).expect("Response deserialization should succeed"))
     }
 }
 
