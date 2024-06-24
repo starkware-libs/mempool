@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use starknet_mempool_infra::component_client::{ClientError, ComponentClient};
+use starknet_mempool_infra::component_client::{ClientError, ComponentClientChannel};
 use starknet_mempool_infra::component_definitions::ComponentRequestAndResponseSender;
 use thiserror::Error;
 
 use crate::errors::MempoolError;
 use crate::mempool_types::{MempoolInput, ThinTransaction};
 
-pub type MempoolClientImpl = ComponentClient<MempoolRequest, MempoolResponse>;
+pub type MempoolClientImpl = ComponentClientChannel<MempoolRequest, MempoolResponse>;
 pub type MempoolResult<T> = Result<T, MempoolError>;
 pub type MempoolClientResult<T> = Result<T, MempoolClientError>;
 pub type MempoolRequestAndResponseSender =
@@ -47,7 +47,7 @@ pub enum MempoolClientError {
 impl MempoolClient for MempoolClientImpl {
     async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolClientResult<()> {
         let request = MempoolRequest::AddTransaction(mempool_input);
-        let response = self.send(request).await;
+        let response = self.send(request).await.unwrap();
         match response {
             MempoolResponse::AddTransaction(Ok(response)) => Ok(response),
             MempoolResponse::AddTransaction(Err(response)) => {
@@ -59,7 +59,7 @@ impl MempoolClient for MempoolClientImpl {
 
     async fn get_txs(&self, n_txs: usize) -> MempoolClientResult<Vec<ThinTransaction>> {
         let request = MempoolRequest::GetTransactions(n_txs);
-        let response = self.send(request).await;
+        let response = self.send(request).await.unwrap();
         match response {
             MempoolResponse::GetTransactions(Ok(response)) => Ok(response),
             MempoolResponse::GetTransactions(Err(response)) => {

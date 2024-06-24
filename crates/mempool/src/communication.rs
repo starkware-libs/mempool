@@ -1,6 +1,5 @@
 use async_trait::async_trait;
-use starknet_mempool_infra::component_definitions::ComponentRequestHandler;
-use starknet_mempool_infra::component_server::ComponentServer;
+use starknet_mempool_infra::component_server::{ComponentRequestHandler, ComponentServer};
 use starknet_mempool_types::communication::{
     MempoolRequest, MempoolRequestAndResponseSender, MempoolResponse,
 };
