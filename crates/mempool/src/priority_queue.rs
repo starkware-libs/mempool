@@ -1,5 +1,7 @@
 use std::cmp::Ordering;
-use std::collections::{BTreeSet, VecDeque};
+#[cfg(any(feature = "testing", test))]
+use std::collections::btree_set::Iter;
+use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
@@ -9,27 +11,47 @@ use starknet_mempool_types::mempool_types::ThinTransaction;
 // appropriate, because we'll also need to stores transactions without indexing them. For example,
 // transactions with future nonces will need to be stored, and potentially indexed on block commits.
 
-// Priority queue of transactions with associated priority.
-#[derive(Clone, Debug, Default, derive_more::Deref, derive_more::DerefMut)]
-pub struct TransactionPriorityQueue(BTreeSet<PrioritizedTransaction>);
+#[derive(Clone, Debug, Default)]
+pub struct TransactionPriorityQueue {
+    // Priority queue of transactions with associated priority.
+    queue: BTreeSet<PrioritizedTransaction>,
+    // FIX: Set of account addresses for efficient existence checks.
+    address_to_nonce: HashMap<ContractAddress, Nonce>,
+}
 
 impl TransactionPriorityQueue {
     /// Adds a transaction to the mempool, ensuring unique keys.
     /// Panics: if given a duplicate tx.
     pub fn push(&mut self, tx: PrioritizedTransaction) {
-        assert!(self.insert(tx), "Keys should be unique; duplicates are checked prior.");
+        self.address_to_nonce.insert(tx.address, tx.nonce);
+        assert!(self.queue.insert(tx), "Keys should be unique; duplicates are checked prior.");
     }
 
     // TODO(gilad): remove collect
     pub fn pop_last_chunk(&mut self, n_txs: usize) -> Vec<PrioritizedTransaction> {
         let txs: Vec<PrioritizedTransaction> =
-            (0..n_txs).filter_map(|_| self.0.pop_last()).collect();
+            (0..n_txs).filter_map(|_| self.queue.pop_last()).collect();
+
+        for tx in txs.iter() {
+            self.address_to_nonce.remove(&tx.address);
+        }
+
         txs
+    }
+
+    #[cfg(any(feature = "testing", test))]
+    pub fn iter(&self) -> Iter<'_, PrioritizedTransaction> {
+        self.queue.iter()
+    }
+
+    // TODO(Mohammad): delete once the mempool is used. It will be used in Mempool's
+    // `get_next_eligible_tx`.
+    #[allow(dead_code)]
+    pub fn get_nonce(&self, address: &ContractAddress) -> Option<&Nonce> {
+        self.address_to_nonce.get(address)
     }
 }
 
-// TODO: remove allow dead code when `address_to_nonce` is added.
-#[allow(dead_code)]
 #[derive(Clone, Debug, Default)]
 pub struct PrioritizedTransaction {
     pub address: ContractAddress,

@@ -46,7 +46,6 @@ cairo-lang-utils = "2.6.0"
 clap = "4.3.10"
 colored = "2.1.0"
 const_format = "0.2.30"
-derive_more = "0.99"
 futures = "0.3.30"
 hyper = { version = "0.14", features = ["client", "http1", "http2"] }
 indexmap = "2.1.0"
