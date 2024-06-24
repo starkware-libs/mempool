@@ -60,6 +60,19 @@ fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
     );
 }
 
+// Asserts that the transactions in the mempool are in ascending order as per the expected
+// transactions.
+#[track_caller]
+fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
+    let mempool_txs = mempool.txs_queue.iter();
+
+    assert!(
+        zip_eq(expected_txs, mempool_txs)
+            // Deref the inner mempool tx type.
+            .all(|(expected_tx, mempool_tx)| *expected_tx == **mempool_tx)
+    );
+}
+
 #[rstest]
 #[case(3)] // Requesting exactly the number of transactions in the queue
 #[case(5)] // Requesting more transactions than are in the queue
