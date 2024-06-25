@@ -1,52 +1,50 @@
 use async_trait::async_trait;
+use starknet_mempool_infra::component_client::ClientResult;
 
-pub(crate) type ValueA = u32;
-pub(crate) type ValueB = u8;
+pub type ValueA = u32;
+pub type ValueB = u8;
 
+pub type ResultA = ClientResult<ValueA>;
+pub type ResultB = ClientResult<ValueB>;
 // TODO(Tsabary): add more messages / functions to the components.
 
 #[async_trait]
-pub(crate) trait ComponentATrait: Send + Sync {
-    async fn a_get_value(&self) -> ValueA;
+// #[allow(dead_code)] // Due to clippy flipping out for unknown reason
+pub trait ComponentAClientTrait: Send + Sync {
+    async fn a_get_value(&self) -> ResultA;
 }
 
 #[async_trait]
-pub(crate) trait ComponentBTrait: Send + Sync {
-    async fn b_get_value(&self) -> ValueB;
+pub trait ComponentBClientTrait: Send + Sync {
+    async fn b_get_value(&self) -> ResultB;
 }
 
-pub(crate) struct ComponentA {
-    b: Box<dyn ComponentBTrait>,
+pub struct ComponentA {
+    b: Box<dyn ComponentBClientTrait>,
 }
 
-#[async_trait]
-impl ComponentATrait for ComponentA {
-    async fn a_get_value(&self) -> ValueA {
-        let b_value = self.b.b_get_value().await;
+impl ComponentA {
+    pub fn new(b: Box<dyn ComponentBClientTrait>) -> Self {
+        Self { b }
+    }
+
+    pub async fn a_get_value(&self) -> ValueA {
+        let b_value = self.b.b_get_value().await.unwrap();
         b_value.into()
     }
 }
 
-impl ComponentA {
-    pub fn new(b: Box<dyn ComponentBTrait>) -> Self {
-        Self { b }
-    }
-}
-
-pub(crate) struct ComponentB {
+pub struct ComponentB {
     value: ValueB,
-    _a: Box<dyn ComponentATrait>,
-}
-
-#[async_trait]
-impl ComponentBTrait for ComponentB {
-    async fn b_get_value(&self) -> ValueB {
-        self.value
-    }
+    _a: Box<dyn ComponentAClientTrait>,
 }
 
 impl ComponentB {
-    pub fn new(value: ValueB, a: Box<dyn ComponentATrait>) -> Self {
+    pub fn new(value: ValueB, a: Box<dyn ComponentAClientTrait>) -> Self {
         Self { value, _a: a }
+    }
+
+    pub fn b_get_value(&self) -> ValueB {
+        self.value
     }
 }
