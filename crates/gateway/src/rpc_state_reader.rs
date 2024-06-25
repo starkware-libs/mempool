@@ -120,9 +120,17 @@ impl BlockifierStateReader for RpcStateReader {
     fn get_nonce_at(&self, contract_address: ContractAddress) -> StateResult<Nonce> {
         let get_nonce_params = GetNonceParams { block_id: self.block_id, contract_address };
 
-        let result = self.send_rpc_request("starknet_getNonce", get_nonce_params)?;
-        let nonce: Nonce = serde_json::from_value(result).map_err(serde_err_to_state_err)?;
-        Ok(nonce)
+        let result = self.send_rpc_request("starknet_getNonce", get_nonce_params);
+        match result {
+            Ok(value) => {
+                let nonce: Nonce = serde_json::from_value(value).map_err(serde_err_to_state_err)?;
+                Ok(nonce)
+            }
+            Err(StateError::StateReadError(msg)) if msg.contains("Contract address not found") => {
+                Ok(Nonce::default())
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn get_compiled_contract_class(&self, class_hash: ClassHash) -> StateResult<ContractClass> {
@@ -147,10 +155,18 @@ impl BlockifierStateReader for RpcStateReader {
         let get_class_hash_at_params =
             GetClassHashAtParams { contract_address, block_id: self.block_id };
 
-        let result = self.send_rpc_request("starknet_getClassHashAt", get_class_hash_at_params)?;
-        let class_hash: ClassHash =
-            serde_json::from_value(result).map_err(serde_err_to_state_err)?;
-        Ok(class_hash)
+        let result = self.send_rpc_request("starknet_getClassHashAt", get_class_hash_at_params);
+        match result {
+            Ok(value) => {
+                let class_hash: ClassHash =
+                    serde_json::from_value(value).map_err(serde_err_to_state_err)?;
+                Ok(class_hash)
+            }
+            Err(StateError::StateReadError(msg)) if msg.contains("Contract address not found") => {
+                Ok(ClassHash::default())
+            }
+            Err(e) => Err(e),
+        }
     }
 
     fn get_compiled_class_hash(&self, _class_hash: ClassHash) -> StateResult<CompiledClassHash> {
