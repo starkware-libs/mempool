@@ -115,12 +115,8 @@ impl StatelessTransactionValidator {
     ) -> StatelessTransactionValidatorResult<()> {
         let sierra_version = VersionId::from_sierra_program(sierra_program)?;
 
-        // Check that the version is lower than the latest version allowing higher patch versions
-        // (i.e. we ignore the Z part in a version X.Y.Z).
-        let minor_sierra_version = VersionId { patch: 0, ..sierra_version };
-
         if self.config.min_sierra_version <= sierra_version
-            && minor_sierra_version <= self.config.max_sierra_version
+            && sierra_version <= self.config.max_sierra_version
         {
             return Ok(());
         }
