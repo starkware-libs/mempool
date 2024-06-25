@@ -142,9 +142,11 @@ impl SerializeConfig for StatelessTransactionValidatorConfig {
 pub fn validate_stateless_transaction_validator_config(
     config: &StatelessTransactionValidatorConfig,
 ) -> Result<(), ValidationError> {
-    if config.max_sierra_version.patch != 0 {
+    // Any patch version is valid. (i.e. when check version for upper bound, we ignore the Z part in
+    // a version X.Y.Z).
+    if config.max_sierra_version.patch != usize::MAX {
         let mut error = ValidationError::new("Invalid max_sierra_version.");
-        error.message = Some("The patch version should be 0.".into());
+        error.message = Some("The patch version should be usize::MAX.".into());
         return Err(error);
     }
 
