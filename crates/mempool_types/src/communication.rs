@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use starknet_mempool_infra::component_client::{ClientError, ComponentClient};
 use starknet_mempool_infra::component_definitions::ComponentRequestAndResponseSender;
 use thiserror::Error;
@@ -23,13 +24,13 @@ pub trait MempoolClient: Send + Sync {
     async fn get_txs(&self, n_txs: usize) -> MempoolClientResult<Vec<ThinTransaction>>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum MempoolRequest {
     AddTransaction(MempoolInput),
     GetTransactions(usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum MempoolResponse {
     AddTransaction(MempoolResult<()>),
     GetTransactions(MempoolResult<Vec<ThinTransaction>>),

@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use starknet_api::transaction::TransactionHash;
 use thiserror::Error;
 
-#[derive(Clone, Debug, Error)]
+#[derive(Clone, Debug, Error, Serialize, Deserialize)]
 pub enum MempoolError {
     #[error("Duplicate transaction, with hash: {tx_hash}")]
     DuplicateTransaction { tx_hash: TransactionHash },
