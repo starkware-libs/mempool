@@ -9,6 +9,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+anyhow.workspace = true
 clap.workspace = true
 const_format.workspace = true
 futures.workspace = true
