@@ -8,9 +8,13 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
 use blockifier::execution::execution_utils::felt_to_stark_felt;
+// TODO(Arni): Consider if you want to import a new crate just for a constant string.
+use cairo_felt::PRIME_STR;
 use cairo_lang_starknet_classes::casm_contract_class::{
     CasmContractClass, CasmContractEntryPoints,
 };
+use num_bigint::BigUint;
+use num_traits::Num;
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
 use starknet_api::transaction::TransactionHash;
@@ -216,5 +220,13 @@ fn validate_casm_class(contract_class: &CasmContractClass) -> Result<(), Gateway
             });
         }
     }
+
+    let prime = contract_class.prime.clone();
+    let expected_prime =
+        BigUint::from_str_radix(&PRIME_STR[2..], 16).expect("Error parsing field prime.");
+    if prime != expected_prime {
+        return Err(GatewayError::InvalidPrime { prime, expected_prime });
+    }
+
     Ok(())
 }
