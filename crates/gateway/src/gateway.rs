@@ -15,7 +15,7 @@ use cairo_lang_starknet_classes::casm_contract_class::{
 use lazy_static::lazy_static;
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
-use starknet_api::transaction::TransactionHash;
+use starknet_api::transaction::{Builtin, TransactionHash};
 use starknet_mempool_infra::component_runner::{ComponentRunner, ComponentStartError};
 use starknet_mempool_types::communication::SharedMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, MempoolInput};
@@ -29,7 +29,9 @@ use crate::rpc_state_reader::RpcStateReaderFactory;
 use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
-use crate::utils::{external_tx_to_thin_tx, get_sender_address, is_subsequence};
+use crate::utils::{
+    external_tx_to_thin_tx, get_sender_address, is_subsequence, IntoOsOrderEnumIteratorExt,
+};
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -205,15 +207,29 @@ impl ComponentRunner for Gateway {
     }
 }
 
+// List of supported builtins.
+// This is an explicit function so that it is explicitly desiced which builtins are supported.
+// If new builtins are added, they should be added here.
+fn is_supported_builtin(builtin: &Builtin) -> bool {
+    match builtin {
+        Builtin::RangeCheck
+        | Builtin::Pedersen
+        | Builtin::Poseidon
+        | Builtin::EcOp
+        | Builtin::Ecdsa
+        | Builtin::Bitwise
+        | Builtin::SegmentArena => true,
+        Builtin::Keccak => false,
+    }
+}
+
 // TODO(Arni): Add to a config.
-// TODO(Arni): Use the Builtin enum from Starknet-api, and explicitly tag each builtin as supported
-// or unsupported so that the compiler would alert us on new builtins.
 lazy_static! {
     static ref SUPPORTED_BUILTINS: Vec<String> = {
-        // The OS expects this order for the builtins.
-        const SUPPORTED_BUILTIN_NAMES: [&str; 7] =
-            ["pedersen", "range_check", "ecdsa", "bitwise", "ec_op", "poseidon", "segment_arena"];
-        SUPPORTED_BUILTIN_NAMES.iter().map(|builtin| builtin.to_string()).collect::<Vec<String>>()
+        Builtin::os_order_iter()
+            .filter(is_supported_builtin)
+            .map(|builtin| builtin.name().to_string())
+            .collect::<Vec<String>>()
     };
 }
 
