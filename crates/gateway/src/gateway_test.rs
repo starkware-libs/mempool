@@ -39,21 +39,28 @@ pub fn app_state(
     mempool_client: SharedMempoolClient,
     state_reader_factory: TestStateReaderFactory,
 ) -> AppState {
+    const MAX_BYTECODE_SIZE: usize = 10000;
+    const MAX_RAW_CLASS_SIZE: usize = 1000000;
     AppState {
         stateless_tx_validator: StatelessTransactionValidator {
             config: StatelessTransactionValidatorConfig {
                 validate_non_zero_l1_gas_fee: true,
                 max_calldata_length: 10,
                 max_signature_length: 2,
-                max_bytecode_size: 10000,
-                max_raw_class_size: 1000000,
+                max_bytecode_size: MAX_BYTECODE_SIZE,
+                max_raw_class_size: MAX_RAW_CLASS_SIZE,
                 ..Default::default()
             },
         },
         stateful_tx_validator: Arc::new(StatefulTransactionValidator {
             config: StatefulTransactionValidatorConfig::create_for_testing(),
         }),
-        gateway_compiler: GatewayCompiler { config: GatewayCompilerConfig {} },
+        gateway_compiler: GatewayCompiler {
+            config: GatewayCompilerConfig {
+                max_bytecode_size: MAX_BYTECODE_SIZE,
+                max_raw_class_size: MAX_RAW_CLASS_SIZE,
+            },
+        },
         state_reader_factory: Arc::new(state_reader_factory),
         mempool_client,
     }
@@ -113,9 +120,14 @@ async fn to_bytes(res: Response) -> Bytes {
 fn calculate_hash(external_tx: &RPCTransaction) -> TransactionHash {
     let optional_class_info = match &external_tx {
         RPCTransaction::Declare(declare_tx) => Some(
-            GatewayCompiler { config: GatewayCompilerConfig {} }
-                .compile_contract_class(declare_tx)
-                .unwrap(),
+            GatewayCompiler {
+                config: GatewayCompilerConfig {
+                    max_bytecode_size: 4800,
+                    max_raw_class_size: 111037,
+                },
+            }
+            .compile_contract_class(declare_tx)
+            .unwrap(),
         ),
         _ => None,
     };
