@@ -123,8 +123,14 @@ fn process_tx(
     stateless_tx_validator.validate(&tx)?;
 
     // Compile Sierra to Casm.
+    let sierra_to_casm_compilation_config = SierraToCasmCompilationConfig {
+        max_bytecode_size: stateless_tx_validator.config.max_bytecode_size,
+        max_raw_class_size: stateless_tx_validator.config.max_raw_class_size,
+    };
     let optional_class_info = match &tx {
-        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx)?),
+        RPCTransaction::Declare(declare_tx) => {
+            Some(compile_contract_class(declare_tx, sierra_to_casm_compilation_config)?)
+        }
         _ => None,
     };
 
@@ -139,10 +145,20 @@ fn process_tx(
     })
 }
 
+// TODO(Arni): Move the gateway compilation util to a dedicated file.
+// TODO(Arni): Find a better place for this config.
+pub struct SierraToCasmCompilationConfig {
+    pub max_bytecode_size: usize,
+    pub max_raw_class_size: usize,
+}
+
 /// Formats the contract class for compilation, compiles it, and returns the compiled contract class
 /// wrapped in a [`ClassInfo`].
 /// Assumes the contract class is of a Sierra program which is compiled to Casm.
-pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResult<ClassInfo> {
+pub fn compile_contract_class(
+    declare_tx: &RPCDeclareTransaction,
+    config: SierraToCasmCompilationConfig,
+) -> GatewayResult<ClassInfo> {
     let RPCDeclareTransaction::V3(tx) = declare_tx;
     let starknet_api_contract_class = &tx.contract_class;
     let cairo_lang_contract_class =
@@ -158,6 +174,23 @@ pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResu
             return Err(GatewayError::CompilationError(CompilationUtilError::CompilationPanic));
         }
     };
+
+    let bytecode_size = casm_contract_class.bytecode.len();
+    if bytecode_size > config.max_bytecode_size {
+        return Err(GatewayError::CasmBytecodeSizeTooLarge {
+            bytecode_size,
+            max_bytecode_size: config.max_bytecode_size,
+        });
+    }
+    let contract_class_object_size = serde_json::to_string(&casm_contract_class)
+        .expect("Unexpected error serializing Casm contract class.")
+        .len();
+    if contract_class_object_size > config.max_raw_class_size {
+        return Err(GatewayError::CasmContractClassObjectSizeTooLarge {
+            contract_class_object_size,
+            max_contract_class_object_size: config.max_raw_class_size,
+        });
+    }
 
     let hash_result =
         CompiledClassHash(felt_to_stark_felt(&casm_contract_class.compiled_class_hash()));

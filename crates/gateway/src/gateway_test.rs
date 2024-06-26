@@ -20,7 +20,9 @@ use tokio::task;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
 use crate::errors::GatewayError;
-use crate::gateway::{add_tx, compile_contract_class, AppState, SharedMempoolClient};
+use crate::gateway::{
+    add_tx, compile_contract_class, AppState, SharedMempoolClient, SierraToCasmCompilationConfig,
+};
 use crate::starknet_api_test_utils::{declare_tx, deploy_account_tx, invoke_tx};
 use crate::state_reader_test_utils::{
     local_test_state_reader_factory, local_test_state_reader_factory_for_deploy_account,
@@ -31,6 +33,8 @@ use crate::stateless_transaction_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 const MEMPOOL_INVOCATIONS_QUEUE_SIZE: usize = 32;
+const SIERRA_TO_CASM_COMPILATION_CONFIG: SierraToCasmCompilationConfig =
+    SierraToCasmCompilationConfig { max_bytecode_size: usize::MAX, max_raw_class_size: usize::MAX };
 
 #[fixture]
 fn mempool() -> Mempool {
@@ -105,7 +109,7 @@ async fn test_add_tx(
 }
 
 #[test]
-fn test_compile_contract_class_failure() {
+fn test_compile_contract_class_compiled_class_hash_missmatch() {
     let mut declare_tx_v3 = match declare_tx() {
         RPCTransaction::Declare(RPCDeclareTransaction::V3(declare_tx)) => declare_tx,
         _ => panic!("Invalid transaction type"),
@@ -116,12 +120,55 @@ fn test_compile_contract_class_failure() {
     declare_tx_v3.compiled_class_hash = supplied_hash;
     let declare_tx = RPCDeclareTransaction::V3(declare_tx_v3);
 
-    let result = compile_contract_class(&declare_tx);
+    let result = compile_contract_class(&declare_tx, SIERRA_TO_CASM_COMPILATION_CONFIG);
     assert_matches!(
         result.unwrap_err(),
         GatewayError::CompiledClassHashMismatch { supplied, hash_result }
         if supplied == supplied_hash && hash_result == expected_hash_result
     );
+}
+
+#[rstest]
+#[case::bytecode_size(
+    SierraToCasmCompilationConfig { max_bytecode_size: 1, max_raw_class_size: usize::MAX},
+    GatewayError::CasmBytecodeSizeTooLarge { bytecode_size: 4800, max_bytecode_size: 1 }
+)]
+#[case::raw_class_size(
+    SierraToCasmCompilationConfig { max_bytecode_size: usize::MAX, max_raw_class_size: 1},
+    GatewayError::CasmContractClassObjectSizeTooLarge {
+        contract_class_object_size: 111037, max_contract_class_object_size: 1
+    }
+)]
+fn test_compile_contract_class_size_validation(
+    #[case] sierra_to_casm_compilation_config: SierraToCasmCompilationConfig,
+    #[case] expected_error: GatewayError,
+) {
+    let declare_tx = match declare_tx() {
+        RPCTransaction::Declare(declare_tx) => declare_tx,
+        _ => panic!("Invalid transaction type"),
+    };
+
+    let result = compile_contract_class(&declare_tx, sierra_to_casm_compilation_config);
+    if let GatewayError::CasmBytecodeSizeTooLarge {
+        bytecode_size: expected_bytecode_size, ..
+    } = expected_error
+    {
+        assert_matches!(
+            result.unwrap_err(),
+            GatewayError::CasmBytecodeSizeTooLarge { bytecode_size, .. }
+            if bytecode_size == expected_bytecode_size
+        )
+    } else if let GatewayError::CasmContractClassObjectSizeTooLarge {
+        contract_class_object_size: expected_contract_class_object_size,
+        ..
+    } = expected_error
+    {
+        assert_matches!(
+            result.unwrap_err(),
+            GatewayError::CasmContractClassObjectSizeTooLarge { contract_class_object_size, .. }
+            if contract_class_object_size == expected_contract_class_object_size
+        )
+    }
 }
 
 #[test]
@@ -133,7 +180,7 @@ fn test_compile_contract_class() {
     let RPCDeclareTransaction::V3(declare_tx_v3) = &declare_tx;
     let contract_class = &declare_tx_v3.contract_class;
 
-    let result = compile_contract_class(&declare_tx);
+    let result = compile_contract_class(&declare_tx, SIERRA_TO_CASM_COMPILATION_CONFIG);
     assert_matches!(
         result,
         Ok(class_info)
@@ -151,7 +198,9 @@ async fn to_bytes(res: Response) -> Bytes {
 
 fn calculate_hash(external_tx: &RPCTransaction) -> TransactionHash {
     let optional_class_info = match &external_tx {
-        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx).unwrap()),
+        RPCTransaction::Declare(declare_tx) => {
+            Some(compile_contract_class(declare_tx, SIERRA_TO_CASM_COMPILATION_CONFIG).unwrap())
+        }
         _ => None,
     };
 
