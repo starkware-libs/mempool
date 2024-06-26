@@ -11,6 +11,9 @@ use validator::Validate;
 
 use crate::compiler_version::VersionId;
 
+const MAX_BYTECODE_SIZE: usize = 81920;
+const MAX_RAW_CLASS_SIZE: usize = 4089446;
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Validate, PartialEq)]
 pub struct GatewayConfig {
     pub network_config: GatewayNetworkConfig,
@@ -88,8 +91,8 @@ impl Default for StatelessTransactionValidatorConfig {
             validate_non_zero_l2_gas_fee: false,
             max_calldata_length: 4000,
             max_signature_length: 4000,
-            max_bytecode_size: 81920,
-            max_raw_class_size: 4089446,
+            max_bytecode_size: MAX_BYTECODE_SIZE,
+            max_raw_class_size: MAX_RAW_CLASS_SIZE,
             min_sierra_version: VersionId { major: 1, minor: 1, patch: 0 },
             max_sierra_version: VersionId { major: 1, minor: 5, patch: usize::MAX },
         }
@@ -295,12 +298,36 @@ impl StatefulTransactionValidatorConfig {
         }
     }
 }
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Validate, PartialEq)]
+pub struct GatewayCompilerConfig {
+    pub max_casm_bytecode_size: usize,
+    pub max_raw_casm_class_size: usize,
+}
 
-#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, Validate, PartialEq)]
-pub struct GatewayCompilerConfig {}
+impl Default for GatewayCompilerConfig {
+    fn default() -> Self {
+        Self {
+            max_casm_bytecode_size: MAX_BYTECODE_SIZE,
+            max_raw_casm_class_size: MAX_RAW_CLASS_SIZE,
+        }
+    }
+}
 
 impl SerializeConfig for GatewayCompilerConfig {
     fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
-        BTreeMap::new()
+        BTreeMap::from_iter([
+            ser_param(
+                "max_casm_bytecode_size",
+                &self.max_casm_bytecode_size,
+                "Limitation of contract bytecode size",
+                ParamPrivacyInput::Public,
+            ),
+            ser_param(
+                "max_raw_casm_class_size",
+                &self.max_raw_casm_class_size,
+                "Limitation of contract class object size",
+                ParamPrivacyInput::Public,
+            ),
+        ])
     }
 }
