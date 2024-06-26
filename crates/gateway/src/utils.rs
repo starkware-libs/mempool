@@ -10,8 +10,9 @@ use starknet_api::rpc_transaction::{
     RPCDeclareTransaction, RPCDeployAccountTransaction, RPCInvokeTransaction, RPCTransaction,
 };
 use starknet_api::transaction::{
-    DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
-    InvokeTransaction, InvokeTransactionV3, Tip, TransactionHash, TransactionHasher,
+    Builtin, DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction,
+    DeployAccountTransactionV3, InvokeTransaction, InvokeTransactionV3, Tip, TransactionHash,
+    TransactionHasher,
 };
 use starknet_mempool_types::mempool_types::ThinTransaction;
 
@@ -175,4 +176,29 @@ pub fn is_subsequence<T: Eq>(subsequence: &[T], sequence: &[T]) -> bool {
     }
 
     offset == subsequence.len()
+}
+
+// TODO(Arni): Remove the traitIntoEnumIteratorExt once it is implemented in starknet API.
+impl IntoEnumIteratorExt for Builtin {
+    fn iter() -> impl Iterator<Item = Self> {
+        // The OS expects this order for the builtins.
+        // When EnumIter is derived for builtin - one must make sure the iteration order is as the
+        // os expects.
+        vec![
+            Builtin::Pedersen,
+            Builtin::RangeCheck,
+            Builtin::Ecdsa,
+            Builtin::Bitwise,
+            Builtin::EcOp,
+            Builtin::Poseidon,
+            Builtin::SegmentArena,
+            Builtin::Keccak,
+        ]
+        .into_iter()
+    }
+}
+
+pub trait IntoEnumIteratorExt {
+    #[allow(opaque_hidden_inferred_bound)]
+    fn iter() -> impl Iterator<Item = Self>;
 }
