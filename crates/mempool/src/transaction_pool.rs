@@ -5,8 +5,6 @@ use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{MempoolResult, ThinTransaction};
 
-use crate::mempool::TransactionReference;
-
 /// Contains all transactions currently held in the mempool.
 /// Invariant: both data structures are consistent regarding the existence of transactions:
 /// A transaction appears in one if and only if it appears in the other.
@@ -16,7 +14,7 @@ pub struct TransactionPool {
     // Holds the complete transaction objects; it should be the sole entity that does so.
     tx_pool: HashMap<TransactionHash, ThinTransaction>,
     // Transactions organized by account address, sorted by ascending nonce values.
-    txs_by_account: HashMap<ContractAddress, BTreeMap<Nonce, TransactionReference>>,
+    txs_by_account: HashMap<ContractAddress, BTreeMap<Nonce, ThinTransaction>>,
 }
 
 impl TransactionPool {
@@ -34,7 +32,7 @@ impl TransactionPool {
         let txs_from_account_entry = self.txs_by_account.entry(tx.sender_address).or_default();
         match txs_from_account_entry.entry(tx.nonce) {
             btree_map::Entry::Vacant(txs_from_account) => {
-                txs_from_account.insert(tx.into());
+                txs_from_account.insert(tx);
             }
             btree_map::Entry::Occupied(_) => {
                 panic!(
