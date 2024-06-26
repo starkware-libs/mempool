@@ -14,6 +14,7 @@ use starknet_sierra_compile::errors::CompilationUtilError;
 use starknet_sierra_compile::utils::into_contract_class_for_compilation;
 
 use crate::compilation::{validate_compiled_class_hash, GatewayCompiler};
+use crate::config::GatewayCompilerConfig;
 use crate::errors::GatewayError;
 
 #[fixture]
@@ -35,6 +36,46 @@ fn test_compile_contract_class_compiled_class_hash_missmatch(
         GatewayError::CompiledClassHashMismatch { supplied, hash_result }
         if supplied == supplied_hash && hash_result == expected_hash_result
     );
+}
+
+#[rstest]
+#[case::bytecode_size(
+    GatewayCompilerConfig { max_casm_bytecode_size: 1, ..Default::default() },
+    GatewayError::CasmBytecodeSizeTooLarge { bytecode_size: 4800, max_bytecode_size: 1 }
+)]
+#[case::raw_class_size(
+    GatewayCompilerConfig { max_raw_casm_class_size: 1, ..Default::default() },
+    GatewayError::CasmContractClassObjectSizeTooLarge {
+        contract_class_object_size: 111037, max_contract_class_object_size: 1
+    }
+)]
+fn test_compile_contract_class_size_validation(
+    casm_contract_class: CasmContractClass,
+    #[case] sierra_to_casm_compilation_config: GatewayCompilerConfig,
+    #[case] expected_error: GatewayError,
+) {
+    let gateway_compiler = GatewayCompiler { config: sierra_to_casm_compilation_config };
+    let result = gateway_compiler.validate_casm_class_size(&casm_contract_class);
+    if let GatewayError::CasmBytecodeSizeTooLarge {
+        bytecode_size: expected_bytecode_size, ..
+    } = expected_error
+    {
+        assert_matches!(
+            result.unwrap_err(),
+            GatewayError::CasmBytecodeSizeTooLarge { bytecode_size, .. }
+            if bytecode_size == expected_bytecode_size
+        )
+    } else if let GatewayError::CasmContractClassObjectSizeTooLarge {
+        contract_class_object_size: expected_contract_class_object_size,
+        ..
+    } = expected_error
+    {
+        assert_matches!(
+            result.unwrap_err(),
+            GatewayError::CasmContractClassObjectSizeTooLarge { contract_class_object_size, .. }
+            if contract_class_object_size == expected_contract_class_object_size
+        )
+    }
 }
 
 #[rstest]
