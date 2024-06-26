@@ -9,6 +9,16 @@
     "privacy": "Public",
     "value": true
   },
+  "gateway_config.gateway_compiler_config.max_bytecode_size": {
+    "description": "The maximum bytecode size allowed for a contract.",
+    "privacy": "Public",
+    "value": 0
+  },
+  "gateway_config.gateway_compiler_config.max_raw_class_size": {
+    "description": "The maximum raw class size allowed for a contract.",
+    "privacy": "Public",
+    "value": 0
+  },
   "gateway_config.network_config.ip": {
     "description": "The gateway server ip.",
     "privacy": "Public",
@@ -49,8 +59,18 @@
     "privacy": "Public",
     "value": 0
   },
+  "gateway_config.stateless_tx_validator_config.max_bytecode_size": {
+    "description": "The maximum bytecode size allowed for a contract.",
+    "privacy": "Public",
+    "value": 0
+  },
   "gateway_config.stateless_tx_validator_config.max_calldata_length": {
     "description": "Validates that a transaction has calldata length less than or equal to this value.",
+    "privacy": "Public",
+    "value": 0
+  },
+  "gateway_config.stateless_tx_validator_config.max_raw_class_size": {
+    "description": "The maximum raw class size allowed for a contract.",
     "privacy": "Public",
     "value": 0
   },

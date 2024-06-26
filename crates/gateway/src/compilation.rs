@@ -19,6 +19,7 @@ use crate::utils::is_subsequence;
 #[path = "compilation_test.rs"]
 mod compilation_test;
 
+// TODO(Define a function for `compile_contract_class` - which ignores the `config` parameter).
 #[derive(Clone)]
 pub struct GatewayCompiler {
     pub config: GatewayCompilerConfig,
@@ -48,6 +49,7 @@ impl GatewayCompiler {
             }
         };
         self.validate_casm_class(&casm_contract_class)?;
+        self.validate_casm_class_size(&casm_contract_class)?;
 
         let hash_result = CompiledClassHash(casm_contract_class.compiled_class_hash());
         if hash_result != tx.compiled_class_hash {
@@ -84,6 +86,47 @@ impl GatewayCompiler {
                 });
             }
         }
+        Ok(())
+    }
+
+    fn validate_casm_class_size(
+        &self,
+        casm_contract_class: &CasmContractClass,
+    ) -> Result<(), GatewayError> {
+        let bytecode_size = casm_contract_class.bytecode.len();
+        if bytecode_size > self.config.max_bytecode_size {
+            return Err(GatewayError::CasmBytecodeSizeTooLarge {
+                bytecode_size,
+                max_bytecode_size: self.config.max_bytecode_size,
+            });
+        }
+        let contract_class_object_size = serde_json::to_string(&casm_contract_class)
+            .expect("Unexpected error serializing Casm contract class.")
+            .len();
+        if contract_class_object_size > self.config.max_raw_class_size {
+            return Err(GatewayError::CasmContractClassObjectSizeTooLarge {
+                contract_class_object_size,
+                max_contract_class_object_size: self.config.max_raw_class_size,
+            });
+        }
+
+        let bytecode_size = casm_contract_class.bytecode.len();
+        if bytecode_size > self.config.max_bytecode_size {
+            return Err(GatewayError::CasmBytecodeSizeTooLarge {
+                bytecode_size,
+                max_bytecode_size: self.config.max_bytecode_size,
+            });
+        }
+        let contract_class_object_size = serde_json::to_string(&casm_contract_class)
+            .expect("Unexpected error serializing Casm contract class.")
+            .len();
+        if contract_class_object_size > self.config.max_raw_class_size {
+            return Err(GatewayError::CasmContractClassObjectSizeTooLarge {
+                contract_class_object_size,
+                max_contract_class_object_size: self.config.max_raw_class_size,
+            });
+        }
+
         Ok(())
     }
 }

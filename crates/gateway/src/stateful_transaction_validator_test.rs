@@ -82,11 +82,15 @@ fn test_stateful_tx_validator(
         },
     };
     let optional_class_info = match &external_tx {
-        RPCTransaction::Declare(declare_tx) => Some(
-            GatewayCompiler { config: GatewayCompilerConfig {} }
-                .compile_contract_class(declare_tx)
-                .unwrap(),
-        ),
+        RPCTransaction::Declare(declare_tx) => {
+            let gateway_compiler = GatewayCompiler {
+                config: GatewayCompilerConfig {
+                    max_bytecode_size: 4800,
+                    max_raw_class_size: 111037,
+                },
+            };
+            Some(gateway_compiler.compile_contract_class(declare_tx).unwrap())
+        }
         _ => None,
     };
 
