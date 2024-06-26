@@ -145,3 +145,20 @@ pub fn get_tx_hash(tx: &AccountTransaction) -> TransactionHash {
         AccountTransaction::Invoke(tx) => tx.tx_hash,
     }
 }
+
+/// Checks whether 'subsequence' is a subsequence of 'sequence'.
+pub fn is_subsequence(subsequence: &[String], sequence: &[String]) -> bool {
+    let mut offset = 0;
+
+    for item in sequence {
+        if offset == subsequence.len() {
+            return true;
+        }
+
+        if item == &subsequence[offset] {
+            offset += 1;
+        }
+    }
+
+    offset == subsequence.len()
+}

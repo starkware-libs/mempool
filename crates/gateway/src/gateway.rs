@@ -8,6 +8,9 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
 use blockifier::execution::execution_utils::felt_to_stark_felt;
+use cairo_lang_starknet_classes::casm_contract_class::{
+    CasmContractClass, CasmContractEntryPoints,
+};
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
 use starknet_api::transaction::TransactionHash;
@@ -22,7 +25,7 @@ use crate::starknet_api_test_utils::get_sender_address;
 use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
-use crate::utils::external_tx_to_thin_tx;
+use crate::utils::{external_tx_to_thin_tx, is_subsequence};
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -158,6 +161,7 @@ pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResu
             return Err(GatewayError::CompilationError(CompilationUtilError::CompilationPanic));
         }
     };
+    validate_casm_class(&casm_contract_class)?;
 
     let hash_result =
         CompiledClassHash(felt_to_stark_felt(&casm_contract_class.compiled_class_hash()));
@@ -177,4 +181,37 @@ pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResu
         starknet_api_contract_class.abi.len(),
     )?;
     Ok(class_info)
+}
+
+// TODO(Arni): Add to a config.
+fn get_supported_builtins() -> Vec<String> {
+    vec![
+        "pedersen".to_string(),
+        "range_check".to_string(),
+        "ecdsa".to_string(),
+        "bitwise".to_string(),
+        "ec_op".to_string(),
+        "poseidon".to_string(),
+        "segment_arena".to_string(),
+    ]
+}
+
+// TODO(Arni): Add test.
+fn validate_casm_class(contract_class: &CasmContractClass) -> Result<(), GatewayError> {
+    let CasmContractEntryPoints { external, l1_handler, constructor } =
+        &contract_class.entry_points_by_type;
+    let entry_points_iterator = external.iter().chain(l1_handler.iter()).chain(constructor.iter());
+
+    let supported_builtins = &get_supported_builtins();
+    for entry_point in entry_points_iterator {
+        let builtins = &entry_point.builtins;
+        println!("{builtins:?}");
+        if !is_subsequence(builtins, supported_builtins) {
+            return Err(GatewayError::SupportedBuiltins {
+                builtins: builtins.clone(),
+                supported_builtins: supported_builtins.clone(),
+            });
+        }
+    }
+    Ok(())
 }

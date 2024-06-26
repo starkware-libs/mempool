@@ -21,7 +21,7 @@ pub enum GatewayError {
     CompilationError(#[from] starknet_sierra_compile::compile::CompilationUtilError),
     #[error(
         "The supplied compiled class hash {supplied:?} does not match the hash of the Casm class \
-         compiled from the supplied Sierra {hash_result:?}."
+         compiled from the supplied Sierra {hash_result:?}"
     )]
     CompiledClassHashMismatch { supplied: CompiledClassHash, hash_result: CompiledClassHash },
     #[error(transparent)]
@@ -36,6 +36,8 @@ pub enum GatewayError {
     StatefulTransactionValidatorError(#[from] StatefulTransactionValidatorError),
     #[error(transparent)]
     StatelessTransactionValidatorError(#[from] StatelessTransactionValidatorError),
+    #[error("{builtins:?} is not a subsquence of {supported_builtins:?}")]
+    SupportedBuiltins { builtins: Vec<String>, supported_builtins: Vec<String> },
 }
 
 impl IntoResponse for GatewayError {
