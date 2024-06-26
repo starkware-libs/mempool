@@ -1,16 +1,18 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use assert_matches::assert_matches;
 use blockifier::abi::abi_utils::get_fee_token_var_address;
 use blockifier::context::{BlockContext, ChainInfo};
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{
     CairoVersion, BALANCE, CURRENT_BLOCK_TIMESTAMP, DEFAULT_ETH_L1_GAS_PRICE,
-    DEFAULT_STRK_L1_GAS_PRICE,
+    DEFAULT_STRK_L1_GAS_PRICE, TEST_SEQUENCER_ADDRESS,
 };
 use blockifier::transaction::objects::FeeType;
 use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
 use indexmap::{indexmap, IndexMap};
+use lazy_static::lazy_static;
 use papyrus_common::pending_classes::PendingClasses;
 use papyrus_common::BlockHashAndNumber;
 use papyrus_rpc::{run_server, RpcConfig};
@@ -23,20 +25,41 @@ use papyrus_storage::{open_storage, StorageConfig, StorageReader};
 use starknet_api::block::{
     BlockBody, BlockHeader, BlockNumber, BlockTimestamp, GasPrice, GasPricePerToken,
 };
-use starknet_api::core::{ClassHash, ContractAddress};
+use starknet_api::core::{
+    calculate_contract_address, ClassHash, ContractAddress, PatriciaKey, SequencerContractAddress,
+};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::hash::{StarkFelt, StarkHash};
+use starknet_api::rpc_transaction::{RPCDeployAccountTransaction, RPCTransaction};
 use starknet_api::state::{StorageKey, ThinStateDiff};
+use starknet_api::{contract_address, patricia_key, stark_felt};
 use starknet_client::reader::PendingData;
 use starknet_gateway::config::RpcStateReaderConfig;
 use starknet_gateway::rpc_state_reader::RpcStateReaderFactory;
+use starknet_gateway::starknet_api_test_utils::deploy_account_tx;
 use strum::IntoEnumIterator;
 use tempfile::tempdir;
 use tokio::sync::RwLock;
 
 type ContractClassesMap =
     (Vec<(ClassHash, DeprecatedContractClass)>, Vec<(ClassHash, CasmContractClass)>);
+
+lazy_static! {
+    static ref DEPLOY_ACCCOUNT_TX_CONTRACT_ADDRESS: ContractAddress = {
+        let deploy_tx = deploy_account_tx();
+        let tx = assert_matches!(
+            deploy_tx,
+            RPCTransaction::DeployAccount(RPCDeployAccountTransaction::V3(tx)) => tx
+        );
+        calculate_contract_address(
+            tx.contract_address_salt,
+            tx.class_hash,
+            &tx.constructor_calldata,
+            ContractAddress::default(),
+        )
+        .unwrap()
+    };
+}
 
 /// StateReader for integration tests.
 ///
@@ -52,6 +75,7 @@ pub async fn rpc_test_state_reader_factory(
     let test_contract_cairo0 = FeatureContract::TestContract(CairoVersion::Cairo0);
     let account_contract_cairo1 = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract_cairo1 = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let fund_accounts = vec![*DEPLOY_ACCCOUNT_TX_CONTRACT_ADDRESS];
 
     let storage_reader = initialize_papyrus_test_state(
         block_context.chain_info(),
@@ -62,6 +86,7 @@ pub async fn rpc_test_state_reader_factory(
             (account_contract_cairo1, n_initialized_account_contracts),
             (test_contract_cairo1, 1),
         ],
+        fund_accounts,
     );
     let addr = run_papyrus_rpc_server(storage_reader).await;
 
@@ -77,8 +102,14 @@ fn initialize_papyrus_test_state(
     chain_info: &ChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, u16)],
+    fund_additional_accounts: Vec<ContractAddress>,
 ) -> StorageReader {
-    let state_diff = prepare_state_diff(chain_info, contract_instances, initial_balances);
+    let state_diff = prepare_state_diff(
+        chain_info,
+        contract_instances,
+        initial_balances,
+        fund_additional_accounts,
+    );
 
     let (cairo0_contract_classes, cairo1_contract_classes) =
         prepare_compiled_contract_classes(contract_instances);
@@ -90,6 +121,7 @@ fn prepare_state_diff(
     chain_info: &ChainInfo,
     contract_instances: &[(FeatureContract, u16)],
     initial_balances: u128,
+    fund_accounts: Vec<ContractAddress>,
 ) -> ThinStateDiff {
     let erc20 = FeatureContract::ERC20;
     let erc20_class_hash = erc20.get_class_hash();
@@ -116,9 +148,13 @@ fn prepare_state_diff(
             }
             deployed_contracts
                 .insert(contract.get_instance_address(instance), contract.get_class_hash());
-            fund_account(&mut storage_diffs, contract, instance, initial_balances, chain_info);
+            fund_contract(&mut storage_diffs, contract, instance, initial_balances, chain_info);
         }
     }
+
+    fund_accounts.iter().for_each(|address| {
+        fund_account(&mut storage_diffs, address, initial_balances, chain_info)
+    });
 
     ThinStateDiff {
         storage_diffs,
@@ -132,7 +168,9 @@ fn prepare_state_diff(
 fn prepare_compiled_contract_classes(
     contract_instances: &[(FeatureContract, u16)],
 ) -> ContractClassesMap {
-    let mut cairo0_contract_classes: Vec<(ClassHash, DeprecatedContractClass)> = Vec::new();
+    let erc20 = FeatureContract::ERC20;
+    let mut cairo0_contract_classes: Vec<(ClassHash, DeprecatedContractClass)> =
+        vec![(erc20.get_class_hash(), serde_json::from_str(&erc20.get_raw_class()).unwrap())];
     let mut cairo1_contract_classes: Vec<(ClassHash, CasmContractClass)> = Vec::new();
     for (contract, _) in contract_instances.iter() {
         match cairo_version(contract) {
@@ -203,6 +241,7 @@ fn cairo_version(contract: &FeatureContract) -> CairoVersion {
 fn test_block_header(block_number: BlockNumber) -> BlockHeader {
     BlockHeader {
         block_number,
+        sequencer: SequencerContractAddress(contract_address!(TEST_SEQUENCER_ADDRESS)),
         l1_gas_price: GasPricePerToken {
             price_in_wei: GasPrice(DEFAULT_ETH_L1_GAS_PRICE),
             price_in_fri: GasPrice(DEFAULT_STRK_L1_GAS_PRICE),
@@ -216,7 +255,7 @@ fn test_block_header(block_number: BlockNumber) -> BlockHeader {
     }
 }
 
-fn fund_account(
+fn fund_contract(
     storage_diffs: &mut IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
     contract: &FeatureContract,
     instance: u16,
@@ -227,17 +266,31 @@ fn fund_account(
         FeatureContract::AccountWithLongValidate(_)
         | FeatureContract::AccountWithoutValidations(_)
         | FeatureContract::FaultyAccount(_) => {
-            let key_value = indexmap! {
-                get_fee_token_var_address(contract.get_instance_address(instance)) => stark_felt!(initial_balances),
-            };
-            for fee_type in FeeType::iter() {
-                storage_diffs
-                    .entry(chain_info.fee_token_address(&fee_type))
-                    .or_default()
-                    .extend(key_value.clone());
-            }
+            fund_account(
+                storage_diffs,
+                &contract.get_instance_address(instance),
+                initial_balances,
+                chain_info,
+            );
         }
         _ => (),
+    }
+}
+
+fn fund_account(
+    storage_diffs: &mut IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
+    account_address: &ContractAddress,
+    initial_balances: u128,
+    chain_info: &ChainInfo,
+) {
+    let key_value = indexmap! {
+        get_fee_token_var_address(*account_address) => stark_felt!(initial_balances),
+    };
+    for fee_type in FeeType::iter() {
+        storage_diffs
+            .entry(chain_info.fee_token_address(&fee_type))
+            .or_default()
+            .extend(key_value.clone());
     }
 }
 
