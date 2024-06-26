@@ -5,6 +5,7 @@ use blockifier::execution::errors::ContractClassError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
 use cairo_vm::types::errors::program_errors::ProgramError;
+use num_bigint::BigUint;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Resource, ResourceBounds};
@@ -30,6 +31,8 @@ pub enum GatewayError {
     DeclaredContractProgramError(#[from] ProgramError),
     #[error("Internal server error: {0}")]
     InternalServerError(#[from] JoinError),
+    #[error("Invalid value for field prime: {prime}. Expected: {expected_prime}")]
+    InvalidPrime { prime: BigUint, expected_prime: BigUint },
     #[error("Error sending message: {0}")]
     MessageSendError(String),
     #[error(transparent)]
