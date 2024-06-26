@@ -14,6 +14,7 @@ use starknet_sierra_compile::errors::CompilationUtilError;
 use starknet_sierra_compile::utils::into_contract_class_for_compilation;
 
 use crate::compilation::{validate_compiled_class_hash, GatewayCompiler};
+use crate::config::GatewayCompilerConfig;
 use crate::errors::GatewayError;
 
 #[fixture]
@@ -35,6 +36,24 @@ fn test_compile_contract_class_compiled_class_hash_mismatch(
         GatewayError::CompiledClassHashMismatch { supplied, hash_result }
         if supplied == supplied_hash && hash_result == expected_hash_result
     );
+}
+
+#[rstest]
+fn test_compile_contract_class_bytecode_size_validation(casm_contract_class: CasmContractClass) {
+    let gateway_compiler = GatewayCompiler {
+        config: GatewayCompilerConfig { max_casm_bytecode_size: 1, ..Default::default() },
+    };
+    let result = gateway_compiler.validate_casm_class_size(&casm_contract_class);
+    assert_matches!(result.unwrap_err(), GatewayError::CasmBytecodeSizeTooLarge { .. })
+}
+
+#[rstest]
+fn test_compile_contract_class_raw_class_size_validation(casm_contract_class: CasmContractClass) {
+    let gateway_compiler = GatewayCompiler {
+        config: GatewayCompilerConfig { max_raw_casm_class_size: 1, ..Default::default() },
+    };
+    let result = gateway_compiler.validate_casm_class_size(&casm_contract_class);
+    assert_matches!(result.unwrap_err(), GatewayError::CasmContractClassObjectSizeTooLarge { .. })
 }
 
 #[rstest]
