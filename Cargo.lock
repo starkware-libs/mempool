@@ -5579,11 +5579,13 @@ dependencies = [
 name = "starknet_mempool_node"
 version = "0.0.0"
 dependencies = [
+ "anyhow",
  "assert-json-diff",
  "assert_matches",
  "clap",
  "colored",
  "const_format",
+ "futures",
  "papyrus_config",
  "pretty_assertions",
  "serde",
