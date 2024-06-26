@@ -11,6 +11,7 @@ use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool::communication::create_mempool_server;
 use starknet_mempool::mempool::Mempool;
+use starknet_mempool_infra::component_server::CommunicationServer;
 use starknet_mempool_types::communication::{MempoolClientImpl, MempoolRequestAndResponseSender};
 use tokio::sync::mpsc::channel;
 use tokio::task;
@@ -76,6 +77,7 @@ async fn test_add_tx(
 ) {
     // TODO(Tsabary): wrap creation of channels in dedicated functions, take channel capacity from
     // config.
+
     let (tx_mempool, rx_mempool) =
         channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
     let mut mempool_server = create_mempool_server(mempool, rx_mempool);

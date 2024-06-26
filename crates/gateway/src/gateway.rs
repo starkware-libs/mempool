@@ -3,12 +3,15 @@ use std::net::SocketAddr;
 use std::panic;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
 use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
 use starknet_api::transaction::TransactionHash;
+use starknet_mempool_infra::component_runner::{ComponentRunner, ComponentStartError};
+use starknet_mempool_infra::empty_server::{create_empty_server, EmptyServer};
 use starknet_mempool_types::communication::SharedMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, MempoolInput};
 use starknet_sierra_compile::compile::{compile_sierra_to_casm, CompilationUtilError};
@@ -176,4 +179,19 @@ pub fn create_gateway(
 ) -> Gateway {
     let state_reader_factory = Arc::new(RpcStateReaderFactory { config: rpc_state_reader_config });
     Gateway::new(config, state_reader_factory, client)
+}
+
+pub type GatewayCommunicationServer = EmptyServer<Gateway>;
+
+pub fn create_gateway_server(gateway: Gateway) -> GatewayCommunicationServer {
+    create_empty_server(gateway)
+}
+
+#[async_trait]
+impl ComponentRunner for Gateway {
+    async fn start(&mut self) -> Result<(), ComponentStartError> {
+        // TODO(Lev, 23/07/2024): Implement the real logic.
+        println!("Gateway::start()");
+        Ok(())
+    }
 }
