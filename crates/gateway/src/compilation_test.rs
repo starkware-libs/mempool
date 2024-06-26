@@ -8,6 +8,7 @@ use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
 use starknet_sierra_compile::errors::CompilationUtilError;
 
 use crate::compilation::GatewayCompiler;
+use crate::config::GatewayCompilerConfig;
 use crate::errors::GatewayError;
 
 #[fixture]
@@ -42,6 +43,28 @@ fn test_compile_contract_class_compiled_class_hash_mismatch(
         GatewayError::CompiledClassHashMismatch { supplied, hash_result }
         if supplied == supplied_hash && hash_result == expected_hash_result
     );
+}
+
+// TODO(Arni): Redesign this test once the compiler is passed with dependancy injection.
+#[rstest]
+fn test_compile_contract_class_bytecode_size_validation(declare_tx: RPCDeclareTransaction) {
+    let gateway_compiler = GatewayCompiler {
+        config: GatewayCompilerConfig { max_casm_bytecode_size: 1, ..Default::default() },
+    };
+
+    let result = gateway_compiler.process_declare_tx(&declare_tx);
+    assert_matches!(result.unwrap_err(), GatewayError::CasmBytecodeSizeTooLarge { .. })
+}
+
+// TODO(Arni): Redesign this test once the compiler is passed with dependancy injection.
+#[rstest]
+fn test_compile_contract_class_raw_class_size_validation(declare_tx: RPCDeclareTransaction) {
+    let gateway_compiler = GatewayCompiler {
+        config: GatewayCompilerConfig { max_raw_casm_class_size: 1, ..Default::default() },
+    };
+
+    let result = gateway_compiler.process_declare_tx(&declare_tx);
+    assert_matches!(result.unwrap_err(), GatewayError::CasmContractClassObjectSizeTooLarge { .. })
 }
 
 #[rstest]

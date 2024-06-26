@@ -20,9 +20,9 @@ use crate::utils::is_subsequence;
 #[path = "compilation_test.rs"]
 mod compilation_test;
 
+// TODO(Define a function for `compile_contract_class` - which ignores the `config` parameter).
 #[derive(Clone)]
 pub struct GatewayCompiler {
-    #[allow(dead_code)]
     pub config: GatewayCompilerConfig,
 }
 
@@ -41,7 +41,7 @@ impl GatewayCompiler {
         let casm_contract_class = self.compile(cairo_lang_contract_class)?;
 
         validate_compiled_class_hash(&casm_contract_class, &tx.compiled_class_hash)?;
-        validate_casm_class(&casm_contract_class)?;
+        self.validate_casm(&casm_contract_class)?;
 
         Ok(ClassInfo::new(
             &ContractClass::V1(ContractClassV1::try_from(casm_contract_class)?),
@@ -63,24 +63,63 @@ impl GatewayCompiler {
 
         Ok(casm_contract_class)
     }
-}
 
-// TODO(Arni): Add test.
-fn validate_casm_class(contract_class: &CasmContractClass) -> Result<(), GatewayError> {
-    let CasmContractEntryPoints { external, l1_handler, constructor } =
-        &contract_class.entry_points_by_type;
-    let entry_points_iterator = external.iter().chain(l1_handler.iter()).chain(constructor.iter());
+    fn validate_casm(&self, casm_contract_class: &CasmContractClass) -> Result<(), GatewayError> {
+        self.validate_casm_class(casm_contract_class)?;
+        self.validate_casm_class_size(casm_contract_class)?;
+        Ok(())
+    }
 
-    for entry_point in entry_points_iterator {
-        let builtins = &entry_point.builtins;
-        if !is_subsequence(builtins, supported_builtins()) {
-            return Err(GatewayError::UnsupportedBuiltins {
-                builtins: builtins.clone(),
-                supported_builtins: supported_builtins().to_vec(),
+    // TODO(Arni): Add test.
+    /// Validates that the Casm class is structured correctly. Specifically, this function ensures
+    /// that the builtins used by this class are supported and ordered correctly, as expected by
+    /// the OS.
+    fn validate_casm_class(&self, contract_class: &CasmContractClass) -> Result<(), GatewayError> {
+        let CasmContractEntryPoints { external, l1_handler, constructor } =
+            &contract_class.entry_points_by_type;
+        let entry_points_iterator =
+            external.iter().chain(l1_handler.iter()).chain(constructor.iter());
+
+        for entry_point in entry_points_iterator {
+            let builtins = &entry_point.builtins;
+            if !is_subsequence(builtins, supported_builtins()) {
+                return Err(GatewayError::UnsupportedBuiltins {
+                    builtins: builtins.clone(),
+                    supported_builtins: supported_builtins().to_vec(),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    // TODO(Arni): consider validating the size of other members of the Casm class. Cosider removing
+    // the validation of the raw class size. The validation should be linked to the way the class is
+    // saved in Papyrus etc.
+    /// Validates that the Casm class is within size limit. Specifically, this function validates
+    /// the size of the bytecode and the serialized class.
+    fn validate_casm_class_size(
+        &self,
+        casm_contract_class: &CasmContractClass,
+    ) -> Result<(), GatewayError> {
+        let bytecode_size = casm_contract_class.bytecode.len();
+        if bytecode_size > self.config.max_casm_bytecode_size {
+            return Err(GatewayError::CasmBytecodeSizeTooLarge {
+                bytecode_size,
+                max_bytecode_size: self.config.max_casm_bytecode_size,
             });
         }
+        let contract_class_object_size = serde_json::to_string(&casm_contract_class)
+            .expect("Unexpected error serializing Casm contract class.")
+            .len();
+        if contract_class_object_size > self.config.max_raw_casm_class_size {
+            return Err(GatewayError::CasmContractClassObjectSizeTooLarge {
+                contract_class_object_size,
+                max_contract_class_object_size: self.config.max_raw_casm_class_size,
+            });
+        }
+
+        Ok(())
     }
-    Ok(())
 }
 
 // TODO(Arni): Add to a config.
