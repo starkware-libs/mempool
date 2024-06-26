@@ -2,9 +2,13 @@ use std::panic;
 use std::sync::OnceLock;
 
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
+// TODO(Arni): Consider if you want to import a new crate just for a constant string.
+use cairo_felt::PRIME_STR;
 use cairo_lang_starknet_classes::casm_contract_class::{
     CasmContractClass, CasmContractEntryPoints,
 };
+use num_bigint::BigUint;
+use num_traits::Num;
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::RPCDeclareTransaction;
 use starknet_sierra_compile::compile::compile_sierra_to_casm;
@@ -85,6 +89,14 @@ impl GatewayCompiler {
                 });
             }
         }
+
+        let prime = contract_class.prime.clone();
+        let expected_prime =
+            BigUint::from_str_radix(&PRIME_STR[2..], 16).expect("Error parsing field prime.");
+        if prime != expected_prime {
+            return Err(GatewayError::InvalidPrime { prime, expected_prime });
+        }
+
         Ok(())
     }
 }
