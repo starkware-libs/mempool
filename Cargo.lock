@@ -731,6 +731,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ade8366b8bd5ba243f0a58f036cc0ca8a2f069cff1a2351ef1cac6b083e16fc0"
 
 [[package]]
+name = "cairo-felt"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae932292b9ba497a4e892b56aa4e0c6f329a455180fdbdc132700dfe68d9b153"
+dependencies = [
+ "lazy_static",
+ "num-bigint",
+ "num-integer",
+ "num-traits 0.2.19",
+ "serde",
+]
+
+[[package]]
 name = "cairo-lang-casm"
 version = "2.7.0-rc.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5359,6 +5372,7 @@ dependencies = [
  "async-trait",
  "axum",
  "blockifier 0.8.0-dev.1",
+ "cairo-felt",
  "cairo-lang-starknet-classes",
  "cairo-vm",
  "hyper",
