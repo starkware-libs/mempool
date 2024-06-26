@@ -1,7 +1,8 @@
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+use starknet_api::transaction::Builtin;
 
-use crate::utils::is_subsequence;
+use crate::utils::{is_subsequence, IntoEnumIteratorExt};
 
 #[rstest]
 #[case::empty(
@@ -75,4 +76,21 @@ fn test_is_subsequence(
     #[case] expected_result: bool,
 ) {
     assert_eq!(is_subsequence(subsequence, sequence), expected_result);
+}
+
+#[test]
+fn test_os_order_iter() {
+    let expected_order = vec![
+        Builtin::Pedersen,
+        Builtin::RangeCheck,
+        Builtin::Ecdsa,
+        Builtin::Bitwise,
+        Builtin::EcOp,
+        Builtin::Poseidon,
+        Builtin::SegmentArena,
+        Builtin::Keccak,
+    ];
+
+    let actual_order = Builtin::iter().collect::<Vec<_>>();
+    assert_eq!(actual_order, expected_order);
 }

@@ -8,12 +8,13 @@ use cairo_lang_starknet_classes::casm_contract_class::{
 };
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::RPCDeclareTransaction;
+use starknet_api::transaction::Builtin;
 use starknet_sierra_compile::compile::compile_sierra_to_casm;
 use starknet_sierra_compile::errors::CompilationUtilError;
 use starknet_sierra_compile::utils::into_contract_class_for_compilation;
 
 use crate::errors::{GatewayError, GatewayResult};
-use crate::utils::is_subsequence;
+use crate::utils::{is_subsequence, IntoEnumIteratorExt};
 
 #[cfg(test)]
 #[path = "compilation_test.rs"]
@@ -60,16 +61,33 @@ pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResu
     Ok(class_info)
 }
 
+// TODO(Arni): Consider moving into Starknet-api.
+// List of supported builtins. These builtins can be used by contracts directly.
+// This is an explicit function so that it is explicitly decides which builtins are supported.
+// If new builtins are added, they should be added here.
+fn is_os_supported_builtin(builtin: &Builtin) -> bool {
+    match builtin {
+        Builtin::RangeCheck
+        | Builtin::Pedersen
+        | Builtin::Poseidon
+        | Builtin::EcOp
+        | Builtin::Ecdsa
+        | Builtin::Bitwise
+        | Builtin::SegmentArena => true,
+        Builtin::Keccak => false,
+    }
+}
+
 // TODO(Arni): Add to a config.
 // TODO(Arni): Use the Builtin enum from Starknet-api, and explicitly tag each builtin as supported
 // or unsupported so that the compiler would alert us on new builtins.
 fn supported_builtins() -> &'static Vec<String> {
     static SUPPORTED_BUILTINS: OnceLock<Vec<String>> = OnceLock::new();
     SUPPORTED_BUILTINS.get_or_init(|| {
-        // The OS expects this order for the builtins.
-        const SUPPORTED_BUILTIN_NAMES: [&str; 7] =
-            ["pedersen", "range_check", "ecdsa", "bitwise", "ec_op", "poseidon", "segment_arena"];
-        SUPPORTED_BUILTIN_NAMES.iter().map(|builtin| builtin.to_string()).collect::<Vec<String>>()
+        Builtin::iter()
+            .filter(is_os_supported_builtin)
+            .map(|builtin| builtin.name().to_string())
+            .collect::<Vec<String>>()
     })
 }
 
