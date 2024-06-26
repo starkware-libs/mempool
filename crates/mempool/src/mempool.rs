@@ -41,7 +41,7 @@ impl Mempool {
                 );
             }
 
-            mempool.tx_queue.push((&tx).into());
+            mempool.tx_queue.push(TransactionReference::new(&tx));
 
             let tx_hash = tx.tx_hash;
             if let Err(err) = mempool.tx_pool.push(tx) {
@@ -84,7 +84,7 @@ impl Mempool {
             Vacant(entry) => {
                 entry.insert(account.state);
                 // TODO(Mohammad): use `handle_tx`.
-                self.tx_queue.push((&tx).into());
+                self.tx_queue.push(TransactionReference::new(&tx));
                 self.tx_pool.push(tx)?;
 
                 Ok(())
@@ -111,15 +111,15 @@ impl Mempool {
 /// TODO(Mohammad): rename this struct to `ThinTransaction` once that name
 /// becomes available, to better reflect its purpose and usage.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct TransactionReference {
+pub(crate) struct TransactionReference {
     pub sender_address: ContractAddress,
     pub nonce: Nonce,
     pub tx_hash: TransactionHash,
     pub tip: Tip,
 }
 
-impl From<&ThinTransaction> for TransactionReference {
-    fn from(tx: &ThinTransaction) -> Self {
+impl TransactionReference {
+    pub fn new(tx: &ThinTransaction) -> Self {
         TransactionReference {
             sender_address: tx.sender_address,
             nonce: tx.nonce,
