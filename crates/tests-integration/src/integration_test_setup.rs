@@ -42,7 +42,7 @@ impl IntegrationTestSetup {
             channel::<MempoolRequestAndResponseSender>(MEMPOOL_INVOCATIONS_QUEUE_SIZE);
         // Build and run gateway; initialize a gateway client.
         let gateway_mempool_client = MempoolClientImpl::new(tx_mempool.clone());
-        let gateway =
+        let mut gateway =
             create_gateway(Arc::new(gateway_mempool_client), n_initialized_account_contracts).await;
         let GatewayNetworkConfig { ip, port } = gateway.config.network_config;
         let gateway_client = GatewayClient::new(SocketAddr::from((ip, port)));

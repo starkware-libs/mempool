@@ -9,8 +9,10 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+anyhow.workspace = true
 clap.workspace = true
 const_format.workspace = true
+futures.workspace = true
 starknet_gateway = { path = "../gateway", version = "0.0" }
 starknet_mempool_infra = { path = "../mempool_infra", version = "0.0" }
 starknet_mempool = { path = "../mempool", version = "0.0" }
