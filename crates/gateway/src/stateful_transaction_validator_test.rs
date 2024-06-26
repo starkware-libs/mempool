@@ -13,6 +13,7 @@ use test_utils::starknet_api_test_utils::{
 };
 
 use crate::compilation::GatewayCompiler;
+use crate::compilation_config::GatewayCompilerConfig;
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
 use crate::state_reader_test_utils::{
@@ -82,7 +83,12 @@ fn test_stateful_tx_validator(
     };
     let optional_class_info = match &external_tx {
         RPCTransaction::Declare(declare_tx) => {
-            let gateway_compiler = GatewayCompiler { config: Default::default() };
+            let gateway_compiler = GatewayCompiler {
+                config: GatewayCompilerConfig {
+                    max_bytecode_size: 4800,
+                    max_raw_class_size: 111037,
+                },
+            };
             Some(gateway_compiler.compile_contract_class(declare_tx).unwrap())
         }
         _ => None,
