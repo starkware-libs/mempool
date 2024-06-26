@@ -40,7 +40,7 @@ impl Mempool {
             }
 
             mempool.tx_pool.insert(tx.clone())?;
-            mempool.txs_queue.insert(tx.into());
+            mempool.txs_queue.insert(TransactionReference::new(tx));
         }
 
         Ok(mempool)
@@ -78,7 +78,7 @@ impl Mempool {
                 entry.insert(account.state);
                 // TODO(Mohammad): use `handle_tx`.
                 self.tx_pool.insert(tx.clone())?;
-                self.txs_queue.insert(tx.into());
+                self.txs_queue.insert(TransactionReference::new(tx));
 
                 Ok(())
             }
@@ -103,5 +103,11 @@ impl Mempool {
 /// execution fields).
 /// TODO(Mohammad): rename this struct to `ThinTransaction` once that name
 /// becomes available, to better reflect its purpose and usage.
-#[derive(Clone, Debug, Default, derive_more::Deref, derive_more::From)]
+#[derive(Clone, Debug, Default, derive_more::Deref)]
 pub struct TransactionReference(pub ThinTransaction);
+
+impl TransactionReference {
+    pub fn new(tx: ThinTransaction) -> Self {
+        TransactionReference(tx)
+    }
+}
