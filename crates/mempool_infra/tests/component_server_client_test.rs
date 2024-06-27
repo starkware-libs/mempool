@@ -2,22 +2,24 @@ mod common;
 
 use async_trait::async_trait;
 use common::{ComponentAClientTrait, ComponentBClientTrait, ResultA, ResultB};
-use starknet_mempool_infra::component_client::ComponentClient;
+use starknet_mempool_infra::component_client::{ClientError, ComponentClient};
 use starknet_mempool_infra::component_definitions::{
     ComponentRequestAndResponseSender, ComponentRequestHandler,
 };
 use starknet_mempool_infra::component_server::ComponentServer;
-use tokio::sync::mpsc::{channel, Sender};
-use tokio::task;
+use tokio::sync::mpsc::channel;
+use tokio::task::{self, AbortHandle};
 
 use crate::common::{ComponentA, ComponentB, ValueA, ValueB};
 
 // TODO(Tsabary): send messages from component b to component a.
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ComponentARequest {
     AGetValue,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ComponentAResponse {
     Value(ValueA),
 }
@@ -25,7 +27,7 @@ pub enum ComponentAResponse {
 #[async_trait]
 impl ComponentAClientTrait for ComponentClient<ComponentARequest, ComponentAResponse> {
     async fn a_get_value(&self) -> ResultA {
-        let res = self.send(ComponentARequest::AGetValue).await;
+        let res = self.send(ComponentARequest::AGetValue).await?;
         match res {
             ComponentAResponse::Value(value) => Ok(value),
         }
@@ -54,7 +56,7 @@ pub enum ComponentBResponse {
 #[async_trait]
 impl ComponentBClientTrait for ComponentClient<ComponentBRequest, ComponentBResponse> {
     async fn b_get_value(&self) -> ResultB {
-        let res = self.send(ComponentBRequest::BGetValue).await;
+        let res = self.send(ComponentBRequest::BGetValue).await?;
         match res {
             ComponentBResponse::Value(value) => Ok(value),
         }
@@ -71,11 +73,31 @@ impl ComponentRequestHandler<ComponentBRequest, ComponentBResponse> for Componen
 }
 
 async fn verify_response(
-    tx_a: Sender<ComponentRequestAndResponseSender<ComponentARequest, ComponentAResponse>>,
+    a_client: &ComponentClient<ComponentARequest, ComponentAResponse>,
     expected_value: ValueA,
 ) {
-    let a_client = ComponentClient::new(tx_a);
-    assert_eq!(a_client.a_get_value().await.unwrap(), expected_value);
+    assert_eq!(a_client.a_get_value().await, Ok(expected_value));
+}
+
+async fn verify_error(
+    a_client: ComponentClient<ComponentARequest, ComponentAResponse>,
+    b_client: ComponentClient<ComponentBRequest, ComponentBResponse>,
+    abort_handle_a: AbortHandle,
+    abort_handle_b: AbortHandle,
+) {
+    // Aborting a task takse place when the task is active again, which in the following two cases
+    // after the main task yields.
+
+    // Case 1: Not waiting for the abortion to finish, making it fail after sending the request
+    abort_handle_a.abort();
+    let response = a_client.a_get_value().await;
+    assert_eq!(response, Err(ClientError::ChannelNoResponse));
+
+    // Case 2: Let the abortion finish first, this way it will fail while sending the request
+    abort_handle_b.abort();
+    task::yield_now().await;
+    let response = b_client.b_get_value().await;
+    assert_eq!(response, Err(ClientError::ChannelSendError));
 }
 
 #[tokio::test]
@@ -91,19 +113,22 @@ async fn test_setup() {
     let a_client = ComponentClient::new(tx_a.clone());
     let b_client = ComponentClient::new(tx_b.clone());
 
-    let component_a = ComponentA::new(Box::new(b_client));
-    let component_b = ComponentB::new(setup_value, Box::new(a_client));
+    let component_a = ComponentA::new(Box::new(b_client.clone()));
+    let component_b = ComponentB::new(setup_value, Box::new(a_client.clone()));
 
     let mut component_a_server = ComponentServer::new(component_a, rx_a);
     let mut component_b_server = ComponentServer::new(component_b, rx_b);
 
-    task::spawn(async move {
+    let abort_handle_a = task::spawn(async move {
         component_a_server.start().await;
-    });
+    })
+    .abort_handle();
 
-    task::spawn(async move {
+    let abort_handle_b = task::spawn(async move {
         component_b_server.start().await;
-    });
+    })
+    .abort_handle();
 
-    verify_response(tx_a.clone(), expected_value).await;
+    verify_response(&a_client, expected_value).await;
+    verify_error(a_client, b_client, abort_handle_a, abort_handle_b).await;
 }

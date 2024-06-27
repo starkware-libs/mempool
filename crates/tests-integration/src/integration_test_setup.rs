@@ -87,5 +87,6 @@ impl IntegrationTestSetup {
             .spawn(async move { batcher_mempool_client.get_txs(n_txs).await.unwrap() })
             .await
             .unwrap()
+            .unwrap()
     }
 }

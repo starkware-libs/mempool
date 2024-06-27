@@ -22,12 +22,12 @@ where
 
     // TODO(Tsabary, 1/5/2024): Consider implementation for messages without expected responses.
 
-    pub async fn send(&self, request: Request) -> Response {
+    pub async fn send(&self, request: Request) -> ClientResult<Response> {
         let (res_tx, mut res_rx) = channel::<Response>(1);
         let request_and_res_tx = ComponentRequestAndResponseSender { request, tx: res_tx };
-        self.tx.send(request_and_res_tx).await.expect("Outbound connection should be open.");
+        self.tx.send(request_and_res_tx).await.map_err(|_e| ClientError::ChannelSendError)?;
 
-        res_rx.recv().await.expect("Inbound connection should be open.")
+        res_rx.recv().await.ok_or(ClientError::ChannelNoResponse)
     }
 }
 
@@ -43,10 +43,14 @@ where
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum ClientError {
     #[error("Got an unexpected response type.")]
     UnexpectedResponse,
+    #[error("Could not send request to server.")]
+    ChannelSendError,
+    #[error("Not received a response from server.")]
+    ChannelNoResponse,
 }
 
-pub type ClientResult<T> = Result<T, ClientError>;
+pub type ClientResult<Response> = Result<Response, ClientError>;
