@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::mempool_types::{
-    Account, AccountState, MempoolInput, MempoolResult, ThinTransaction,
+    AccountState, MempoolInput, MempoolResult, ThinTransaction,
 };
 
 use crate::transaction_pool::TransactionPool;
@@ -55,8 +55,9 @@ impl Mempool {
 
     /// Adds a new transaction to the mempool.
     /// TODO: support fee escalation and transactions with future nonces.
-    /// TODO: change input type to `MempoolInput`.
-    pub fn add_tx(&mut self, tx: ThinTransaction, _account: Account) -> MempoolResult<()> {
+    /// TODO: check Account nonce and balance.
+    pub fn add_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
+        let tx = input.tx;
         // TODO(Mohammad): use `handle_tx`.
         self.tx_pool.insert(tx.clone())?;
         self.txs_queue.insert(tx.into());
