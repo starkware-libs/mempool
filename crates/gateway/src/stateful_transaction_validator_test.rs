@@ -2,6 +2,7 @@ use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::context::BlockContext;
 use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
+use pretty_assertions::assert_eq;
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
 use starknet_api::rpc_transaction::RPCTransaction;

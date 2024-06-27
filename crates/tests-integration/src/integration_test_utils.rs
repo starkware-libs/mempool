@@ -11,14 +11,17 @@ use starknet_gateway::config::{
 };
 use starknet_gateway::errors::GatewayError;
 use starknet_gateway::gateway::Gateway;
-use starknet_gateway::starknet_api_test_utils::external_tx_to_json;
+use starknet_gateway::starknet_api_test_utils::{
+    external_tx_to_json, MultiAccountTransactionGenerator,
+};
 use starknet_mempool_types::communication::SharedMempoolClient;
 
+use crate::integration_test_setup::IntegrationTestSetup;
 use crate::state_reader::rpc_test_state_reader_factory;
 
 pub async fn create_gateway(
     mempool_client: SharedMempoolClient,
-    n_initialized_account_contracts: u16,
+    n_initialized_accounts: usize,
 ) -> Gateway {
     let stateless_tx_validator_config = StatelessTransactionValidatorConfig {
         validate_non_zero_l1_gas_fee: true,
@@ -37,8 +40,9 @@ pub async fn create_gateway(
         stateful_tx_validator_config,
     };
 
+    let n_initialized_account = u16::try_from(n_initialized_accounts).unwrap();
     let state_reader_factory =
-        Arc::new(rpc_test_state_reader_factory(n_initialized_account_contracts).await);
+        Arc::new(rpc_test_state_reader_factory(n_initialized_account).await);
 
     Gateway::new(gateway_config, state_reader_factory, mempool_client)
 }
@@ -79,4 +83,14 @@ impl GatewayClient {
             .await
             .unwrap()
     }
+}
+
+/// Use to create a tx generator with _pre-funded_ accounts, alongside a mocked test setup.
+pub async fn setup_with_tx_generation(
+    n_accounts: usize,
+) -> (IntegrationTestSetup, MultiAccountTransactionGenerator) {
+    let integration_test_setup = IntegrationTestSetup::new(n_accounts).await;
+    let tx_generator = MultiAccountTransactionGenerator::new(n_accounts);
+
+    (integration_test_setup, tx_generator)
 }
