@@ -46,7 +46,7 @@ impl Mempool {
                 );
             }
 
-            mempool.txs_queue.push(tx.into());
+            mempool.txs_queue.insert(tx.into());
         }
 
         mempool
@@ -83,7 +83,7 @@ impl Mempool {
             Vacant(entry) => {
                 entry.insert(account.state);
                 // TODO(Mohammad): use `handle_tx`.
-                self.txs_queue.push(tx.clone().into());
+                self.txs_queue.insert(tx.clone().into());
                 self.tx_pool.insert(tx)?;
 
                 Ok(())
