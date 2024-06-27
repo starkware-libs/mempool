@@ -75,7 +75,8 @@ fn test_get_txs(#[case] requested_txs: usize) {
         MempoolInput { tx: tx_tip_50_address_0.clone(), account: account1 },
         MempoolInput { tx: tx_tip_100_address_1.clone(), account: account2 },
         MempoolInput { tx: tx_tip_10_address_2.clone(), account: account3 },
-    ]);
+    ])
+    .unwrap();
 
     let expected_addresses =
         [contract_address!("0x0"), contract_address!("0x1"), contract_address!("0x2")];
