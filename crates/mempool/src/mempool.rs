@@ -1,9 +1,7 @@
-use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::HashMap;
 
 use starknet_api::core::ContractAddress;
 use starknet_api::transaction::TransactionHash;
-use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, MempoolInput, MempoolResult, ThinTransaction,
 };
@@ -20,24 +18,13 @@ pub struct Mempool {
     // TODO: add docstring explaining visibility and coupling of the fields.
     txs_queue: TransactionQueue,
     tx_pool: TransactionPool,
-    state: HashMap<ContractAddress, AccountState>,
 }
 
 impl Mempool {
     pub fn new(inputs: impl IntoIterator<Item = MempoolInput>) -> Self {
         let mut mempool = Mempool::empty();
 
-        for MempoolInput { tx, account: Account { sender_address, state } } in inputs.into_iter() {
-            // Attempts to insert a key-value pair into the mempool's state. Returns `None`
-            // if the key was not present, otherwise returns the old value while updating
-            // the new value.
-            if mempool.state.insert(sender_address, state).is_some() {
-                panic!(
-                    "Sender address: {:?} already exists in the mempool. Can't add {:?} to the \
-                     mempool.",
-                    sender_address, tx
-                );
-            }
+        for MempoolInput { tx, .. } in inputs.into_iter() {
             // Attempt to push the transaction into the tx_pool
             if let Err(err) = mempool.tx_pool.push(tx.clone()) {
                 panic!(
@@ -66,7 +53,6 @@ impl Mempool {
 
         let txs = self.txs_queue.pop_last_chunk(n_txs);
         for tx in txs {
-            self.state.remove(&tx.sender_address);
             self.tx_pool.remove(tx.tx_hash)?;
             eligible_txs.push(tx.0);
         }
@@ -77,18 +63,12 @@ impl Mempool {
     /// Adds a new transaction to the mempool.
     /// TODO: support fee escalation and transactions with future nonces.
     /// TODO: change input type to `MempoolInput`.
-    pub fn add_tx(&mut self, tx: ThinTransaction, account: Account) -> MempoolResult<()> {
-        match self.state.entry(account.sender_address) {
-            Occupied(_) => Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash }),
-            Vacant(entry) => {
-                entry.insert(account.state);
-                // TODO(Mohammad): use `handle_tx`.
-                self.txs_queue.push(tx.clone().into());
-                self.tx_pool.push(tx)?;
+    pub fn add_tx(&mut self, tx: ThinTransaction, _account: Account) -> MempoolResult<()> {
+        // TODO(Mohammad): use `handle_tx`.
+        self.txs_queue.push(tx.clone().into());
+        self.tx_pool.push(tx)?;
 
-                Ok(())
-            }
-        }
+        Ok(())
     }
 
     /// Update the mempool's internal state according to the committed block's transactions.
