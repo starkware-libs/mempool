@@ -5610,6 +5610,7 @@ dependencies = [
  "cairo-lang-starknet-classes",
  "cairo-lang-utils",
  "num-bigint",
+ "rstest",
  "serde",
  "serde_json",
  "starknet_api",

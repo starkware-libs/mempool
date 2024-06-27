@@ -31,3 +31,20 @@ pub(crate) fn contract_class_from_file(file: &Path) -> ContractClass {
         abi: None,
     }
 }
+
+// Ways to corrupt Sierra programs.
+pub fn trancate_sierra_program(sierra_program: &mut [BigUintAsHex]) -> Vec<BigUintAsHex> {
+    let trancation_ammount = 100_usize;
+
+    sierra_program[..trancation_ammount].to_vec()
+}
+
+pub fn flip_bit(sierra_program: &mut [BigUintAsHex]) -> Vec<BigUintAsHex> {
+    let modified_felt = 100_usize;
+    let fliped_bit = 15;
+
+    let mut value = sierra_program[modified_felt].value.clone();
+    value.set_bit(fliped_bit, !value.bit(fliped_bit));
+    sierra_program[modified_felt] = BigUintAsHex { value };
+    sierra_program.to_vec()
+}
