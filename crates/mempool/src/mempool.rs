@@ -36,6 +36,11 @@ impl Mempool {
         Mempool::default()
     }
 
+    // This function is part of the public API of the mempool, but it is currently not in use.
+    pub fn iter(&self) -> impl Iterator<Item = TransactionReference> + '_ {
+        self.tx_queue.iter()
+    }
+
     /// Retrieves up to `n_txs` transactions with the highest priority from the mempool.
     /// Transactions are guaranteed to be unique across calls until `commit_block` is invoked.
     // TODO: the last part about commit_block is incorrect if we delete txs in get_txs and then push
