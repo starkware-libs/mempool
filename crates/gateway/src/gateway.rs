@@ -13,7 +13,7 @@ use cairo_lang_starknet_classes::casm_contract_class::{
 };
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
-use starknet_api::transaction::TransactionHash;
+use starknet_api::transaction::{Builtin, TransactionHash};
 use starknet_mempool_types::communication::SharedMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, MempoolInput};
 use starknet_sierra_compile::compile::{compile_sierra_to_casm, CompilationUtilError};
@@ -26,7 +26,7 @@ use crate::starknet_api_test_utils::get_sender_address;
 use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
-use crate::utils::{external_tx_to_thin_tx, is_subsequence};
+use crate::utils::{external_tx_to_thin_tx, is_subsequence, NameExt};
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -195,9 +195,16 @@ pub fn create_gateway(
 
 // TODO(Arni): Add to a config.
 fn get_supported_builtins() -> Vec<String> {
-    let builtins =
-        ["pedersen", "range_check", "ecdsa", "bitwise", "ec_op", "poseidon", "segment_arena"];
-    builtins.iter().map(|builtin| builtin.to_string()).collect()
+    let builtins = [
+        Builtin::Pedersen,
+        Builtin::RangeCheck,
+        Builtin::Ecdsa,
+        Builtin::Bitwise,
+        Builtin::EcOp,
+        Builtin::Poseidon,
+        Builtin::SegmentArena,
+    ];
+    builtins.iter().map(|builtin| builtin.name().to_string()).collect()
 }
 
 // TODO(Arni): Add test.

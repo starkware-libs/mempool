@@ -10,8 +10,9 @@ use starknet_api::rpc_transaction::{
     RPCDeclareTransaction, RPCDeployAccountTransaction, RPCInvokeTransaction, RPCTransaction,
 };
 use starknet_api::transaction::{
-    DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
-    InvokeTransaction, InvokeTransactionV3, Tip, TransactionHash, TransactionHasher,
+    Builtin, DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction,
+    DeployAccountTransactionV3, InvokeTransaction, InvokeTransactionV3, Tip, TransactionHash,
+    TransactionHasher,
 };
 use starknet_mempool_types::mempool_types::ThinTransaction;
 
@@ -165,4 +166,33 @@ pub fn is_subsequence<T: Eq>(subsequence: &[T], sequence: &[T]) -> bool {
     }
 
     offset == subsequence.len()
+}
+
+// TODO(Arni): Remove the trait NameExt once it is implemented in starknet API.
+const RANGE_CHACK_BUILTIN_NAME: &str = "range_check";
+const PEDERSEN_BUILTIN_NAME: &str = "pedersen";
+const POSEIDON_BUILTIN_NAME: &str = "poseidon";
+const EC_OP_BUILTIN_NAME: &str = "ec_op";
+const ECDSA_BUILTIN_NAME: &str = "ecdsa";
+const BITWISE_BUILTIN_NAME: &str = "bitwise";
+const KECCAK_BUILTIN_NAME: &str = "keccak";
+const SEGMENT_ARENA_BUILTIN_NAME: &str = "segment_arena";
+
+impl NameExt for Builtin {
+    fn name(&self) -> &'static str {
+        match self {
+            Builtin::RangeCheck => RANGE_CHACK_BUILTIN_NAME,
+            Builtin::Pedersen => PEDERSEN_BUILTIN_NAME,
+            Builtin::Poseidon => POSEIDON_BUILTIN_NAME,
+            Builtin::EcOp => EC_OP_BUILTIN_NAME,
+            Builtin::Ecdsa => ECDSA_BUILTIN_NAME,
+            Builtin::Bitwise => BITWISE_BUILTIN_NAME,
+            Builtin::Keccak => KECCAK_BUILTIN_NAME,
+            Builtin::SegmentArena => SEGMENT_ARENA_BUILTIN_NAME,
+        }
+    }
+}
+
+pub trait NameExt {
+    fn name(&self) -> &'static str;
 }
