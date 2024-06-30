@@ -5494,6 +5494,7 @@ dependencies = [
  "cairo-lang-starknet-classes",
  "cairo-vm",
  "hyper",
+ "lazy_static",
  "papyrus_config",
  "pretty_assertions",
  "reqwest",

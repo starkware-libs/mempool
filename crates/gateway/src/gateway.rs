@@ -11,9 +11,10 @@ use blockifier::execution::execution_utils::felt_to_stark_felt;
 use cairo_lang_starknet_classes::casm_contract_class::{
     CasmContractClass, CasmContractEntryPoints,
 };
+use lazy_static::lazy_static;
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
-use starknet_api::transaction::TransactionHash;
+use starknet_api::transaction::{Builtin, TransactionHash};
 use starknet_mempool_types::communication::SharedMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, MempoolInput};
 use starknet_sierra_compile::compile::compile_sierra_to_casm;
@@ -27,7 +28,7 @@ use crate::starknet_api_test_utils::get_sender_address;
 use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
-use crate::utils::{external_tx_to_thin_tx, is_subsequence};
+use crate::utils::{external_tx_to_thin_tx, is_subsequence, IntoEnumIteratorExt, NameExt};
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -194,11 +195,30 @@ pub fn create_gateway(
     Gateway::new(config, state_reader_factory, client)
 }
 
+// List of supported builtins.
+// This is an explicit function so that it is explicitly desiced which builtins are supported.
+// If new builtins are added, they should be added here.
+fn is_supported_builtin(builtin: &Builtin) -> bool {
+    match builtin {
+        Builtin::RangeCheck
+        | Builtin::Pedersen
+        | Builtin::Poseidon
+        | Builtin::EcOp
+        | Builtin::Ecdsa
+        | Builtin::Bitwise
+        | Builtin::SegmentArena => true,
+        Builtin::Keccak => false,
+    }
+}
+
 // TODO(Arni): Add to a config.
-fn get_supported_builtins() -> Vec<String> {
-    let builtins =
-        ["pedersen", "range_check", "ecdsa", "bitwise", "ec_op", "poseidon", "segment_arena"];
-    builtins.iter().map(|builtin| builtin.to_string()).collect()
+lazy_static! {
+    static ref SUPPORTED_BUILTINS: Vec<String> = {
+        Builtin::iter()
+            .filter(is_supported_builtin)
+            .map(|builtin| builtin.name().to_string())
+            .collect::<Vec<String>>()
+    };
 }
 
 // TODO(Arni): Add test.
@@ -207,13 +227,13 @@ fn validate_casm_class(contract_class: &CasmContractClass) -> Result<(), Gateway
         &contract_class.entry_points_by_type;
     let entry_points_iterator = external.iter().chain(l1_handler.iter()).chain(constructor.iter());
 
-    let supported_builtins = &get_supported_builtins();
+    let supported_builtins = &SUPPORTED_BUILTINS;
     for entry_point in entry_points_iterator {
         let builtins = &entry_point.builtins;
         if !is_subsequence(builtins, supported_builtins) {
             return Err(GatewayError::SupportedBuiltins {
                 builtins: builtins.clone(),
-                supported_builtins: supported_builtins.clone(),
+                supported_builtins: supported_builtins.to_vec(),
             });
         }
     }
