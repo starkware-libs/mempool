@@ -69,9 +69,7 @@ impl TransactionPool {
 }
 
 #[derive(Debug, Default)]
-pub struct AccountTransactionIndex(
-    pub HashMap<ContractAddress, BTreeMap<Nonce, TransactionReference>>,
-);
+struct AccountTransactionIndex(pub HashMap<ContractAddress, BTreeMap<Nonce, TransactionReference>>);
 
 impl AccountTransactionIndex {
     /// If the transaction already exists in the mapping, the old value is returned.
