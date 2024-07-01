@@ -17,7 +17,9 @@ use tokio::task;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
 use crate::gateway::{add_tx, compile_contract_class, AppState, SharedMempoolClient};
-use crate::starknet_api_test_utils::{declare_tx, deploy_account_tx, invoke_tx};
+use crate::starknet_api_test_utils::{
+    declare_tx, declare_tx_old_sierra, deploy_account_tx, invoke_tx,
+};
 use crate::state_reader_test_utils::{
     local_test_state_reader_factory, local_test_state_reader_factory_for_deploy_account,
     TestStateReaderFactory,
@@ -27,6 +29,8 @@ use crate::stateless_transaction_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_account_tx, get_tx_hash};
 
 const MEMPOOL_INVOCATIONS_QUEUE_SIZE: usize = 32;
+// TODO: Change to StarknetErrorCodes::INVALID_CONTRACT_CLASS (50) once SN error codes are added.
+const INVALID_CONTRACT_CLASS_STATUS_CODE: StatusCode = StatusCode::INTERNAL_SERVER_ERROR;
 
 #[fixture]
 fn mempool() -> Mempool {
@@ -61,23 +65,33 @@ pub fn app_state(
 #[rstest]
 #[case::valid_invoke_tx_cairo1(
     invoke_tx(CairoVersion::Cairo1),
-    local_test_state_reader_factory(CairoVersion::Cairo1, false)
+    local_test_state_reader_factory(CairoVersion::Cairo1, false),
+    StatusCode::OK
 )]
 #[case::valid_invoke_tx_cairo0(
     invoke_tx(CairoVersion::Cairo0),
-    local_test_state_reader_factory(CairoVersion::Cairo0, false)
+    local_test_state_reader_factory(CairoVersion::Cairo0, false),
+    StatusCode::OK
 )]
 #[case::valid_deploy_account_tx(
     deploy_account_tx(),
-    local_test_state_reader_factory_for_deploy_account(&tx)
+    local_test_state_reader_factory_for_deploy_account(&tx),
+    StatusCode::OK
 )]
 #[case::valid_declare_tx(
     declare_tx(),
-    local_test_state_reader_factory(CairoVersion::Cairo1, false)
+    local_test_state_reader_factory(CairoVersion::Cairo1, false),
+    StatusCode::OK
+)]
+#[case::invalid_declare_tx_old_sierra(
+    declare_tx_old_sierra(),
+    local_test_state_reader_factory(CairoVersion::Cairo1, false),
+    INVALID_CONTRACT_CLASS_STATUS_CODE
 )]
 async fn test_add_tx(
     #[case] tx: RPCTransaction,
     #[case] state_reader_factory: TestStateReaderFactory,
+    #[case] expected_status_code: StatusCode,
     mempool: Mempool,
 ) {
     // TODO(Tsabary): wrap creation of channels in dedicated functions, take channel capacity from
@@ -93,14 +107,16 @@ async fn test_add_tx(
 
     let app_state = app_state(mempool_client, state_reader_factory);
 
-    let tx_hash = calculate_hash(&tx);
-    let response = add_tx(State(app_state), tx.into()).await.into_response();
+    let response = add_tx(State(app_state), tx.clone().into()).await.into_response();
 
     let status_code = response.status();
     let response_bytes = &to_bytes(response).await;
 
-    assert_eq!(status_code, StatusCode::OK, "{response_bytes:?}");
-    assert_eq!(tx_hash, serde_json::from_slice(response_bytes).unwrap());
+    assert_eq!(status_code, expected_status_code, "{response_bytes:?}");
+    if expected_status_code == StatusCode::OK {
+        let tx_hash = calculate_hash(&tx);
+        assert_eq!(tx_hash, serde_json::from_slice(response_bytes).unwrap());
+    }
 }
 
 async fn to_bytes(res: Response) -> Bytes {

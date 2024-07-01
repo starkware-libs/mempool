@@ -112,6 +112,17 @@ pub fn declare_tx() -> RPCTransaction {
     ))
 }
 
+// Creates a declare transaction with an old Sierra version (0.0.1).
+pub fn declare_tx_old_sierra() -> RPCTransaction {
+    let mut tx = match declare_tx() {
+        RPCTransaction::Declare(RPCDeclareTransaction::V3(tx)) => tx,
+        _ => unreachable!("Expecting declare v3 transaction."),
+    };
+    let old_sierra_version = vec![stark_felt!("0x0"), stark_felt!("0x0"), stark_felt!("0x1")];
+    tx.contract_class.sierra_program[0..3].copy_from_slice(old_sierra_version.as_slice());
+    RPCTransaction::Declare(RPCDeclareTransaction::V3(tx))
+}
+
 // TODO(Ayelet, 28/5/2025): Try unifying the macros.
 // TODO(Ayelet, 28/5/2025): Consider moving the macros StarkNet API.
 #[macro_export]
