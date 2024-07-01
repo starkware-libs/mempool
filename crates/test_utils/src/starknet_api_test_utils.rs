@@ -9,16 +9,15 @@ use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::StarkFelt;
 use starknet_api::rpc_transaction::{
-    ContractClass, RPCDeclareTransaction, RPCDeclareTransactionV3, RPCDeployAccountTransaction,
-    RPCDeployAccountTransactionV3, RPCInvokeTransaction, RPCInvokeTransactionV3, RPCTransaction,
-    ResourceBoundsMapping,
+    ContractClass, RPCDeclareTransactionV3, RPCDeployAccountTransactionV3, RPCInvokeTransactionV3,
+    RPCTransaction, ResourceBoundsMapping,
 };
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, PaymasterData, ResourceBounds, Tip,
     TransactionSignature, TransactionVersion,
 };
 use starknet_api::{calldata, stark_felt};
-use test_utils::{get_absolute_path, CONTRACT_CLASS_FILE, TEST_FILES_FOLDER};
+use crate::{get_absolute_path, CONTRACT_CLASS_FILE, TEST_FILES_FOLDER};
 
 use crate::{declare_tx_args, deploy_account_tx_args, invoke_tx_args};
 
@@ -30,17 +29,6 @@ pub enum TransactionType {
     Declare,
     DeployAccount,
     Invoke,
-}
-
-pub fn get_sender_address(tx: &RPCTransaction) -> ContractAddress {
-    match tx {
-        RPCTransaction::Declare(RPCDeclareTransaction::V3(tx)) => tx.sender_address,
-        // TODO(Mohammad): Add support for deploy account.
-        RPCTransaction::DeployAccount(RPCDeployAccountTransaction::V3(_)) => {
-            ContractAddress::default()
-        }
-        RPCTransaction::Invoke(RPCInvokeTransaction::V3(tx)) => tx.sender_address,
-    }
 }
 
 pub fn external_tx_for_testing(

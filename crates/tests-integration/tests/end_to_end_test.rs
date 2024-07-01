@@ -1,6 +1,6 @@
 use blockifier::test_utils::CairoVersion;
 use starknet_api::transaction::TransactionHash;
-use starknet_gateway::starknet_api_test_utils::invoke_tx;
+use test_utils::starknet_api_test_utils::invoke_tx;
 use starknet_mempool_integration_tests::integration_test_setup::IntegrationTestSetup;
 
 #[tokio::test]

@@ -1,3 +1,4 @@
+pub mod starknet_api_test_utils;
 use std::env;
 use std::path::{Path, PathBuf};
 

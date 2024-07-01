@@ -10,7 +10,7 @@ use starknet_api::transaction::TransactionHash;
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
 use crate::gateway::compile_contract_class;
-use crate::starknet_api_test_utils::{
+use test_utils::starknet_api_test_utils::{
     declare_tx, deploy_account_tx, invoke_tx, VALID_L1_GAS_MAX_AMOUNT,
     VALID_L1_GAS_MAX_PRICE_PER_UNIT,
 };

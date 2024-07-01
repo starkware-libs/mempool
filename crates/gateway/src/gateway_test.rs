@@ -17,7 +17,7 @@ use tokio::task;
 
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
 use crate::gateway::{add_tx, compile_contract_class, AppState, SharedMempoolClient};
-use crate::starknet_api_test_utils::{declare_tx, deploy_account_tx, invoke_tx};
+use test_utils::starknet_api_test_utils::{declare_tx, deploy_account_tx, invoke_tx};
 use crate::state_reader_test_utils::{
     local_test_state_reader_factory, local_test_state_reader_factory_for_deploy_account,
     TestStateReaderFactory,
