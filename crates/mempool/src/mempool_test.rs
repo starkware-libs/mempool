@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use assert_matches::assert_matches;
 use itertools::zip_eq;
 use pretty_assertions::assert_eq;
@@ -47,7 +49,7 @@ fn mempool() -> Mempool {
 // Asserts that the transactions in the mempool are in ascending order as per the expected
 // transactions.
 #[track_caller]
-fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
+fn check_mempool_pq_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
     let mempool_txs = mempool.tx_queue.iter();
     let expected_txs = expected_txs.iter().map(TransactionReference::new);
 
@@ -55,6 +57,14 @@ fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
         zip_eq(expected_txs, mempool_txs)
             // Deref the inner mempool tx type.
             .all(|(expected_tx, mempool_tx)| expected_tx == *mempool_tx)
+    );
+}
+
+#[track_caller]
+fn check_mempool_txs_eq(mempool_txs: &[ThinTransaction], expected_txs: &[ThinTransaction]) {
+    assert!(
+        zip_eq(expected_txs, mempool_txs)
+            .all(|(expected_tx, mempool_tx)| expected_tx == mempool_tx)
     );
 }
 
@@ -89,7 +99,7 @@ fn test_get_txs(#[case] requested_txs: usize) {
     assert_eq!(txs, expected_txs);
 
     // checks that the transactions that were not returned are still in the mempool.
-    check_mempool_txs_eq(&mempool, remaining_txs);
+    check_mempool_pq_txs_eq(&mempool, remaining_txs);
 }
 
 #[rstest]
@@ -106,7 +116,7 @@ fn test_add_tx(mut mempool: Mempool) {
 
     let expected_txs =
         &[input_tip_50_address_0.tx, input_tip_80_address_2.tx, input_tip_100_address_1.tx];
-    check_mempool_txs_eq(&mempool, expected_txs)
+    check_mempool_pq_txs_eq(&mempool, expected_txs)
 }
 
 #[rstest]
@@ -121,7 +131,30 @@ fn test_add_same_tx(mut mempool: Mempool) {
         Err(MempoolError::DuplicateTransaction { .. })
     );
     // Assert that the original tx remains in the pool after the failed attempt.
-    check_mempool_txs_eq(&mempool, &[same_input.tx])
+    check_mempool_pq_txs_eq(&mempool, &[same_input.tx])
+}
+
+#[rstest]
+fn test_commit_block() {
+    let tx_tip_50_address_0 = add_tx_input!(Tip(50), TransactionHash(StarkFelt::ONE));
+    let tx_tip_100_address_1 =
+        add_tx_input!(Tip(100), TransactionHash(StarkFelt::TWO), contract_address!("0x1"));
+
+    let mut mempool =
+        Mempool::new([tx_tip_50_address_0.clone(), tx_tip_100_address_1.clone()]).unwrap();
+
+    let sorted_txs = vec![tx_tip_100_address_1.tx, tx_tip_50_address_0.tx];
+
+    let txs = mempool.get_txs(2).unwrap();
+
+    // checks that the returned transactions are the ones with the highest priority.
+    assert_eq!(txs.len(), 2);
+    check_mempool_txs_eq(txs.as_slice(), &sorted_txs[..2]);
+
+    mempool.commit_block(&[TransactionHash(StarkFelt::TWO)], HashMap::default()).unwrap();
+
+    let _txs = mempool.get_txs(1).unwrap();
+    mempool.commit_block(&[TransactionHash(StarkFelt::ONE)], HashMap::default()).unwrap();
 }
 
 #[rstest]
@@ -137,7 +170,7 @@ fn test_add_tx_with_identical_tip_succeeds(mut mempool: Mempool) {
 
     // TODO: currently hash comparison tie-breaks the two. Once more robust tie-breaks are added
     // replace this assertion with a dedicated test.
-    check_mempool_txs_eq(&mempool, &[input2.tx, input1.tx]);
+    check_mempool_pq_txs_eq(&mempool, &[input2.tx, input1.tx]);
 }
 
 #[rstest]
@@ -151,5 +184,5 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
 
     assert_eq!(mempool.add_tx(input_big_tip_small_hash.clone()), Ok(()));
     assert_eq!(mempool.add_tx(input_small_tip_big_hash.clone()), Ok(()));
-    check_mempool_txs_eq(&mempool, &[input_small_tip_big_hash.tx, input_big_tip_small_hash.tx])
+    check_mempool_pq_txs_eq(&mempool, &[input_small_tip_big_hash.tx, input_big_tip_small_hash.tx])
 }
