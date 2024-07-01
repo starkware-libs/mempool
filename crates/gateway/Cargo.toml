@@ -9,11 +9,12 @@ version.workspace = true
 workspace = true
 
 [features]
-testing = []
+testing = ["dep:assert_matches"]
 
 [dependencies]
 axum.workspace = true
-blockifier.workspace = true
+assert_matches = { workspace = true, optional = true }
+blockifier= { workspace = true , features = ["testing"] }
 cairo-lang-starknet-classes.workspace = true
 cairo-vm.workspace = true
 hyper.workspace = true
@@ -30,7 +31,6 @@ tokio.workspace = true
 validator.workspace = true
 
 [dev-dependencies]
-assert_matches.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
 starknet_mempool = { path = "../mempool", version = "0.0" }
