@@ -9,6 +9,8 @@ use serde_json::{Error as SerdeError, Value};
 use starknet_api::block::{BlockNumber, GasPrice};
 use starknet_api::transaction::{Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
+use starknet_mempool_infra::component_client::ClientError;
+use starknet_mempool_types::errors::MempoolError;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -25,8 +27,10 @@ pub enum GatewayError {
     DeclaredContractProgramError(#[from] ProgramError),
     #[error("Internal server error: {0}")]
     InternalServerError(#[from] JoinError),
+    #[error("Internal message error: {0}")]
+    InternalMessageError(#[from] MempoolError),
     #[error("Error sending message: {0}")]
-    MessageSendError(String),
+    MessageSendError(#[from] ClientError),
     #[error(transparent)]
     StatefulTransactionValidatorError(#[from] StatefulTransactionValidatorError),
     #[error(transparent)]
