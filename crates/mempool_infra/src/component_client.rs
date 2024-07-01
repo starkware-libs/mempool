@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::net::IpAddr;
 
 use bincode::{deserialize, serialize};
+use hyper::body::to_bytes;
 use hyper::header::CONTENT_TYPE;
 use hyper::{Body, Client, Request as HyperRequest, Uri};
 use serde::{Deserialize, Serialize};
@@ -73,7 +74,7 @@ where
         Self { uri, _req: PhantomData, _res: PhantomData }
     }
 
-    pub async fn send(&self, component_request: Request) -> Response {
+    pub async fn send(&self, component_request: Request) -> ClientResult<Response> {
         let http_request = HyperRequest::post(self.uri.clone())
             .header(CONTENT_TYPE, APPLICATION_OCTET_STREAM)
             .body(Body::from(
@@ -82,17 +83,31 @@ where
             .expect("Request builidng should succeed");
 
         // Todo(uriel): Add configuration to control number of retries
-        let http_response =
-            Client::new().request(http_request).await.expect("Could not connect to server");
-        let body_bytes = hyper::body::to_bytes(http_response.into_body())
+        let http_response = Client::new()
+            .request(http_request)
             .await
-            .expect("Could not get response from server");
-        deserialize(&body_bytes).expect("Response deserialization should succeed")
+            .map_err(|_e| ClientError::ConnectionFailure)?;
+        let body_bytes = to_bytes(http_response.into_body()).await.expect("Body should exist");
+        Ok(deserialize(&body_bytes).expect("Response deserialization should succeed"))
     }
 }
 
-#[derive(Debug, Error)]
+// Can't derive because derive forces the generics to also be `Clone`, which we prefer not to do
+// since it'll require transactions to be cloneable.
+impl<Request, Response> Clone for ComponentClientHttp<Request, Response>
+where
+    Request: Serialize,
+    Response: for<'a> Deserialize<'a>,
+{
+    fn clone(&self) -> Self {
+        Self { uri: self.uri.clone(), _req: PhantomData, _res: PhantomData }
+    }
+}
+
+#[derive(Debug, Error, PartialEq)]
 pub enum ClientError {
+    #[error("Could not conenct to server")]
+    ConnectionFailure,
     #[error("Got an unexpected response type.")]
     UnexpectedResponse,
 }
