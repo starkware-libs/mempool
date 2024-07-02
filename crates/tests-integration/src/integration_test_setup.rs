@@ -9,20 +9,21 @@ use starknet_mempool::communication::create_mempool_server;
 use starknet_mempool::mempool::Mempool;
 use starknet_mempool_infra::component_server::ComponentServerStarter;
 use starknet_mempool_types::communication::{MempoolClientImpl, MempoolRequestAndResponseSender};
-use starknet_mempool_types::mempool_types::ThinTransaction;
 use starknet_task_executor::executor::TaskExecutor;
 use starknet_task_executor::tokio_executor::TokioExecutor;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::channel;
+use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
-use crate::integration_test_utils::{create_gateway, GatewayClient};
+use crate::integration_test_utils::{create_gateway, BatcherCommand, GatewayClient};
 use crate::mock_batcher::MockBatcher;
 
 pub struct IntegrationTestSetup {
     pub task_executor: TokioExecutor,
     pub gateway_client: GatewayClient,
-    pub batcher: MockBatcher,
+    batcher: Arc<Mutex<MockBatcher>>,
+    tx_batcher: Sender<BatcherCommand>,
 
     pub gateway_handle: JoinHandle<()>,
     pub mempool_handle: JoinHandle<()>,
@@ -54,7 +55,9 @@ impl IntegrationTestSetup {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         // Build Batcher.
-        let batcher = MockBatcher::new(tx_mempool.clone());
+        let buffer_size = 32;
+        let (tx_batcher, rx_batcher) = channel::<BatcherCommand>(buffer_size);
+        let batcher = Arc::new(Mutex::new(MockBatcher::new(rx_batcher)));
 
         // Build and run mempool.
         let mut mempool_server = create_mempool_server(Mempool::empty(), rx_mempool);
@@ -62,7 +65,7 @@ impl IntegrationTestSetup {
             mempool_server.start().await;
         });
 
-        Self { task_executor, gateway_client, batcher, gateway_handle, mempool_handle }
+        Self { task_executor, gateway_client, batcher, tx_batcher, gateway_handle, mempool_handle }
     }
 
     pub async fn assert_add_tx_success(&self, tx: &RPCTransaction) -> TransactionHash {
@@ -73,8 +76,15 @@ impl IntegrationTestSetup {
         self.gateway_client.assert_add_tx_error(tx).await
     }
 
-    pub async fn get_txs(&mut self, n_txs: usize) -> Vec<ThinTransaction> {
-        let mock_batcher = self.batcher.clone();
-        self.task_executor.spawn(async move { mock_batcher.get_txs(n_txs).await }).await.unwrap()
+    pub async fn trigger_batcher(&self) {
+        let batcher = Arc::clone(&self.batcher);
+        let tx_batcher = self.tx_batcher.clone();
+        self.task_executor
+            .spawn(async move {
+                tx_batcher.send(BatcherCommand::TriggerBatcher).await.unwrap();
+                batcher.lock().await.run().await;
+            })
+            .await
+            .unwrap();
     }
 }
