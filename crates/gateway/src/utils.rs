@@ -10,8 +10,9 @@ use starknet_api::rpc_transaction::{
     RPCDeclareTransaction, RPCDeployAccountTransaction, RPCInvokeTransaction, RPCTransaction,
 };
 use starknet_api::transaction::{
-    DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction, DeployAccountTransactionV3,
-    InvokeTransaction, InvokeTransactionV3, Tip, TransactionHash, TransactionHasher,
+    Builtin, DeclareTransaction, DeclareTransactionV3, DeployAccountTransaction,
+    DeployAccountTransactionV3, InvokeTransaction, InvokeTransactionV3, Tip, TransactionHash,
+    TransactionHasher,
 };
 use starknet_mempool_types::mempool_types::ThinTransaction;
 
@@ -175,4 +176,27 @@ pub fn is_subsequence<T: Eq>(subsequence: &[T], sequence: &[T]) -> bool {
     }
 
     offset == subsequence.len()
+}
+
+// TODO(Arni): Remove the traitIntoEnumIteratorExt once EnumIter is implemented in starknet API.
+impl IntoOsOrderEnumIteratorExt for Builtin {
+    fn os_order_iter() -> impl Iterator<Item = Builtin> {
+        // The OS expects this order for the builtins.
+        vec![
+            Builtin::Pedersen,
+            Builtin::RangeCheck,
+            Builtin::Ecdsa,
+            Builtin::Bitwise,
+            Builtin::EcOp,
+            Builtin::Poseidon,
+            Builtin::SegmentArena,
+            Builtin::Keccak,
+        ]
+        .into_iter()
+    }
+}
+
+pub trait IntoOsOrderEnumIteratorExt {
+    /// Returns an iterator over all the builtins in the order the Starknet OS expects.
+    fn os_order_iter() -> impl Iterator<Item = Builtin>;
 }
