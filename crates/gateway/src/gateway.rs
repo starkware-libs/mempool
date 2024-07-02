@@ -81,6 +81,13 @@ impl Gateway {
             .route("/add_tx", post(add_tx))
             .with_state(self.app_state.clone())
     }
+
+    pub fn inject_state_reader_factory(
+        &mut self,
+        state_reader_factory: Arc<dyn StateReaderFactory>,
+    ) {
+        self.app_state.state_reader_factory = state_reader_factory.clone();
+    }
 }
 
 // Gateway handlers.
