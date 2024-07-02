@@ -65,7 +65,7 @@ impl Gateway {
         Gateway { config, app_state }
     }
 
-    pub async fn run(self) -> Result<(), GatewayRunError> {
+    pub async fn run(&mut self) -> Result<(), GatewayRunError> {
         // Parses the bind address from GatewayConfig, returning an error for invalid addresses.
         let GatewayNetworkConfig { ip, port } = self.config.network_config;
         let addr = SocketAddr::new(ip, port);
@@ -75,11 +75,11 @@ impl Gateway {
         Ok(axum::Server::bind(&addr).serve(app.into_make_service()).await?)
     }
 
-    pub fn app(self) -> Router {
+    pub fn app(&self) -> Router {
         Router::new()
             .route("/is_alive", get(is_alive))
             .route("/add_tx", post(add_tx))
-            .with_state(self.app_state)
+            .with_state(self.app_state.clone())
     }
 }
 
@@ -194,8 +194,10 @@ pub fn create_gateway(
 #[async_trait]
 impl ComponentRunner for Gateway {
     async fn start(&mut self) -> Result<(), ComponentStartError> {
-        // TODO(Lev, 23/07/2024): Implement the real logic.
         println!("Gateway::start()");
-        Ok(())
+        match self.run().await {
+            Ok(_) => Ok(()),
+            Err(_) => Err(ComponentStartError::InternalComponentError),
+        }
     }
 }
