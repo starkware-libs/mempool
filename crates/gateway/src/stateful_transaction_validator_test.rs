@@ -13,7 +13,7 @@ use test_utils::starknet_api_test_utils::{
 
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
-use crate::gateway::compile_contract_class;
+use crate::gateway::{compile_contract_class, SierraToCasmCompilationConfig};
 use crate::state_reader_test_utils::{
     local_test_state_reader_factory, local_test_state_reader_factory_for_deploy_account,
     TestStateReaderFactory,
@@ -80,7 +80,16 @@ fn test_stateful_tx_validator(
         },
     };
     let optional_class_info = match &external_tx {
-        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx).unwrap()),
+        RPCTransaction::Declare(declare_tx) => Some(
+            compile_contract_class(
+                declare_tx,
+                SierraToCasmCompilationConfig {
+                    max_bytecode_size: usize::MAX,
+                    max_raw_class_size: usize::MAX,
+                },
+            )
+            .unwrap(),
+        ),
         _ => None,
     };
 

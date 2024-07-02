@@ -19,6 +19,19 @@ use crate::compiler_version::{VersionId, VersionIdError};
 /// Errors directed towards the end-user, as a result of gateway requests.
 #[derive(Debug, Error)]
 pub enum GatewayError {
+    #[error(
+        "Cannot declare Casm contract class with bytecode size of {bytecode_size}; max allowed \
+         size: {max_bytecode_size}."
+    )]
+    CasmBytecodeSizeTooLarge { bytecode_size: usize, max_bytecode_size: usize },
+    #[error(
+        "Cannot declare Casm contract class with size of {contract_class_object_size}; max \
+         allowed size: {max_contract_class_object_size}."
+    )]
+    CasmContractClassObjectSizeTooLarge {
+        contract_class_object_size: usize,
+        max_contract_class_object_size: usize,
+    },
     #[error(transparent)]
     CompilationError(#[from] CompilationUtilError),
     #[error(
