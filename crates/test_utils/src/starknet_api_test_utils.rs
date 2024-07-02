@@ -12,8 +12,8 @@ use starknet_api::core::{
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::StarkFelt;
 use starknet_api::rpc_transaction::{
-    ContractClass, RPCDeclareTransactionV3, RPCDeployAccountTransaction,
-    RPCDeployAccountTransactionV3, RPCInvokeTransactionV3, RPCTransaction, ResourceBoundsMapping,
+    ContractClass, ResourceBoundsMapping, RpcDeclareTransactionV3, RpcDeployAccountTransaction,
+    RpcDeployAccountTransactionV3, RpcInvokeTransactionV3, RpcTransaction,
 };
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, PaymasterData, ResourceBounds, Tip,
@@ -41,7 +41,7 @@ pub fn external_tx_for_testing(
     resource_bounds: ResourceBoundsMapping,
     calldata: Calldata,
     signature: TransactionSignature,
-) -> RPCTransaction {
+) -> RpcTransaction {
     match tx_type {
         TransactionType::Declare => {
             // Minimal contract class.
@@ -86,7 +86,7 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
     )
 }
 
-pub fn declare_tx() -> RPCTransaction {
+pub fn declare_tx() -> RpcTransaction {
     env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Couldn't set working dir.");
     let json_file_path = Path::new(CONTRACT_CLASS_FILE);
     let contract_class = serde_json::from_reader(File::open(json_file_path).unwrap()).unwrap();
@@ -260,10 +260,10 @@ impl Default for DeclareTxArgs {
     }
 }
 
-pub fn external_invoke_tx(invoke_args: InvokeTxArgs) -> RPCTransaction {
+pub fn external_invoke_tx(invoke_args: InvokeTxArgs) -> RpcTransaction {
     match invoke_args.version {
-        TransactionVersion::THREE => starknet_api::rpc_transaction::RPCTransaction::Invoke(
-            starknet_api::rpc_transaction::RPCInvokeTransaction::V3(RPCInvokeTransactionV3 {
+        TransactionVersion::THREE => starknet_api::rpc_transaction::RpcTransaction::Invoke(
+            starknet_api::rpc_transaction::RpcInvokeTransaction::V3(RpcInvokeTransactionV3 {
                 resource_bounds: invoke_args.resource_bounds,
                 tip: invoke_args.tip,
                 calldata: invoke_args.calldata,
@@ -280,11 +280,11 @@ pub fn external_invoke_tx(invoke_args: InvokeTxArgs) -> RPCTransaction {
     }
 }
 
-pub fn external_deploy_account_tx(deploy_tx_args: DeployAccountTxArgs) -> RPCTransaction {
+pub fn external_deploy_account_tx(deploy_tx_args: DeployAccountTxArgs) -> RpcTransaction {
     match deploy_tx_args.version {
-        TransactionVersion::THREE => starknet_api::rpc_transaction::RPCTransaction::DeployAccount(
-            starknet_api::rpc_transaction::RPCDeployAccountTransaction::V3(
-                RPCDeployAccountTransactionV3 {
+        TransactionVersion::THREE => starknet_api::rpc_transaction::RpcTransaction::DeployAccount(
+            starknet_api::rpc_transaction::RpcDeployAccountTransaction::V3(
+                RpcDeployAccountTransactionV3 {
                     resource_bounds: deploy_tx_args.resource_bounds,
                     tip: deploy_tx_args.tip,
                     contract_address_salt: deploy_tx_args.contract_address_salt,
@@ -302,10 +302,10 @@ pub fn external_deploy_account_tx(deploy_tx_args: DeployAccountTxArgs) -> RPCTra
     }
 }
 
-pub fn external_declare_tx(declare_tx_args: DeclareTxArgs) -> RPCTransaction {
+pub fn external_declare_tx(declare_tx_args: DeclareTxArgs) -> RpcTransaction {
     match declare_tx_args.version {
-        TransactionVersion::THREE => starknet_api::rpc_transaction::RPCTransaction::Declare(
-            starknet_api::rpc_transaction::RPCDeclareTransaction::V3(RPCDeclareTransactionV3 {
+        TransactionVersion::THREE => starknet_api::rpc_transaction::RpcTransaction::Declare(
+            starknet_api::rpc_transaction::RpcDeclareTransaction::V3(RpcDeclareTransactionV3 {
                 contract_class: declare_tx_args.contract_class,
                 signature: declare_tx_args.signature,
                 sender_address: declare_tx_args.sender_address,
@@ -323,15 +323,15 @@ pub fn external_declare_tx(declare_tx_args: DeclareTxArgs) -> RPCTransaction {
     }
 }
 
-pub fn external_tx_to_json(tx: &RPCTransaction) -> String {
+pub fn external_tx_to_json(tx: &RpcTransaction) -> String {
     let mut tx_json = serde_json::to_value(tx)
         .unwrap_or_else(|tx| panic!("Failed to serialize transaction: {tx:?}"));
 
     // Add type and version manually
     let type_string = match tx {
-        RPCTransaction::Declare(_) => "DECLARE",
-        RPCTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT",
-        RPCTransaction::Invoke(_) => "INVOKE",
+        RpcTransaction::Declare(_) => "DECLARE",
+        RpcTransaction::DeployAccount(_) => "DEPLOY_ACCOUNT",
+        RpcTransaction::Invoke(_) => "INVOKE",
     };
 
     tx_json
@@ -343,7 +343,7 @@ pub fn external_tx_to_json(tx: &RPCTransaction) -> String {
     to_string_pretty(&tx_json).expect("Failed to serialize transaction")
 }
 
-pub fn invoke_tx(cairo_version: CairoVersion) -> RPCTransaction {
+pub fn invoke_tx(cairo_version: CairoVersion) -> RpcTransaction {
     let test_contract = FeatureContract::TestContract(cairo_version);
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let sender_address = account_contract.get_instance_address(0);
@@ -358,7 +358,7 @@ pub fn invoke_tx(cairo_version: CairoVersion) -> RPCTransaction {
 }
 
 //  TODO(Yael 18/6/2024): Get a final decision from product whether to support Cairo0.
-pub fn deploy_account_tx() -> RPCTransaction {
+pub fn deploy_account_tx() -> RpcTransaction {
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let sender_address = account_contract.get_instance_address(0);
     let mut nonce_manager = NonceManager::default();
@@ -371,10 +371,10 @@ pub fn deploy_account_tx() -> RPCTransaction {
     ))
 }
 
-pub fn deployed_account_contract_address(deploy_tx: &RPCTransaction) -> ContractAddress {
+pub fn deployed_account_contract_address(deploy_tx: &RpcTransaction) -> ContractAddress {
     let tx = assert_matches!(
         deploy_tx,
-        RPCTransaction::DeployAccount(RPCDeployAccountTransaction::V3(tx)) => tx
+        RpcTransaction::DeployAccount(RpcDeployAccountTransaction::V3(tx)) => tx
     );
     calculate_contract_address(
         tx.contract_address_salt,
