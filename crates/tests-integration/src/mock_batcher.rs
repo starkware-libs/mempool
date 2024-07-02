@@ -1,23 +1,27 @@
-use starknet_mempool_infra::component_definitions::ComponentRequestAndResponseSender;
-use starknet_mempool_types::communication::{
-    MempoolClient, MempoolClientImpl, MempoolRequest, MempoolResponse,
-};
-use starknet_mempool_types::mempool_types::ThinTransaction;
-use tokio::sync::mpsc::Sender;
+use std::time::Duration;
 
-#[derive(Clone)]
+use tokio::sync::mpsc::Receiver;
+use tokio::time::timeout;
+
+use crate::integration_test_utils::BatcherCommand;
 pub struct MockBatcher {
-    mempool_client: MempoolClientImpl,
+    trigger_receiver: Receiver<BatcherCommand>,
 }
 
 impl MockBatcher {
-    pub fn new(
-        mempool_client: Sender<ComponentRequestAndResponseSender<MempoolRequest, MempoolResponse>>,
-    ) -> Self {
-        MockBatcher { mempool_client: MempoolClientImpl::new(mempool_client) }
+    pub fn new(receiver: Receiver<BatcherCommand>) -> Self {
+        MockBatcher { trigger_receiver: receiver }
     }
 
-    pub async fn get_txs(&self, n_txs: usize) -> Vec<ThinTransaction> {
-        self.mempool_client.get_txs(n_txs).await.unwrap()
+    pub async fn run(&mut self) {
+        while let Some(message) =
+            timeout(Duration::from_secs(5), self.trigger_receiver.recv()).await.unwrap_or(None)
+        {
+            match message {
+                BatcherCommand::TriggerBatcher => {
+                    println!("Received test request");
+                }
+            }
+        }
     }
 }

@@ -80,3 +80,8 @@ impl GatewayClient {
             .unwrap()
     }
 }
+
+#[derive(Debug)]
+pub enum BatcherCommand {
+    TriggerBatcher,
+}
