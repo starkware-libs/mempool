@@ -4,7 +4,7 @@ use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
-use starknet_api::rpc_transaction::RPCTransaction;
+use starknet_api::rpc_transaction::RpcTransaction;
 use starknet_api::transaction::TransactionHash;
 use test_utils::starknet_api_test_utils::{
     declare_tx, deploy_account_tx, invoke_tx, VALID_L1_GAS_MAX_AMOUNT,
@@ -66,7 +66,7 @@ use crate::stateful_transaction_validator::StatefulTransactionValidator;
     ))
 )]
 fn test_stateful_tx_validator(
-    #[case] external_tx: RPCTransaction,
+    #[case] external_tx: RpcTransaction,
     #[case] state_reader_factory: TestStateReaderFactory,
     #[case] expected_result: StatefulTransactionValidatorResult<TransactionHash>,
 ) {
@@ -80,7 +80,7 @@ fn test_stateful_tx_validator(
         },
     };
     let optional_class_info = match &external_tx {
-        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx).unwrap()),
+        RpcTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx).unwrap()),
         _ => None,
     };
 

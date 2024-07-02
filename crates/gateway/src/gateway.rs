@@ -10,7 +10,7 @@ use axum::{Json, Router};
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
 use blockifier::execution::execution_utils::felt_to_stark_felt;
 use starknet_api::core::CompiledClassHash;
-use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
+use starknet_api::rpc_transaction::{RpcDeclareTransaction, RpcTransaction};
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_infra::component_runner::{ComponentRunner, ComponentStartError};
 use starknet_mempool_types::communication::SharedMempoolClient;
@@ -91,7 +91,7 @@ async fn is_alive() -> GatewayResult<String> {
 
 async fn add_tx(
     State(app_state): State<AppState>,
-    Json(tx): Json<RPCTransaction>,
+    Json(tx): Json<RpcTransaction>,
 ) -> GatewayResult<Json<TransactionHash>> {
     let mempool_input = tokio::task::spawn_blocking(move || {
         process_tx(
@@ -118,7 +118,7 @@ fn process_tx(
     stateless_tx_validator: StatelessTransactionValidator,
     stateful_tx_validator: &StatefulTransactionValidator,
     state_reader_factory: &dyn StateReaderFactory,
-    tx: RPCTransaction,
+    tx: RpcTransaction,
 ) -> GatewayResult<MempoolInput> {
     // TODO(Arni, 1/5/2024): Perform congestion control.
 
@@ -127,7 +127,7 @@ fn process_tx(
 
     // Compile Sierra to Casm.
     let optional_class_info = match &tx {
-        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx)?),
+        RpcTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx)?),
         _ => None,
     };
 
@@ -145,8 +145,8 @@ fn process_tx(
 /// Formats the contract class for compilation, compiles it, and returns the compiled contract class
 /// wrapped in a [`ClassInfo`].
 /// Assumes the contract class is of a Sierra program which is compiled to Casm.
-pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResult<ClassInfo> {
-    let RPCDeclareTransaction::V3(tx) = declare_tx;
+pub fn compile_contract_class(declare_tx: &RpcDeclareTransaction) -> GatewayResult<ClassInfo> {
+    let RpcDeclareTransaction::V3(tx) = declare_tx;
     let starknet_api_contract_class = &tx.contract_class;
     let cairo_lang_contract_class =
         into_contract_class_for_compilation(starknet_api_contract_class);

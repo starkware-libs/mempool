@@ -11,7 +11,7 @@ use blockifier::test_utils::CairoVersion;
 use cairo_lang_starknet_classes::allowed_libfuncs::AllowedLibfuncsError;
 use rstest::{fixture, rstest};
 use starknet_api::core::CompiledClassHash;
-use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
+use starknet_api::rpc_transaction::{RpcDeclareTransaction, RpcTransaction};
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool::communication::create_mempool_server;
 use starknet_mempool::mempool::Mempool;
@@ -83,7 +83,7 @@ pub fn app_state(
     local_test_state_reader_factory(CairoVersion::Cairo1, false)
 )]
 async fn test_add_tx(
-    #[case] tx: RPCTransaction,
+    #[case] tx: RpcTransaction,
     #[case] state_reader_factory: TestStateReaderFactory,
     mempool: Mempool,
 ) {
@@ -114,13 +114,13 @@ async fn test_add_tx(
 fn test_compile_contract_class_compiled_class_hash_missmatch() {
     let mut tx = assert_matches!(
         declare_tx(),
-        RPCTransaction::Declare(RPCDeclareTransaction::V3(tx)) => tx
+        RpcTransaction::Declare(RpcDeclareTransaction::V3(tx)) => tx
     );
     let expected_hash_result = tx.compiled_class_hash;
     let supplied_hash = CompiledClassHash::default();
 
     tx.compiled_class_hash = supplied_hash;
-    let declare_tx = RPCDeclareTransaction::V3(tx);
+    let declare_tx = RpcDeclareTransaction::V3(tx);
 
     let result = compile_contract_class(&declare_tx);
     assert_matches!(
@@ -134,11 +134,11 @@ fn test_compile_contract_class_compiled_class_hash_missmatch() {
 fn test_compile_contract_class_bad_sierra() {
     let mut tx = assert_matches!(
         declare_tx(),
-        RPCTransaction::Declare(RPCDeclareTransaction::V3(tx)) => tx
+        RpcTransaction::Declare(RpcDeclareTransaction::V3(tx)) => tx
     );
     // Truncate the sierra program to trigger an error.
     tx.contract_class.sierra_program = tx.contract_class.sierra_program[..100].to_vec();
-    let declare_tx = RPCDeclareTransaction::V3(tx);
+    let declare_tx = RpcDeclareTransaction::V3(tx);
 
     let result = compile_contract_class(&declare_tx);
     assert_matches!(
@@ -153,9 +153,9 @@ fn test_compile_contract_class_bad_sierra() {
 fn test_compile_contract_class() {
     let declare_tx = assert_matches!(
         declare_tx(),
-        RPCTransaction::Declare(declare_tx) => declare_tx
+        RpcTransaction::Declare(declare_tx) => declare_tx
     );
-    let RPCDeclareTransaction::V3(declare_tx_v3) = &declare_tx;
+    let RpcDeclareTransaction::V3(declare_tx_v3) = &declare_tx;
     let contract_class = &declare_tx_v3.contract_class;
 
     let class_info = compile_contract_class(&declare_tx).unwrap();
@@ -168,9 +168,9 @@ async fn to_bytes(res: Response) -> Bytes {
     res.into_body().collect().await.unwrap().to_bytes()
 }
 
-fn calculate_hash(external_tx: &RPCTransaction) -> TransactionHash {
+fn calculate_hash(external_tx: &RpcTransaction) -> TransactionHash {
     let optional_class_info = match &external_tx {
-        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx).unwrap()),
+        RpcTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx).unwrap()),
         _ => None,
     };
 
