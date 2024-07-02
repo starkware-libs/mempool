@@ -3,7 +3,7 @@ mod common;
 use async_trait::async_trait;
 use common::{ComponentAClientTrait, ComponentBClientTrait, ResultA, ResultB};
 use serde::{Deserialize, Serialize};
-use starknet_mempool_infra::component_client::{ClientError, ComponentClientHttp};
+use starknet_mempool_infra::component_client::ComponentClientHttp;
 use starknet_mempool_infra::component_definitions::ComponentRequestHandler;
 use starknet_mempool_infra::component_server::ComponentServerHttp;
 use tokio::task;
@@ -77,13 +77,6 @@ async fn verify_response(
     assert_eq!(a_client.a_get_value().await.unwrap(), expected_value);
 }
 
-async fn verify_error(
-    a_client: ComponentClientHttp<ComponentARequest, ComponentAResponse>,
-    expected_error: ClientError,
-) {
-    assert_eq!(a_client.a_get_value().await, Err(expected_error));
-}
-
 #[tokio::test]
 async fn test_setup() {
     let setup_value: ValueB = 90;
@@ -97,8 +90,6 @@ async fn test_setup() {
         ComponentClientHttp::<ComponentARequest, ComponentAResponse>::new(local_ip, a_port);
     let b_client =
         ComponentClientHttp::<ComponentBRequest, ComponentBResponse>::new(local_ip, b_port);
-
-    verify_error(a_client.clone(), ClientError::CommunicationFailure).await;
 
     let component_a = ComponentA::new(Box::new(b_client));
     let component_b = ComponentB::new(setup_value, Box::new(a_client.clone()));
@@ -126,4 +117,28 @@ async fn test_setup() {
     task::yield_now().await;
 
     verify_response(a_client.clone(), expected_value).await;
+}
+
+async fn verify_error(
+    a_client: ComponentClientHttp<ComponentARequest, ComponentAResponse>,
+    expected_error_message: &str,
+) {
+    let Err(error) = a_client.a_get_value().await else {
+        panic!("Expected an error.");
+    };
+
+    assert_eq!(error.to_string(), expected_error_message);
+}
+
+#[tokio::test]
+async fn test_connection_error() {
+    let local_ip = "::1".parse().unwrap();
+    let port = 10002;
+    let client = ComponentClientHttp::<ComponentARequest, ComponentAResponse>::new(local_ip, port);
+
+    let expected_error_message = "General communication error: error trying to connect: tcp \
+                                  connect error: Connection refused (os error 111)";
+    verify_error(client.clone(), expected_error_message).await;
+
+    // Todo(uriel): Think of more errors we can catch and verify.
 }
