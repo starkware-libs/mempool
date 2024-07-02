@@ -550,7 +550,7 @@ dependencies = [
 [[package]]
 name = "blockifier"
 version = "0.7.0-dev.1"
-source = "git+https://github.com/starkware-libs/blockifier.git?branch=main-mempool#cbfddc375cd5bde74170e9f72b7fe7e2d2a21555"
+source = "git+https://github.com/starkware-libs/blockifier.git?rev=3511cd37#3511cd3730ecabea9f5133e83f9f70d75bde1037"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -5230,7 +5230,7 @@ dependencies = [
  "assert_matches",
  "async-trait",
  "axum",
- "blockifier 0.7.0-dev.1 (git+https://github.com/starkware-libs/blockifier.git?branch=main-mempool)",
+ "blockifier 0.7.0-dev.1 (git+https://github.com/starkware-libs/blockifier.git?rev=3511cd37)",
  "cairo-lang-starknet-classes",
  "cairo-vm",
  "hyper",
@@ -5289,7 +5289,7 @@ name = "starknet_mempool_integration_tests"
 version = "0.0.0"
 dependencies = [
  "axum",
- "blockifier 0.7.0-dev.1 (git+https://github.com/starkware-libs/blockifier.git?branch=main-mempool)",
+ "blockifier 0.7.0-dev.1 (git+https://github.com/starkware-libs/blockifier.git?rev=3511cd37)",
  "cairo-lang-starknet-classes",
  "indexmap 2.2.6",
  "lazy_static",
@@ -5570,7 +5570,7 @@ name = "test_utils"
 version = "0.0.0"
 dependencies = [
  "assert_matches",
- "blockifier 0.7.0-dev.1 (git+https://github.com/starkware-libs/blockifier.git?branch=main-mempool)",
+ "blockifier 0.7.0-dev.1 (git+https://github.com/starkware-libs/blockifier.git?rev=3511cd37)",
  "serde_json",
  "starknet_api",
 ]
