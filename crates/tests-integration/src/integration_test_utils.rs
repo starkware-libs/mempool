@@ -12,7 +12,9 @@ use starknet_gateway::config::{
 use starknet_gateway::errors::GatewayError;
 use starknet_gateway::gateway::Gateway;
 use starknet_mempool_types::communication::SharedMempoolClient;
+use starknet_mempool_types::mempool_types::ThinTransaction;
 use test_utils::starknet_api_test_utils::external_tx_to_json;
+use tokio::sync::oneshot::Sender;
 
 use crate::state_reader::rpc_test_state_reader_factory;
 
@@ -79,4 +81,9 @@ impl GatewayClient {
             .await
             .unwrap()
     }
+}
+
+#[derive(Debug)]
+pub enum BatcherCommand {
+    GetTxs(usize, Sender<Vec<ThinTransaction>>),
 }
