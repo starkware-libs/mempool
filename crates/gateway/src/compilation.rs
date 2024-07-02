@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::RPCDeclareTransaction;
 use starknet_api::transaction::Builtin;
-use starknet_sierra_compile::compile::compile_sierra_to_casm;
+use starknet_sierra_compile::compile::{compile_sierra_to_casm, SierraToCasmCompilationArgs};
 use starknet_sierra_compile::errors::CompilationUtilError;
 use starknet_sierra_compile::utils::into_contract_class_for_compilation;
 
@@ -30,8 +30,12 @@ pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResu
         into_contract_class_for_compilation(starknet_api_contract_class);
 
     // Compile Sierra to Casm.
-    let catch_unwind_result =
-        panic::catch_unwind(|| compile_sierra_to_casm(cairo_lang_contract_class));
+    let catch_unwind_result = panic::catch_unwind(|| {
+        compile_sierra_to_casm(
+            cairo_lang_contract_class,
+            SierraToCasmCompilationArgs { max_bytecode_size: 1_000_000, ..Default::default() },
+        )
+    });
     let casm_contract_class = match catch_unwind_result {
         Ok(compilation_result) => compilation_result?,
         Err(_) => {

@@ -2,11 +2,17 @@ use std::env;
 use std::path::Path;
 
 use assert_matches::assert_matches;
-use cairo_lang_starknet_classes::allowed_libfuncs::AllowedLibfuncsError;
+use cairo_lang_starknet_classes::allowed_libfuncs::{AllowedLibfuncsError, ListSelector};
 use test_utils::{get_absolute_path, FAULTY_ACCOUNT_CLASS_FILE, TEST_FILES_FOLDER};
 
-use crate::compile::{compile_sierra_to_casm, CompilationUtilError};
+use crate::compile::{compile_sierra_to_casm, CompilationUtilError, SierraToCasmCompilationArgs};
 use crate::test_utils::contract_class_from_file;
+
+const SIERRA_TO_CASM_COMPILATION_ARGS: SierraToCasmCompilationArgs = SierraToCasmCompilationArgs {
+    list_selector: ListSelector::DefaultList,
+    add_pythonic_hints: true,
+    max_bytecode_size: 1_000_000,
+};
 
 #[test]
 fn test_compile_sierra_to_casm() {
@@ -15,7 +21,8 @@ fn test_compile_sierra_to_casm() {
     let expected_casm_contract_length = 72304;
 
     let contract_class = contract_class_from_file(sierra_path);
-    let casm_contract = compile_sierra_to_casm(contract_class).unwrap();
+    let casm_contract =
+        compile_sierra_to_casm(contract_class, SIERRA_TO_CASM_COMPILATION_ARGS).unwrap();
     let serialized_casm = serde_json::to_string_pretty(&casm_contract).unwrap().into_bytes();
 
     assert_eq!(serialized_casm.len(), expected_casm_contract_length);
@@ -31,7 +38,7 @@ fn test_negative_flow_compile_sierra_to_casm() {
     // Truncate the sierra program to trigger an error.
     contract_class.sierra_program = contract_class.sierra_program[..100].to_vec();
 
-    let result = compile_sierra_to_casm(contract_class);
+    let result = compile_sierra_to_casm(contract_class, SIERRA_TO_CASM_COMPILATION_ARGS);
     assert_matches!(
         result,
         Err(CompilationUtilError::AllowedLibfuncsError(AllowedLibfuncsError::SierraProgramError))
