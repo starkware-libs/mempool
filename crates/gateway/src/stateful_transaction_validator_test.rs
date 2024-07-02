@@ -1,13 +1,17 @@
+use assert_matches::assert_matches;
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::context::BlockContext;
+use blockifier::test_utils::dict_state_reader::DictStateReader;
 use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use rstest::rstest;
+use starknet_api::core::Nonce;
 use starknet_api::hash::StarkFelt;
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
+use test_utils::invoke_tx_args;
 use test_utils::starknet_api_test_utils::{
-    declare_tx, deploy_account_tx, invoke_tx, VALID_L1_GAS_MAX_AMOUNT,
+    declare_tx, deploy_account_tx, external_invoke_tx, invoke_tx, VALID_L1_GAS_MAX_AMOUNT,
     VALID_L1_GAS_MAX_PRICE_PER_UNIT,
 };
 
@@ -16,7 +20,7 @@ use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValida
 use crate::gateway::compile_contract_class;
 use crate::state_reader_test_utils::{
     local_test_state_reader_factory, local_test_state_reader_factory_for_deploy_account,
-    TestStateReaderFactory,
+    TestStateReader, TestStateReaderFactory,
 };
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 
@@ -84,11 +88,49 @@ fn test_stateful_tx_validator(
         _ => None,
     };
 
-    let result = stateful_validator.run_validate(
-        &state_reader_factory,
-        &external_tx,
-        optional_class_info,
-        None,
-    );
+    let result =
+        stateful_validator.run_validate(&state_reader_factory, &external_tx, optional_class_info);
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
+}
+
+#[rstest]
+#[case::should_skip_validation(
+    external_invoke_tx(invoke_tx_args!{nonce: Nonce(StarkFelt::ONE)}),
+    true
+)]
+#[case::should_not_skip_validation_nonce_over_max_nonce_for_skip(
+    external_invoke_tx(invoke_tx_args!{nonce: Nonce(StarkFelt::TWO)}),
+    false
+)]
+#[case::should_not_skip_validation_non_invoke(deploy_account_tx(), false)]
+fn test_skip_stateful_validation(
+    #[case] external_tx: RPCTransaction,
+    #[case] should_pass_validation: bool,
+) {
+    let block_context = &BlockContext::create_for_testing();
+    // Initialize an empty state so that transactions would fail validation.
+    let empty_state_reader_factory = TestStateReaderFactory {
+        state_reader: TestStateReader {
+            blockifier_state_reader: DictStateReader::default(),
+            block_info: block_context.block_info().clone(),
+        },
+    };
+    let stateful_validator = StatefulTransactionValidator {
+        config: StatefulTransactionValidatorConfig {
+            max_nonce_for_validation_skip: Nonce(StarkFelt::ONE),
+            validate_max_n_steps: block_context.versioned_constants().validate_max_n_steps,
+            max_recursion_depth: block_context.versioned_constants().max_recursion_depth,
+            chain_info: block_context.chain_info().clone().into(),
+        },
+    };
+    let result = stateful_validator.run_validate(&empty_state_reader_factory, &external_tx, None);
+    if should_pass_validation {
+        assert_matches!(result, Ok(_));
+    } else {
+        // To be sure that the validations were actually skipped, we check that the error came from
+        // the blockifier stateful validations, and not from the pre validations since those are
+        // executed also when skip_validate is true.
+        assert_matches!(result, Err(StatefulTransactionValidatorError::StatefulValidatorError(err)) 
+            if !matches!(err, StatefulValidatorError::TransactionPreValidationError(_)));
+    }
 }
