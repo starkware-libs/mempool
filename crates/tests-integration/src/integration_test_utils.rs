@@ -13,7 +13,9 @@ use starknet_gateway::errors::GatewayError;
 use starknet_gateway::gateway::Gateway;
 use starknet_gateway::rpc_state_reader::RpcStateReaderFactory;
 use starknet_mempool_types::communication::SharedMempoolClient;
+use starknet_mempool_types::mempool_types::ThinTransaction;
 use test_utils::starknet_api_test_utils::external_tx_to_json;
+use tokio::sync::oneshot::Sender;
 
 use crate::state_reader::spawn_test_rpc_state_reader;
 
@@ -90,4 +92,9 @@ fn spawn_test_rpc_state_reader_config(rpc_server_addr: SocketAddr) -> RpcStateRe
         url: format!("http://{rpc_server_addr:?}/rpc/{RPC_SPEC_VERION}"),
         json_rpc_version: JSON_RPC_VERSION.to_string(),
     }
+}
+
+#[derive(Debug)]
+pub enum BatcherCommand {
+    GetTxs(usize, Sender<Vec<ThinTransaction>>),
 }
