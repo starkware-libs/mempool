@@ -8,6 +8,9 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
 use blockifier::execution::execution_utils::felt_to_stark_felt;
+use cairo_lang_starknet_classes::casm_contract_class::{
+    CasmContractClass, CasmContractEntryPoints,
+};
 use starknet_api::core::CompiledClassHash;
 use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
 use starknet_api::transaction::TransactionHash;
@@ -23,7 +26,7 @@ use crate::rpc_state_reader::RpcStateReaderFactory;
 use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
-use crate::utils::{external_tx_to_thin_tx, get_sender_address};
+use crate::utils::{external_tx_to_thin_tx, get_sender_address, is_subsequence};
 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
@@ -159,6 +162,7 @@ pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResu
             return Err(GatewayError::CompilationError(CompilationUtilError::CompilationPanic));
         }
     };
+    validate_casm_class(&casm_contract_class)?;
 
     let hash_result =
         CompiledClassHash(felt_to_stark_felt(&casm_contract_class.compiled_class_hash()));
@@ -187,4 +191,32 @@ pub fn create_gateway(
 ) -> Gateway {
     let state_reader_factory = Arc::new(RpcStateReaderFactory { config: rpc_state_reader_config });
     Gateway::new(config, state_reader_factory, client)
+}
+
+// TODO(Arni): Add to a config.
+// TODO(Arni): Use the Builtin enum from Starknet-api, and explicitly tag each builtin as supported
+// or unsupported so that the compiler would alert us on new builtins.
+
+// The OS expects this order for the builtins.
+const SUPPORTED_BUILTINS: [&str; 7] =
+    ["pedersen", "range_check", "ecdsa", "bitwise", "ec_op", "poseidon", "segment_arena"];
+
+// TODO(Arni): Add test.
+fn validate_casm_class(contract_class: &CasmContractClass) -> Result<(), GatewayError> {
+    let CasmContractEntryPoints { external, l1_handler, constructor } =
+        &contract_class.entry_points_by_type;
+    let entry_points_iterator = external.iter().chain(l1_handler.iter()).chain(constructor.iter());
+
+    let supported_builtins: Vec<String> =
+        SUPPORTED_BUILTINS.iter().map(|builtin| builtin.to_string()).collect();
+    for entry_point in entry_points_iterator {
+        let builtins = &entry_point.builtins;
+        if !is_subsequence(builtins, &supported_builtins) {
+            return Err(GatewayError::UnsupportedBuiltins {
+                builtins: builtins.clone(),
+                supported_builtins,
+            });
+        }
+    }
+    Ok(())
 }
