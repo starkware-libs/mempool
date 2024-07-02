@@ -4,8 +4,11 @@ use blockifier::bouncer::BouncerConfig;
 use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::state::cached_state::CachedState;
+use blockifier::state::state_api::StateReader;
 use blockifier::versioned_constants::VersionedConstants;
-use starknet_api::rpc_transaction::RPCTransaction;
+use starknet_api::core::Nonce;
+use starknet_api::hash::StarkFelt;
+use starknet_api::rpc_transaction::{RPCInvokeTransaction, RPCTransaction};
 use starknet_api::transaction::TransactionHash;
 
 use crate::config::StatefulTransactionValidatorConfig;
@@ -27,7 +30,6 @@ impl StatefulTransactionValidator {
         state_reader_factory: &dyn StateReaderFactory,
         external_tx: &RPCTransaction,
         optional_class_info: Option<ClassInfo>,
-        deploy_account_tx_hash: Option<TransactionHash>,
     ) -> StatefulTransactionValidatorResult<TransactionHash> {
         // TODO(yael 6/5/2024): consider storing the block_info as part of the
         // StatefulTransactionValidator and update it only once a new block is created.
@@ -64,9 +66,34 @@ impl StatefulTransactionValidator {
             &self.config.chain_info.chain_id,
         )?;
         let tx_hash = get_tx_hash(&account_tx);
-        validator.perform_validations(account_tx, deploy_account_tx_hash)?;
+
+        let skip_validate = skip_stateful_validations(
+            external_tx,
+            &state_reader,
+            self.config.max_nonce_for_validation_skip,
+        )?;
+        validator.perform_validations(account_tx, skip_validate)?;
         Ok(tx_hash)
     }
+}
+
+fn skip_stateful_validations(
+    tx: &RPCTransaction,
+    state_reader: &impl StateReader,
+    max_nonce_for_validation_skip: Nonce,
+) -> StatefulTransactionValidatorResult<bool> {
+    if let RPCTransaction::Invoke(RPCInvokeTransaction::V3(tx)) = tx {
+        // Skip validate only if the transaction nonce is 1, meaning it is the first one after
+        // deploy_account, and the account nonce is zero, meaning the account was not deployed yet.
+        // The mempool will verify that the deploy_account transaction exists.
+        if tx.nonce >= Nonce(StarkFelt::ONE)
+            && tx.nonce <= max_nonce_for_validation_skip
+            && state_reader.get_nonce_at(tx.sender_address)? == Nonce(StarkFelt::ZERO)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 pub fn get_latest_block_info(
