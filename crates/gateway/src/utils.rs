@@ -178,10 +178,13 @@ pub fn is_subsequence<T: Eq>(subsequence: &[T], sequence: &[T]) -> bool {
     offset == subsequence.len()
 }
 
-// TODO(Arni): Remove the traitIntoEnumIteratorExt once EnumIter is implemented in starknet API.
-impl IntoOsOrderEnumIteratorExt for Builtin {
-    fn os_order_iter() -> impl Iterator<Item = Builtin> {
-        // The OS expects this order for the builtins.
+// TODO(Arni): Remove the IntoIterExt once IntoIterEnum is implemented in starknet API.
+trait IntoIterExt {
+    fn iter() -> impl Iterator<Item = Builtin>;
+}
+
+impl IntoIterExt for Builtin {
+    fn iter() -> impl Iterator<Item = Builtin> {
         vec![
             Builtin::Pedersen,
             Builtin::RangeCheck,
@@ -193,6 +196,28 @@ impl IntoOsOrderEnumIteratorExt for Builtin {
             Builtin::Keccak,
         ]
         .into_iter()
+    }
+}
+
+// The OS expects this order for the builtins.
+fn builtin_order(builtin: &Builtin) -> usize {
+    match builtin {
+        Builtin::Pedersen => 0,
+        Builtin::RangeCheck => 1,
+        Builtin::Ecdsa => 2,
+        Builtin::Bitwise => 3,
+        Builtin::EcOp => 4,
+        Builtin::Poseidon => 5,
+        Builtin::SegmentArena => 6,
+        Builtin::Keccak => 7,
+    }
+}
+
+impl IntoOsOrderEnumIteratorExt for Builtin {
+    fn os_order_iter() -> impl Iterator<Item = Builtin> {
+        let mut builtins_vector = Self::iter().collect::<Vec<Builtin>>();
+        builtins_vector.sort_by_key(builtin_order);
+        builtins_vector.into_iter()
     }
 }
 
