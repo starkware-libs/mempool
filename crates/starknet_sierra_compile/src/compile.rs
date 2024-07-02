@@ -8,21 +8,26 @@ use crate::errors::CompilationUtilError;
 #[path = "compile_test.rs"]
 pub mod compile_test;
 pub struct SierraToCasmCompilationArgs {
-    list_selector: ListSelector,
-    add_pythonic_hints: bool,
-    max_bytecode_size: usize,
+    pub list_selector: ListSelector,
+    pub add_pythonic_hints: bool,
+    pub max_bytecode_size: usize,
+}
+
+impl Default for SierraToCasmCompilationArgs {
+    fn default() -> Self {
+        Self {
+            list_selector: ListSelector::DefaultList,
+            add_pythonic_hints: true,
+            max_bytecode_size: Default::default(),
+        }
+    }
 }
 
 /// This function may panic.
 pub fn compile_sierra_to_casm(
     contract_class: ContractClass,
+    compilation_args: SierraToCasmCompilationArgs,
 ) -> Result<CasmContractClass, CompilationUtilError> {
-    let compilation_args = SierraToCasmCompilationArgs {
-        list_selector: ListSelector::DefaultList,
-        add_pythonic_hints: true,
-        max_bytecode_size: 1000000,
-    };
-
     contract_class.validate_version_compatible(compilation_args.list_selector)?;
 
     Ok(CasmContractClass::from_contract_class(
