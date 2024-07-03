@@ -60,10 +60,10 @@ impl VersionId {
         ) -> Result<usize, VersionIdError> {
             let felt = sierra_program[index];
             let felt = u128::try_from(felt).map_err(|_| VersionIdError::InvalidVersion {
-                message: format!("version contains a value that is out of range: {}", felt),
+                message: format!("version contains a value that is out of range: {:?}", felt),
             });
             usize::try_from(felt).map_err(|_| VersionIdError::InvalidVersion {
-                message: format!("version contains a value that is out of range: {}", felt),
+                message: format!("version contains a value that is out of range: {:?}", felt),
             });
         }
 
