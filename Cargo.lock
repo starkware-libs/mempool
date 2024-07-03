@@ -5383,6 +5383,7 @@ dependencies = [
  "hyper",
  "lazy_static",
  "num-bigint",
+ "num-traits 0.2.19",
  "papyrus_config",
  "papyrus_rpc",
  "pretty_assertions",
