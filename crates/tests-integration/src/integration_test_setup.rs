@@ -22,6 +22,7 @@ use crate::mock_batcher::MockBatcher;
 pub struct IntegrationTestSetup {
     pub task_executor: TokioExecutor,
     pub gateway_client: GatewayClient,
+
     pub batcher: MockBatcher,
 
     pub gateway_handle: JoinHandle<()>,
