@@ -1,4 +1,4 @@
-use starknet_api::hash::StarkFelt;
+use starknet_types_core::felt::Felt;
 use starknet_api::rpc_transaction::{
     RPCDeclareTransaction, RPCDeployAccountTransaction, RPCInvokeTransaction, RPCTransaction,
     ResourceBoundsMapping,
@@ -111,7 +111,7 @@ impl StatelessTransactionValidator {
 
     fn validate_sierra_version(
         &self,
-        sierra_program: &[StarkFelt],
+        sierra_program: &[Felt],
     ) -> StatelessTransactionValidatorResult<()> {
         // Any patch version is valid. (i.e. when check version for upper bound, we ignore the Z
         // part in a version X.Y.Z).

@@ -23,6 +23,7 @@ papyrus_rpc.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+starknet-types-core.workspace = true
 starknet_api.workspace = true
 starknet_mempool_infra = { path = "../mempool_infra", version = "0.0" }
 starknet_mempool_types = { path = "../mempool_types", version = "0.0" }
@@ -34,6 +35,7 @@ validator.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
+num-bigint.workspace = true
 pretty_assertions.workspace = true
 rstest.workspace = true
 starknet_mempool = { path = "../mempool", version = "0.0" }
