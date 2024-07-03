@@ -228,7 +228,7 @@ fn test_signature_too_long(
     StatelessTransactionValidatorError::InvalidSierraVersion (
             VersionIdError::InvalidVersion {
                 message: "version contains a value that is out of range: \
-                 0x0000000000000000000000000000000000000000000000010000000000000000".into()
+                 0x10000000000000000".into()
             }
         )
     )
