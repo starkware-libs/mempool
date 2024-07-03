@@ -166,8 +166,7 @@ pub fn compile_contract_class(declare_tx: &RPCDeclareTransaction) -> GatewayResu
     };
     validate_casm_class(&casm_contract_class)?;
 
-    let hash_result =
-        CompiledClassHash(felt_to_stark_felt(&casm_contract_class.compiled_class_hash()));
+    let hash_result = CompiledClassHash(casm_contract_class.compiled_class_hash());
     if hash_result != tx.compiled_class_hash {
         return Err(GatewayError::CompiledClassHashMismatch {
             supplied: tx.compiled_class_hash,
