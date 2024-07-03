@@ -1,4 +1,5 @@
 use blockifier::blockifier::block::BlockInfo;
+use blockifier::bouncer::BouncerConfig;
 use blockifier::context::{BlockContext, ChainInfo};
 use blockifier::execution::contract_class::ContractClass;
 use blockifier::state::errors::StateError;
@@ -10,9 +11,9 @@ use blockifier::test_utils::{CairoVersion, BALANCE};
 use blockifier::versioned_constants::VersionedConstants;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
-use starknet_api::hash::StarkFelt;
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::state::StorageKey;
+use starknet_types_core::felt::Felt;
 use test_utils::starknet_api_test_utils::deployed_account_contract_address;
 
 use crate::state_reader::{MempoolStateReader, StateReaderFactory};
@@ -34,7 +35,7 @@ impl BlockifierStateReader for TestStateReader {
         &self,
         contract_address: ContractAddress,
         key: StorageKey,
-    ) -> StateResult<StarkFelt> {
+    ) -> StateResult<Felt> {
         self.blockifier_state_reader.get_storage_at(contract_address, key)
     }
 
@@ -74,10 +75,11 @@ pub fn local_test_state_reader_factory(
     zero_balance: bool,
 ) -> TestStateReaderFactory {
     let account_balance = if zero_balance { 0 } else { BALANCE };
-    let block_context = BlockContext::new_unchecked(
-        &BlockInfo::create_for_testing(),
-        &ChainInfo::create_for_testing(),
-        &VersionedConstants::create_for_testing(),
+    let block_context = BlockContext::new(
+        BlockInfo::create_for_testing(),
+        ChainInfo::create_for_testing(),
+        VersionedConstants::create_for_testing(),
+        BouncerConfig::max(),
     );
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
