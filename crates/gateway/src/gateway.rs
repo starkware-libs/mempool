@@ -8,7 +8,6 @@ use axum::extract::State;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
-use blockifier::execution::execution_utils::felt_to_stark_felt;
 use cairo_lang_starknet_classes::casm_contract_class::{
     CasmContractClass, CasmContractEntryPoints,
 };

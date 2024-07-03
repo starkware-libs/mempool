@@ -1,9 +1,9 @@
-use starknet_types_core::felt::Felt;
 use starknet_api::rpc_transaction::{
     RPCDeclareTransaction, RPCDeployAccountTransaction, RPCInvokeTransaction, RPCTransaction,
     ResourceBoundsMapping,
 };
 use starknet_api::transaction::Resource;
+use starknet_types_core::felt::Felt;
 
 use crate::compiler_version::VersionId;
 use crate::config::StatelessTransactionValidatorConfig;

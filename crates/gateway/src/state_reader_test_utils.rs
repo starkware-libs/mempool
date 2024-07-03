@@ -6,7 +6,7 @@ use blockifier::state::errors::StateError;
 use blockifier::state::state_api::{StateReader as BlockifierStateReader, StateResult};
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
-use blockifier::test_utils::initial_test_state::{fund_account, test_state_reader};
+use blockifier::test_utils::initial_test_state::{fund_account, test_state};
 use blockifier::test_utils::{CairoVersion, BALANCE};
 use blockifier::versioned_constants::VersionedConstants;
 use starknet_api::block::BlockNumber;
@@ -84,7 +84,7 @@ pub fn local_test_state_reader_factory(
     let account_contract = FeatureContract::AccountWithoutValidations(cairo_version);
     let test_contract = FeatureContract::TestContract(cairo_version);
 
-    let state_reader = test_state_reader(
+    let state_reader = test_state(
         block_context.chain_info(),
         account_balance,
         &[(account_contract, 1), (test_contract, 1)],
@@ -93,7 +93,7 @@ pub fn local_test_state_reader_factory(
     TestStateReaderFactory {
         state_reader: TestStateReader {
             block_info: block_context.block_info().clone(),
-            blockifier_state_reader: state_reader,
+            blockifier_state_reader: state_reader.state,
         },
     }
 }
