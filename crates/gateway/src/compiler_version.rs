@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use cairo_lang_starknet_classes::compiler_version::VersionId as CairoLangVersionId;
+use num_traits::ToPrimitive;
 use papyrus_config::dumping::{ser_param, SerializeConfig};
 use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
 use serde::{Deserialize, Serialize};
@@ -58,13 +59,10 @@ impl VersionId {
             sierra_program: &[Felt],
             index: usize,
         ) -> Result<usize, VersionIdError> {
-            let felt = sierra_program[index];
-            let felt = u128::try_from(felt).map_err(|_| VersionIdError::InvalidVersion {
-                message: format!("version contains a value that is out of range: {}", felt),
-            });
-            usize::try_from(felt).map_err(|_| VersionIdError::InvalidVersion {
-                message: format!("version contains a value that is out of range: {}", felt),
-            });
+            let felt = &sierra_program[index];
+            felt.to_usize().ok_or(VersionIdError::InvalidVersion {
+                message: format!("version contains a value that is out of range: {:?}", felt),
+            })
         }
 
         Ok(VersionId {
