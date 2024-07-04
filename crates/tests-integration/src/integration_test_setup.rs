@@ -12,7 +12,7 @@ use starknet_mempool_types::communication::{MempoolClientImpl, MempoolRequestAnd
 use starknet_mempool_types::mempool_types::ThinTransaction;
 use starknet_task_executor::tokio_executor::TokioExecutor;
 use tokio::runtime::Handle;
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::{channel, unbounded_channel, UnboundedSender};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
@@ -24,7 +24,7 @@ pub struct IntegrationTestSetup {
     pub gateway_client: GatewayClient,
 
     pub batcher_handle: JoinHandle<()>,
-    tx_batcher: Sender<BatcherCommand>,
+    tx_batcher: UnboundedSender<BatcherCommand>,
 
     pub gateway_handle: JoinHandle<()>,
     pub mempool_handle: JoinHandle<()>,
@@ -56,7 +56,7 @@ impl IntegrationTestSetup {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         // Build Batcher.
-        let (tx_batcher, rx_batcher) = channel::<BatcherCommand>(MESSAGE_QUEUE_SIZE);
+        let (tx_batcher, rx_batcher) = unbounded_channel::<BatcherCommand>();
         let mut batcher = MockBatcher::new(rx_batcher, tx_mempool);
         let batcher_handle = task_executor.spawn_with_handle(async move {
             batcher.run().await;
@@ -88,7 +88,7 @@ impl IntegrationTestSetup {
 
     pub async fn get_txs(&self, n_txs: usize) -> Vec<ThinTransaction> {
         let (response_tx, response_rx) = oneshot::channel::<Vec<ThinTransaction>>();
-        self.tx_batcher.send(BatcherCommand::GetTxs(n_txs, response_tx)).await.unwrap();
+        self.tx_batcher.send(BatcherCommand::GetTxs(n_txs, response_tx)).unwrap();
         response_rx.await.unwrap()
     }
 }

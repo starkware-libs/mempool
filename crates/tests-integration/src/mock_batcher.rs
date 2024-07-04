@@ -3,18 +3,18 @@ use starknet_mempool_types::communication::{
     MempoolClient, MempoolClientImpl, MempoolRequest, MempoolResponse,
 };
 use starknet_mempool_types::mempool_types::ThinTransaction;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{Sender, UnboundedReceiver};
 
 use crate::integration_test_utils::BatcherCommand;
 
 pub struct MockBatcher {
-    rx_commands: Receiver<BatcherCommand>,
+    rx_commands: UnboundedReceiver<BatcherCommand>,
     mempool_client: MempoolClientImpl,
 }
 
 impl MockBatcher {
     pub fn new(
-        rx_commands: Receiver<BatcherCommand>,
+        rx_commands: UnboundedReceiver<BatcherCommand>,
         mempool_sender: Sender<ComponentRequestAndResponseSender<MempoolRequest, MempoolResponse>>,
     ) -> Self {
         Self { rx_commands, mempool_client: MempoolClientImpl::new(mempool_sender) }
