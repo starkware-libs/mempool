@@ -5569,6 +5569,7 @@ version = "0.0.0"
 dependencies = [
  "assert_matches",
  "blockifier 0.7.0-dev.1 (git+https://github.com/starkware-libs/blockifier.git?branch=main-mempool)",
+ "serde",
  "serde_json",
  "starknet_api",
 ]

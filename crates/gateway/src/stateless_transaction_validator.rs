@@ -106,7 +106,9 @@ impl StatelessTransactionValidator {
             RPCDeclareTransaction::V3(tx) => &tx.contract_class,
         };
         self.validate_sierra_version(&contract_class.sierra_program)?;
-        self.validate_class_length(contract_class)
+        Self::validate_ctor_exists(contract_class)?;
+        self.validate_class_length(contract_class)?;
+        Ok(())
     }
 
     fn validate_sierra_version(
@@ -152,6 +154,15 @@ impl StatelessTransactionValidator {
             });
         }
 
+        Ok(())
+    }
+
+    fn validate_ctor_exists(
+        contract_class: &starknet_api::rpc_transaction::ContractClass,
+    ) -> StatelessTransactionValidatorResult<()> {
+        if contract_class.entry_points_by_type.constructor.is_empty() {
+            return Err(StatelessTransactionValidatorError::NoConstructor);
+        }
         Ok(())
     }
 }

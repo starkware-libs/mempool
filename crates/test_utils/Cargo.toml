@@ -11,6 +11,5 @@ license.workspace = true
 assert_matches.workspace = true
 blockifier.workspace = true
 starknet_api.workspace = true
+serde.workspace = true
 serde_json.workspace = true
-
-
