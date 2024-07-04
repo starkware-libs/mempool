@@ -4,7 +4,10 @@ use blockifier::bouncer::BouncerConfig;
 use blockifier::context::BlockContext;
 use blockifier::execution::contract_class::ClassInfo;
 use blockifier::state::cached_state::CachedState;
+use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::versioned_constants::VersionedConstants;
+use mockall::predicate::*;
+use mockall::*;
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 
@@ -23,13 +26,33 @@ pub struct StatefulTransactionValidator {
 
 type BlockifierStatefulValidator = GenericBlockifierStatefulValidator<Box<dyn MempoolStateReader>>;
 
+#[automock]
+pub trait StatefulTransactionValidatorTrait {
+    fn perform_validations(
+        &mut self,
+        account_tx: AccountTransaction,
+        deploy_account_tx_hash: Option<TransactionHash>,
+    ) -> StatefulTransactionValidatorResult<()>;
+}
+
+
+impl StatefulTransactionValidatorTrait for BlockifierStatefulValidator {
+    fn perform_validations(
+        &mut self,
+        account_tx: AccountTransaction,
+        deploy_account_tx_hash: Option<TransactionHash>,
+    ) -> StatefulTransactionValidatorResult<()> {
+        Ok(self.perform_validations(account_tx, deploy_account_tx_hash)?)
+    }
+}
+
 impl StatefulTransactionValidator {
-    pub fn run_validate(
+    pub fn run_validate<TStatefulTransactionValidator: StatefulTransactionValidatorTrait>(
         &self,
         external_tx: &RPCTransaction,
         optional_class_info: Option<ClassInfo>,
         deploy_account_tx_hash: Option<TransactionHash>,
-        mut validator: BlockifierStatefulValidator,
+        mut validator: TStatefulTransactionValidator,
     ) -> StatefulTransactionValidatorResult<TransactionHash> {
         let account_tx = external_tx_to_account_tx(
             external_tx,
