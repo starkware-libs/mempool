@@ -165,12 +165,23 @@ fn test_get_txs(#[case] requested_txs: usize) {
     let max_requested_txs = requested_txs.min(txs.len());
 
     // Check that the returned transactions are the ones with the highest priority.
-    let (expected_queue, remaining_txs) = txs.split_at(max_requested_txs);
+    let (expected_queue, _remaining_txs) = txs.split_at(max_requested_txs);
     assert_eq!(fetched_txs, expected_queue);
+}
 
-    // Assert: non-returned transactions are still in the mempool.
-    let remaining_tx_references = remaining_txs.iter().map(TransactionReference::new);
-    let mempool_state = MempoolState::new(remaining_txs.to_vec(), remaining_tx_references);
+#[rstest]
+fn test_get_txs_clear_mempool() {
+    // Setup.
+    let tx = add_tx_input!(tip: 1, tx_hash: 1).tx;
+    let queue_txs = [TransactionReference::new(&tx)];
+    let pool_txs = [tx];
+    let mut mempool: Mempool = MempoolState::new(pool_txs, queue_txs).into();
+
+    // Test.
+    let _fetched_txs = mempool.get_txs(100).unwrap();
+
+    // Assert: the mempool is empty.
+    let mempool_state = MempoolState::new([], []);
     mempool_state.assert_eq_mempool_state(&mempool);
 }
 
