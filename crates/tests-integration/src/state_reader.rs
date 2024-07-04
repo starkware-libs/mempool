@@ -25,12 +25,12 @@ use starknet_api::block::{
 };
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey, SequencerContractAddress};
 use starknet_api::deprecated_contract_class::ContractClass as DeprecatedContractClass;
-use starknet_api::hash::{StarkFelt, StarkHash};
 use starknet_api::state::{StorageKey, ThinStateDiff};
-use starknet_api::{contract_address, patricia_key, stark_felt};
+use starknet_api::{contract_address, felt, patricia_key};
 use starknet_client::reader::PendingData;
 use starknet_gateway::config::RpcStateReaderConfig;
 use starknet_gateway::rpc_state_reader::RpcStateReaderFactory;
+use starknet_types_core::felt::Felt;
 use strum::IntoEnumIterator;
 use tempfile::tempdir;
 use test_utils::starknet_api_test_utils::{deploy_account_tx, deployed_account_contract_address};
@@ -61,14 +61,14 @@ pub async fn rpc_test_state_reader_factory(
     let test_contract_cairo0 = FeatureContract::TestContract(CairoVersion::Cairo0);
     let account_contract_cairo1 = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract_cairo1 = FeatureContract::TestContract(CairoVersion::Cairo1);
-    let erc20 = FeatureContract::ERC20;
+    let erc20_cairo1 = FeatureContract::ERC20(CairoVersion::Cairo1);
     let fund_accounts = vec![*deploy_account_tx_contract_address()];
 
     let storage_reader = initialize_papyrus_test_state(
         block_context.chain_info(),
         BALANCE,
         &[
-            (erc20, 1),
+            (erc20_cairo1, 1),
             (account_contract_cairo0, 1),
             (test_contract_cairo0, 1),
             (account_contract_cairo1, n_initialized_account_contracts),
@@ -111,7 +111,7 @@ fn prepare_state_diff(
     initial_balances: u128,
     fund_accounts: Vec<ContractAddress>,
 ) -> ThinStateDiff {
-    let erc20 = FeatureContract::ERC20;
+    let erc20 = FeatureContract::ERC20(CairoVersion::Cairo1);
     let erc20_class_hash = erc20.get_class_hash();
 
     // Declare and deploy ERC20 contracts.
@@ -226,7 +226,7 @@ fn cairo_version(contract: &FeatureContract) -> CairoVersion {
         | FeatureContract::Empty(version)
         | FeatureContract::FaultyAccount(version)
         | FeatureContract::TestContract(version) => *version,
-        FeatureContract::ERC20 => CairoVersion::Cairo0,
+        FeatureContract::ERC20(_) => CairoVersion::Cairo1,
         _ => panic!("{contract:?} contract has no configurable version."),
     }
 }
@@ -249,7 +249,7 @@ fn test_block_header(block_number: BlockNumber) -> BlockHeader {
 }
 
 fn fund_feature_account_contract(
-    storage_diffs: &mut IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
+    storage_diffs: &mut IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>,
     contract: &FeatureContract,
     instance: u16,
     initial_balances: u128,
@@ -271,13 +271,13 @@ fn fund_feature_account_contract(
 }
 
 fn fund_account(
-    storage_diffs: &mut IndexMap<ContractAddress, IndexMap<StorageKey, StarkFelt>>,
+    storage_diffs: &mut IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>,
     account_address: &ContractAddress,
     initial_balances: u128,
     chain_info: &ChainInfo,
 ) {
     let key_value = indexmap! {
-        get_fee_token_var_address(*account_address) => stark_felt!(initial_balances),
+        get_fee_token_var_address(*account_address) => felt!(initial_balances),
     };
     for fee_type in FeeType::iter() {
         storage_diffs
