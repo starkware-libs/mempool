@@ -1,31 +1,16 @@
 use std::net::SocketAddr;
-use std::sync::Arc;
 
 use axum::body::Body;
 use reqwest::{Client, Response};
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_gateway::config::{
-    GatewayConfig, GatewayNetworkConfig, StatefulTransactionValidatorConfig,
+    GatewayConfig, GatewayNetworkConfig, RpcStateReaderConfig, StatefulTransactionValidatorConfig,
     StatelessTransactionValidatorConfig,
 };
 use starknet_gateway::errors::GatewayError;
-use starknet_mempool_node::components::Components;
 use starknet_mempool_node::config::MempoolNodeConfig;
 use test_utils::starknet_api_test_utils::external_tx_to_json;
-
-use crate::state_reader::rpc_test_state_reader_factory;
-
-pub async fn adjust_gateway_state_reader(
-    components: &mut Components,
-    n_initialized_account_contracts: u16,
-) {
-    if let Some(gateway) = components.gateway.as_mut() {
-        let state_reader_factory =
-            Arc::new(rpc_test_state_reader_factory(n_initialized_account_contracts).await);
-        gateway.inject_state_reader_factory(state_reader_factory);
-    }
-}
 
 fn create_gateway_config() -> GatewayConfig {
     let stateless_tx_validator_config = StatelessTransactionValidatorConfig {
@@ -42,8 +27,12 @@ fn create_gateway_config() -> GatewayConfig {
     GatewayConfig { network_config, stateless_tx_validator_config, stateful_tx_validator_config }
 }
 
-pub fn create_config() -> MempoolNodeConfig {
-    MempoolNodeConfig { gateway_config: create_gateway_config(), ..MempoolNodeConfig::default() }
+pub fn create_config(rpc_state_reader_config: RpcStateReaderConfig) -> MempoolNodeConfig {
+    MempoolNodeConfig {
+        gateway_config: create_gateway_config(),
+        rpc_state_reader_config,
+        ..MempoolNodeConfig::default()
+    }
 }
 
 /// A test utility client for interacting with a gateway server.

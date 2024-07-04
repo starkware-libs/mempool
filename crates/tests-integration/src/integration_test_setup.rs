@@ -14,7 +14,8 @@ use starknet_task_executor::tokio_executor::TokioExecutor;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 
-use crate::integration_test_utils::{adjust_gateway_state_reader, create_config, GatewayClient};
+use crate::integration_test_utils::{create_config, GatewayClient};
+use crate::state_reader::rpc_test_state_reader_factory;
 
 pub struct IntegrationTestSetup {
     pub task_executor: TokioExecutor,
@@ -31,16 +32,23 @@ impl IntegrationTestSetup {
         let handle = Handle::current();
         let task_executor = TokioExecutor::new(handle);
 
-        // Build and run gateway; initialize a gateway client.
-        let config = create_config();
+        // Spawn a papyrus rpc server for a papyrus storage reader.
+        let rpc_state_reader_config =
+            rpc_test_state_reader_factory(n_initialized_account_contracts).await;
 
+        // Derive the configuration for the mempool node.
+        let config = create_config(rpc_state_reader_config);
+
+        // Create the communication network for the mempool node.
         let channels = create_node_channels();
 
+        // Create the clients for the mempool node.
         let clients = create_node_clients(&config, &channels);
 
-        let mut components = create_components(&config, &clients);
-        adjust_gateway_state_reader(&mut components, n_initialized_account_contracts).await;
+        // Create the components for the mempool node.
+        let components = create_components(&config, &clients);
 
+        // Create the servers for the mempool node.
         let servers = create_servers(&config, channels, components);
 
         let GatewayNetworkConfig { ip, port } = config.gateway_config.network_config;
