@@ -90,6 +90,12 @@ fn test_get_txs(#[case] requested_txs: usize) {
 
     // checks that the transactions that were not returned are still in the mempool.
     check_mempool_txs_eq(&mempool, remaining_txs);
+
+    // retrieve all the remaining transactions and check that the mempool is empty.
+    let remaining_txs_after_retrieval = mempool.get_txs(remaining_txs.len()).unwrap();
+    assert_eq!(remaining_txs_after_retrieval, remaining_txs);
+    let empty_txs = mempool.get_txs(1).unwrap();
+    assert!(empty_txs.is_empty());
 }
 
 #[rstest]
