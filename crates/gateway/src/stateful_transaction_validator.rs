@@ -6,6 +6,8 @@ use blockifier::execution::contract_class::ClassInfo;
 use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::versioned_constants::VersionedConstants;
+use mockall::predicate::*;
+use mockall::*;
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 
@@ -22,6 +24,7 @@ pub struct StatefulTransactionValidator {
     pub config: StatefulTransactionValidatorConfig,
 }
 
+#[automock]
 pub trait StatefulTransactionValidatorTrait {
     fn validate(
         &mut self,
