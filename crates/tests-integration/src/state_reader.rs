@@ -36,6 +36,8 @@ use tempfile::tempdir;
 use test_utils::starknet_api_test_utils::{deploy_account_tx, deployed_account_contract_address};
 use tokio::sync::RwLock;
 
+use crate::integration_test_utils::available_socket;
+
 type ContractClassesMap =
     (Vec<(ClassHash, DeprecatedContractClass)>, Vec<(ClassHash, CasmContractClass)>);
 
@@ -306,7 +308,8 @@ fn get_test_pending_classes() -> Arc<RwLock<PendingClasses>> {
 }
 
 async fn run_papyrus_rpc_server(storage_reader: StorageReader) -> SocketAddr {
-    let rpc_config = RpcConfig::default();
+    let rpc_config =
+        RpcConfig { server_address: available_socket().await.to_string(), ..Default::default() };
     let (addr, handle) = run_server(
         &rpc_config,
         get_test_highest_block(),
