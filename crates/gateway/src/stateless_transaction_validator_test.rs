@@ -1,7 +1,8 @@
 use assert_matches::assert_matches;
 use rstest::rstest;
 use starknet_api::hash::StarkFelt;
-use starknet_api::rpc_transaction::{ContractClass, ResourceBoundsMapping};
+use starknet_api::rpc_transaction::{ContractClass, EntryPointByType, ResourceBoundsMapping};
+use starknet_api::state::EntryPoint;
 use starknet_api::transaction::{Calldata, Resource, ResourceBounds, TransactionSignature};
 use starknet_api::{calldata, stark_felt};
 use test_utils::declare_tx_args;
@@ -271,8 +272,10 @@ fn test_declare_sierra_version_failure(
 fn test_declare_sierra_version_sucsses(#[case] sierra_program: Vec<StarkFelt>) {
     let tx_validator =
         StatelessTransactionValidator { config: DEFAULT_VALIDATOR_CONFIG_FOR_TESTING };
-
-    let contract_class = ContractClass { sierra_program, ..Default::default() };
+    let entry_points_by_type =
+        EntryPointByType { constructor: vec![EntryPoint::default()], ..Default::default() };
+    let contract_class =
+        ContractClass { sierra_program, entry_points_by_type, ..Default::default() };
     let tx = external_declare_tx(declare_tx_args!(contract_class));
 
     assert_matches!(tx_validator.validate(&tx), Ok(()));
@@ -289,7 +292,10 @@ fn test_declare_bytecode_size_too_long() {
     };
     let sierra_program_length = config_max_bytecode_size + 1;
     let sierra_program = vec![stark_felt!(1_u128); sierra_program_length];
-    let contract_class = ContractClass { sierra_program, ..Default::default() };
+    let entry_points_by_type =
+        EntryPointByType { constructor: vec![EntryPoint::default()], ..Default::default() };
+    let contract_class =
+        ContractClass { sierra_program, entry_points_by_type, ..Default::default() };
     let tx = external_declare_tx(declare_tx_args!(contract_class));
 
     assert_matches!(
@@ -312,8 +318,13 @@ fn test_declare_contract_class_size_too_long() {
             ..DEFAULT_VALIDATOR_CONFIG_FOR_TESTING
         },
     };
-    let contract_class =
-        ContractClass { sierra_program: vec![stark_felt!(1_u128); 3], ..Default::default() };
+    let entry_points_by_type =
+        EntryPointByType { constructor: vec![EntryPoint::default()], ..Default::default() };
+    let contract_class = ContractClass {
+        sierra_program: vec![stark_felt!(1_u128); 3],
+        entry_points_by_type,
+        ..Default::default()
+    };
     let contract_class_length = serde_json::to_string(&contract_class).unwrap().len();
     let tx = external_declare_tx(declare_tx_args!(contract_class));
 
@@ -325,4 +336,17 @@ fn test_declare_contract_class_size_too_long() {
             contract_class_object_size, max_contract_class_object_size
         ) == (contract_class_length, config_max_raw_class_size)
     )
+}
+#[test]
+fn test_missing_ctor_entry_point() {
+    let mut tx_validator =
+        StatelessTransactionValidator { config: DEFAULT_VALIDATOR_CONFIG_FOR_TESTING };
+    // TODO(yair): Change the test contract class to a smaller one to fit the test config.
+    tx_validator.config.max_raw_class_size += 100000;
+    let mut contract_class = test_utils::contract_class();
+    contract_class.entry_points_by_type.constructor.clear();
+
+    let tx = external_declare_tx(declare_tx_args!(contract_class));
+    let error = tx_validator.validate(&tx).unwrap_err();
+    assert_eq!(error, StatelessTransactionValidatorError::NoConstructor);
 }

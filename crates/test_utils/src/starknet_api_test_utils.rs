@@ -12,9 +12,9 @@ use starknet_api::core::{
 use starknet_api::data_availability::DataAvailabilityMode;
 use starknet_api::hash::StarkFelt;
 use starknet_api::rpc_transaction::{
-    ContractClass, RPCDeclareTransactionV3, RPCDeployAccountTransaction,
-    RPCDeployAccountTransactionV3, RPCInvokeTransactionV3, RPCTransaction, ResourceBoundsMapping,
+    ContractClass, EntryPointByType, RPCDeclareTransactionV3, RPCDeployAccountTransaction, RPCDeployAccountTransactionV3, RPCInvokeTransactionV3, RPCTransaction, ResourceBoundsMapping
 };
+use starknet_api::state::EntryPoint;
 use starknet_api::transaction::{
     AccountDeploymentData, Calldata, ContractAddressSalt, PaymasterData, ResourceBounds, Tip,
     TransactionSignature, TransactionVersion,
@@ -45,8 +45,13 @@ pub fn external_tx_for_testing(
     match tx_type {
         TransactionType::Declare => {
             // Minimal contract class.
+            let entry_points_by_type = EntryPointByType {
+                constructor: vec![EntryPoint::default()],
+                ..Default::default()
+            };
             let contract_class = ContractClass {
                 sierra_program: vec![stark_felt!(1_u32), stark_felt!(3_u32), stark_felt!(0_u32)],
+                entry_points_by_type,
                 ..Default::default()
             };
             external_declare_tx(declare_tx_args!(resource_bounds, signature, contract_class))
