@@ -20,7 +20,7 @@ use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_thin_tx, get_sender_address};
-
+ 
 #[cfg(test)]
 #[path = "gateway_test.rs"]
 pub mod gateway_test;
