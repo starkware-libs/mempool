@@ -85,11 +85,9 @@ fn test_stateful_tx_validator(
         _ => None,
     };
 
-    let result = stateful_validator.run_validate(
-        &state_reader_factory,
-        &external_tx,
-        optional_class_info,
-        None,
-    );
+    let validator = stateful_validator.prepare_validate(&state_reader_factory).unwrap();
+
+    let result =
+        stateful_validator.run_validate(&external_tx, optional_class_info, None, validator);
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }
