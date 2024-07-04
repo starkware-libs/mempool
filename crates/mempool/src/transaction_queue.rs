@@ -39,8 +39,10 @@ impl TransactionQueue {
         txs.into_iter().map(|tx| tx.tx_hash).collect()
     }
 
+    /// Gets an iterator that visits the elements in the queue in descending
+    /// order, in contrast to the `BTreeSet` iterator which visits in ascending order.
     pub fn iter(&self) -> impl Iterator<Item = &TransactionReference> {
-        self.queue.iter().map(|tx| &tx.0)
+        self.queue.iter().rev().map(|tx| &tx.0)
     }
 
     pub fn _get_nonce(&self, address: &ContractAddress) -> Option<&Nonce> {
