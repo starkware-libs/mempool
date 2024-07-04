@@ -11,10 +11,11 @@ use starknet_gateway::config::{
 };
 use starknet_gateway::errors::GatewayError;
 use starknet_gateway::gateway::Gateway;
+use starknet_gateway::rpc_state_reader::RpcStateReaderFactory;
 use starknet_mempool_types::communication::SharedMempoolClient;
 use test_utils::starknet_api_test_utils::external_tx_to_json;
 
-use crate::state_reader::rpc_test_state_reader_factory;
+use crate::state_reader::spawn_test_rpc_state_reader;
 
 pub async fn create_gateway(
     mempool_client: SharedMempoolClient,
@@ -37,8 +38,10 @@ pub async fn create_gateway(
         stateful_tx_validator_config,
     };
 
-    let state_reader_factory =
-        Arc::new(rpc_test_state_reader_factory(n_initialized_account_contracts).await);
+    let rpc_state_reader_config =
+        spawn_test_rpc_state_reader(n_initialized_account_contracts).await;
+
+    let state_reader_factory = Arc::new(RpcStateReaderFactory { config: rpc_state_reader_config });
 
     Gateway::new(gateway_config, state_reader_factory, mempool_client)
 }
