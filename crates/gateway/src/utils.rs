@@ -184,12 +184,9 @@ pub trait IntoEnumIteratorExt {
     fn iter() -> impl Iterator<Item = Builtin>;
 }
 
-// TODO(Arni): When the trait IntoEnumIteratorExt is removed, Make sure the order is maintained or
-// address the different order.
 impl IntoEnumIteratorExt for Builtin {
     fn iter() -> impl Iterator<Item = Builtin> {
-        // The OS expects this order for the builtins.
-        vec![
+        let mut builtins_vector: Vec<Builtin> = vec![
             Builtin::Pedersen,
             Builtin::RangeCheck,
             Builtin::Ecdsa,
@@ -198,7 +195,22 @@ impl IntoEnumIteratorExt for Builtin {
             Builtin::Poseidon,
             Builtin::SegmentArena,
             Builtin::Keccak,
-        ]
-        .into_iter()
+        ];
+        builtins_vector.sort_by_key(builtin_order);
+        builtins_vector.into_iter()
+    }
+}
+
+// The OS expects this order for the builtins.
+fn builtin_order(builtin: &Builtin) -> usize {
+    match builtin {
+        Builtin::Pedersen => 0,
+        Builtin::RangeCheck => 1,
+        Builtin::Ecdsa => 2,
+        Builtin::Bitwise => 3,
+        Builtin::EcOp => 4,
+        Builtin::Poseidon => 5,
+        Builtin::SegmentArena => 6,
+        Builtin::Keccak => 7,
     }
 }
