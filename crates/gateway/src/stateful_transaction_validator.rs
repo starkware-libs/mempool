@@ -21,14 +21,31 @@ pub struct StatefulTransactionValidator {
     pub config: StatefulTransactionValidatorConfig,
 }
 
+type ConcreteBlockifierStatefulValidator =
+    BlockifierStatefulValidator<CachedState<Box<dyn MempoolStateReader>>>;
+
 impl StatefulTransactionValidator {
     pub fn run_validate(
         &self,
-        state_reader_factory: &dyn StateReaderFactory,
         external_tx: &RPCTransaction,
         optional_class_info: Option<ClassInfo>,
         deploy_account_tx_hash: Option<TransactionHash>,
+        mut validator: ConcreteBlockifierStatefulValidator,
     ) -> StatefulTransactionValidatorResult<TransactionHash> {
+        let account_tx = external_tx_to_account_tx(
+            external_tx,
+            optional_class_info,
+            &self.config.chain_info.chain_id,
+        )?;
+        let tx_hash = get_tx_hash(&account_tx);
+        validator.perform_validations(account_tx, deploy_account_tx_hash)?;
+        Ok(tx_hash)
+    }
+
+    pub fn prepare_validate(
+        &self,
+        state_reader_factory: &dyn StateReaderFactory,
+    ) -> StatefulTransactionValidatorResult<ConcreteBlockifierStatefulValidator> {
         // TODO(yael 6/5/2024): consider storing the block_info as part of the
         // StatefulTransactionValidator and update it only once a new block is created.
         let latest_block_info = get_latest_block_info(state_reader_factory)?;
@@ -52,20 +69,12 @@ impl StatefulTransactionValidator {
             &versioned_constants,
         );
 
-        let mut validator = BlockifierStatefulValidator::create(
-            state,
+        Ok(BlockifierStatefulValidator::create(
+            state.into(),
             block_context,
             self.config.max_nonce_for_validation_skip,
             BouncerConfig::max(),
-        );
-        let account_tx = external_tx_to_account_tx(
-            external_tx,
-            optional_class_info,
-            &self.config.chain_info.chain_id,
-        )?;
-        let tx_hash = get_tx_hash(&account_tx);
-        validator.perform_validations(account_tx, deploy_account_tx_hash)?;
-        Ok(tx_hash)
+        ))
     }
 }
 
