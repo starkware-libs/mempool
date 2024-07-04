@@ -30,7 +30,7 @@ pub struct IntegrationTestSetup {
 }
 
 impl IntegrationTestSetup {
-    pub async fn new(n_accounts: u16) -> Self {
+    pub async fn new(n_accounts: usize) -> Self {
         let handle = Handle::current();
         let task_executor = TokioExecutor::new(handle);
 
