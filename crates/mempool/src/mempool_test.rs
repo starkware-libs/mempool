@@ -59,6 +59,7 @@ fn check_mempool_txs_eq(mempool: &Mempool, expected_txs: &[ThinTransaction]) {
 }
 
 #[rstest]
+#[case(0)] // Requesting 0 transactions
 #[case(3)] // Requesting exactly the number of transactions in the queue
 #[case(5)] // Requesting more transactions than are in the queue
 #[case(2)] // Requesting fewer transactions than are in the queue
