@@ -9,6 +9,7 @@ use starknet_api::core::{ChainId, ContractAddress, Nonce};
 use starknet_types_core::felt::Felt;
 use validator::Validate;
 
+use crate::compilation_config::GatewayCompilerConfig;
 use crate::compiler_version::VersionId;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, Validate, PartialEq)]
@@ -16,6 +17,7 @@ pub struct GatewayConfig {
     pub network_config: GatewayNetworkConfig,
     pub stateless_tx_validator_config: StatelessTransactionValidatorConfig,
     pub stateful_tx_validator_config: StatefulTransactionValidatorConfig,
+    pub compiler_config: GatewayCompilerConfig,
 }
 
 impl SerializeConfig for GatewayConfig {
@@ -30,6 +32,7 @@ impl SerializeConfig for GatewayConfig {
                 self.stateful_tx_validator_config.dump(),
                 "stateful_tx_validator_config",
             ),
+            append_sub_config_name(self.compiler_config.dump(), "compiler_config"),
         ]
         .into_iter()
         .flatten()
