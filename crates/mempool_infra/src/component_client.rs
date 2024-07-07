@@ -4,12 +4,18 @@ use std::net::IpAddr;
 use bincode::{deserialize, serialize, ErrorKind};
 use hyper::body::to_bytes;
 use hyper::header::CONTENT_TYPE;
-use hyper::{Body, Client, Error as HyperError, Request as HyperRequest, Uri};
+use hyper::{
+    Body, Client, Error as HyperError, Request as HyperRequest, Response as HyperResponse,
+    StatusCode, Uri,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::mpsc::{channel, Sender};
 
-use crate::component_definitions::{ComponentRequestAndResponseSender, APPLICATION_OCTET_STREAM};
+use crate::component_definitions::{
+    ComponentRequestAndResponseSender, APPLICATION_OCTET_STREAM, DESERIALIZAION_FAILURE,
+    X_INTERNAL_ERROR_REASON_HEADER,
+};
 
 pub struct ComponentClient<Request, Response>
 where
@@ -90,10 +96,44 @@ where
         // Todo(uriel): Add configuration for controlling the number of retries.
         let http_response =
             self.client.request(http_request).await.map_err(ClientError::CommunicationFailure)?;
-        let body_bytes = to_bytes(http_response.into_body())
-            .await
-            .map_err(ClientError::ResponseParsingFailure)?;
-        deserialize(&body_bytes).map_err(ClientError::ResponseDeserializationFailure)
+
+        match http_response.status() {
+            StatusCode::OK => {
+                let body_bytes = to_bytes(http_response.into_body())
+                    .await
+                    .map_err(ClientError::ResponseParsingFailure)?;
+                deserialize(&body_bytes).map_err(ClientError::ResponseDeserializationFailure)
+            }
+            StatusCode::BAD_REQUEST => Err(ClientError::ResponseError(
+                StatusCode::BAD_REQUEST,
+                get_bad_request_reason(http_response).await,
+            )),
+            status_code => {
+                Err(ClientError::ResponseError(status_code, "Unexpected status code".to_string()))
+            }
+        }
+    }
+}
+
+async fn get_bad_request_reason(response: HyperResponse<Body>) -> String {
+    if let Some(value) = response.headers().get(X_INTERNAL_ERROR_REASON_HEADER) {
+        match value.to_str() {
+            Ok(DESERIALIZAION_FAILURE) => {
+                let Ok(body_bytes) = to_bytes(response.into_body()).await else {
+                    return "Failed to extract body from response.".to_string();
+                };
+                let Ok(reason) = String::from_utf8(body_bytes.into()) else {
+                    return "Failed to parse reason from body.".to_string();
+                };
+                format!("Reason: {}", reason)
+            }
+            Ok(reason) => format!("Unexpected reason found: {}", reason),
+            Err(e) => {
+                format!("Failed to parse {} header's value: {}", X_INTERNAL_ERROR_REASON_HEADER, e)
+            }
+        }
+    } else {
+        "Reason not found".to_string()
     }
 }
 
@@ -124,6 +164,8 @@ pub enum ClientError {
     UnexpectedResponse,
     #[error("Could not deserialize server response: {0}")]
     ResponseDeserializationFailure(Box<ErrorKind>),
+    #[error("Got status code: {0}, with error: {1}")]
+    ResponseError(StatusCode, String),
 }
 
 pub type ClientResult<T> = Result<T, ClientError>;
