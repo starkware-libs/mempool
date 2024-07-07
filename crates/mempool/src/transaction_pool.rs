@@ -63,12 +63,8 @@ impl TransactionPool {
         self.tx_pool.get(&tx_hash).ok_or(MempoolError::TransactionNotFound { tx_hash })
     }
 
-    pub fn get_by_address_and_nonce(
-        &self,
-        address: ContractAddress,
-        nonce: Nonce,
-    ) -> Option<&TransactionReference> {
-        self.txs_by_account.get(address, nonce)
+    pub fn contains_address(&self, address: ContractAddress) -> bool {
+        self.txs_by_account.contains(address)
     }
 }
 
@@ -94,7 +90,12 @@ impl AccountTransactionIndex {
         removed_tx
     }
 
+    #[allow(dead_code)]
     fn get(&self, address: ContractAddress, nonce: Nonce) -> Option<&TransactionReference> {
         self.0.get(&address)?.get(&nonce)
+    }
+
+    fn contains(&self, address: ContractAddress) -> bool {
+        self.0.contains_key(&address)
     }
 }
