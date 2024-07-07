@@ -91,3 +91,19 @@ fn test_stateful_tx_validator(
         stateful_validator.run_validate(&external_tx, optional_class_info, None, validator);
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }
+
+#[test]
+fn test_prepare_validate() {
+    let state_reader_factory = local_test_state_reader_factory(CairoVersion::Cairo1, false);
+    let block_context = &BlockContext::create_for_testing();
+    let stateful_validator = StatefulTransactionValidator {
+        config: StatefulTransactionValidatorConfig {
+            max_nonce_for_validation_skip: Default::default(),
+            validate_max_n_steps: block_context.versioned_constants().validate_max_n_steps,
+            max_recursion_depth: block_context.versioned_constants().max_recursion_depth,
+            chain_info: block_context.chain_info().clone().into(),
+        },
+    };
+    let blockifier_validator = stateful_validator.prepare_validate(&state_reader_factory);
+    assert!(blockifier_validator.is_ok());
+}
