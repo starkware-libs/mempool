@@ -12,6 +12,8 @@ use starknet_types_core::felt::Felt;
 
 use crate::mempool::{Mempool, MempoolInput, TransactionReference};
 
+const TEST_SENDER_ADDRESS: u128 = 0x1000;
+
 #[track_caller]
 fn add_tx(mempool: &mut Mempool, input: &MempoolInput) {
     assert_eq!(mempool.add_tx(input.clone()), Ok(()));
@@ -167,4 +169,29 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
     add_tx(&mut mempool, &input_big_tip_small_hash);
     add_tx(&mut mempool, &input_small_tip_big_hash);
     check_mempool_txs_eq(&mempool, &[input_big_tip_small_hash.tx, input_small_tip_big_hash.tx])
+}
+
+#[rstest]
+#[case::empty_mempool(Mempool::empty())]
+#[case::mempool_contains_tx_with_nonce_2(Mempool::new([
+    add_tx_input!(tip: 0, tx_hash: 1, sender_address: TEST_SENDER_ADDRESS, tx_nonce: 2_u8)])
+    .unwrap()
+)]
+// TODO(Yael 7/7/2024) - add case for mempool that contains a transaction with nonce 0, and no error
+// is received. This case is not available now since the mempool doesn't supoprt multiple nonces per
+// account.
+fn test_undeployed_account(#[case] mut mempool: Mempool) {
+    let input = add_tx_input!(
+        tip: 0,
+        tx_hash: 0,
+        sender_address: TEST_SENDER_ADDRESS,
+        tx_nonce: 1_u8
+    );
+    let result = mempool.add_tx(input.clone());
+
+    assert_matches!(
+        result,
+        Err(MempoolError::UndeployedAccount { sender_address })
+        if sender_address == input.tx.sender_address
+    );
 }
