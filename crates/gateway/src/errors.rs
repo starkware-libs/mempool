@@ -88,6 +88,8 @@ pub enum StatelessTransactionValidatorError {
         contract_class_object_size: usize,
         max_contract_class_object_size: usize,
     },
+    #[error("Contract class entry points are not sorted by the selector.")]
+    EntryPointsNotSortedBySelector,
 }
 
 pub type StatelessTransactionValidatorResult<T> = Result<T, StatelessTransactionValidatorError>;

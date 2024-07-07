@@ -2877,6 +2877,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f518f335dce6725a761382244631d86cf0ccb2863413590b31338feb467f9c3"
 
 [[package]]
+name = "is_sorted"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "357376465c37db3372ef6a00585d336ed3d0f11d4345eef77ebcb05865392b21"
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5268,6 +5274,7 @@ dependencies = [
  "cairo-lang-starknet-classes",
  "cairo-vm",
  "hyper",
+ "is_sorted",
  "num-bigint",
  "num-traits 0.2.19",
  "papyrus_config",

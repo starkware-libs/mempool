@@ -1,7 +1,9 @@
+use is_sorted::IsSorted;
 use starknet_api::rpc_transaction::{
     RPCDeclareTransaction, RPCDeployAccountTransaction, RPCInvokeTransaction, RPCTransaction,
     ResourceBoundsMapping,
 };
+use starknet_api::state::EntryPoint;
 use starknet_api::transaction::Resource;
 use starknet_types_core::felt::Felt;
 
@@ -106,7 +108,9 @@ impl StatelessTransactionValidator {
             RPCDeclareTransaction::V3(tx) => &tx.contract_class,
         };
         self.validate_sierra_version(&contract_class.sierra_program)?;
-        self.validate_class_length(contract_class)
+        self.validate_class_length(contract_class)?;
+        self.validate_entry_points_sorted(contract_class)?;
+        Ok(())
     }
 
     fn validate_sierra_version(
@@ -153,6 +157,24 @@ impl StatelessTransactionValidator {
         }
 
         Ok(())
+    }
+
+    fn validate_entry_points_sorted(
+        &self,
+        contract_class: &starknet_api::rpc_transaction::ContractClass,
+    ) -> StatelessTransactionValidatorResult<()> {
+        // TODO(yair): Replace with standard `is_sorted_by_key` once it's stabilized.
+        let is_sorted = |entry_points: &[EntryPoint]| {
+            IsSorted::is_sorted_by_key(&mut entry_points.iter(), |entry_point| entry_point.selector)
+        };
+        if is_sorted(&contract_class.entry_points_by_type.constructor)
+            && is_sorted(&contract_class.entry_points_by_type.external)
+            && is_sorted(&contract_class.entry_points_by_type.l1handler)
+        {
+            return Ok(());
+        }
+
+        Err(StatelessTransactionValidatorError::EntryPointsNotSortedBySelector)
     }
 }
 
