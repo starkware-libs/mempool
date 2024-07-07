@@ -21,7 +21,12 @@ impl TransactionQueue {
     /// Adds a transaction to the mempool, ensuring unique keys.
     /// Panics: if given a duplicate tx.
     pub fn insert(&mut self, tx: TransactionReference) {
-        assert_eq!(self.address_to_nonce.insert(tx.sender_address, tx.nonce), None);
+        assert_eq!(
+            self.address_to_nonce.insert(tx.sender_address, tx.nonce),
+            None,
+            "Only a single transaction from the same contract class can be in the mempool at a \
+             time."
+        );
         assert!(
             self.queue.insert(tx.into()),
             "Keys should be unique; duplicates are checked prior."
