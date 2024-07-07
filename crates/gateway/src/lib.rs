@@ -4,6 +4,7 @@ mod compiler_version;
 pub mod config;
 pub mod errors;
 pub mod gateway;
+pub mod pointers;
 mod rpc_objects;
 mod rpc_state_reader;
 #[cfg(test)]
