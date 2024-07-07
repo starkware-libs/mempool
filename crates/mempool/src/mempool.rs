@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
+use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     AccountState, MempoolInput, MempoolResult, ThinTransaction,
 };
+use starknet_types_core::felt::Felt;
 
 use crate::transaction_pool::TransactionPool;
 use crate::transaction_queue::TransactionQueue;
@@ -78,11 +80,35 @@ impl Mempool {
     fn insert_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
         let tx = input.tx;
         let tx_reference = TransactionReference::new(&tx);
+        self.verify_tx(&tx, input.account.state.nonce)?;
 
         self.tx_pool.insert(tx)?;
         // FIXME: Check nonce before adding!
         self.tx_queue.insert(tx_reference);
 
+        Ok(())
+    }
+
+    pub fn verify_tx(&self, tx: &ThinTransaction, account_nonce: Nonce) -> MempoolResult<()> {
+        // If the tx nonce is 1 and the account nonce is 0, the account was not deployed yet and the
+        // gateway has skipped validations. In this case, we verify that a deploy account tx exists
+        // in the pool.
+        // TODO(Yael 8/7/2024): This is only relevant for invoke tx, check the
+        // type once available.
+        if tx.nonce == Nonce(Felt::ONE) && account_nonce == Nonce(Felt::ZERO) {
+            match self
+                .tx_pool
+                .get_by_address_and_nonce(tx.sender_address, Nonce(Felt::ZERO))
+                .is_some()
+            {
+                true => return Ok(()),
+                false => {
+                    return Err(MempoolError::UndeployedAccount {
+                        sender_address: tx.sender_address,
+                    });
+                }
+            }
+        }
         Ok(())
     }
 }
