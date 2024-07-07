@@ -16,3 +16,5 @@ where
 }
 
 pub const APPLICATION_OCTET_STREAM: &str = "application/octet-stream";
+pub const X_INTERNAL_ERROR_REASON_HEADER: &str = "x-internal-error-reason";
+pub const DESERIALIZAION_FAILED_REASON: &str = "Deserialization failed";
