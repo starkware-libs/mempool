@@ -1,5 +1,6 @@
 pub mod communication;
 pub mod compilation;
+pub mod compilation_config;
 pub mod compiler_version;
 pub mod config;
 pub mod errors;

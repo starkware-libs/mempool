@@ -6,7 +6,7 @@ use starknet_api::rpc_transaction::{RPCDeclareTransaction, RPCTransaction};
 use starknet_sierra_compile::errors::CompilationUtilError;
 use test_utils::starknet_api_test_utils::declare_tx;
 
-use crate::compilation::compile_contract_class;
+use crate::compilation::GatewayCompiler;
 use crate::errors::GatewayError;
 
 #[test]
@@ -21,7 +21,7 @@ fn test_compile_contract_class_compiled_class_hash_missmatch() {
     tx.compiled_class_hash = supplied_hash;
     let declare_tx = RPCDeclareTransaction::V3(tx);
 
-    let result = compile_contract_class(&declare_tx);
+    let result = GatewayCompiler { config: Default::default() }.compile_contract_class(&declare_tx);
     assert_matches!(
         result.unwrap_err(),
         GatewayError::CompiledClassHashMismatch { supplied, hash_result }
@@ -39,7 +39,7 @@ fn test_compile_contract_class_bad_sierra() {
     tx.contract_class.sierra_program = tx.contract_class.sierra_program[..100].to_vec();
     let declare_tx = RPCDeclareTransaction::V3(tx);
 
-    let result = compile_contract_class(&declare_tx);
+    let result = GatewayCompiler { config: Default::default() }.compile_contract_class(&declare_tx);
     assert_matches!(
         result.unwrap_err(),
         GatewayError::CompilationError(CompilationUtilError::AllowedLibfuncsError(
@@ -57,7 +57,8 @@ fn test_compile_contract_class() {
     let RPCDeclareTransaction::V3(declare_tx_v3) = &declare_tx;
     let contract_class = &declare_tx_v3.contract_class;
 
-    let class_info = compile_contract_class(&declare_tx).unwrap();
+    let class_info =
+        GatewayCompiler { config: Default::default() }.compile_contract_class(&declare_tx).unwrap();
     assert_matches!(class_info.contract_class(), ContractClass::V1(_));
     assert_eq!(class_info.sierra_program_length(), contract_class.sierra_program.len());
     assert_eq!(class_info.abi_length(), contract_class.abi.len());

@@ -12,7 +12,7 @@ use test_utils::starknet_api_test_utils::{
     VALID_L1_GAS_MAX_PRICE_PER_UNIT,
 };
 
-use crate::compilation::compile_contract_class;
+use crate::compilation::GatewayCompiler;
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
 use crate::state_reader_test_utils::{
@@ -81,7 +81,10 @@ fn test_stateful_tx_validator(
         },
     };
     let optional_class_info = match &external_tx {
-        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx).unwrap()),
+        RPCTransaction::Declare(declare_tx) => {
+            let gateway_compiler = GatewayCompiler { config: Default::default() };
+            Some(gateway_compiler.compile_contract_class(declare_tx).unwrap())
+        }
         _ => None,
     };
 

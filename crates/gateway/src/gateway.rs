@@ -12,7 +12,7 @@ use starknet_mempool_infra::component_runner::{ComponentRunner, ComponentStartEr
 use starknet_mempool_types::communication::SharedMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, MempoolInput};
 
-use crate::compilation::compile_contract_class;
+use crate::compilation::GatewayCompiler;
 use crate::config::{GatewayConfig, GatewayNetworkConfig, RpcStateReaderConfig};
 use crate::errors::{GatewayError, GatewayResult, GatewayRunError};
 use crate::rpc_state_reader::RpcStateReaderFactory;
@@ -119,7 +119,10 @@ fn process_tx(
 
     // Compile Sierra to Casm.
     let optional_class_info = match &tx {
-        RPCTransaction::Declare(declare_tx) => Some(compile_contract_class(declare_tx)?),
+        RPCTransaction::Declare(declare_tx) => {
+            let gateway_compiler = GatewayCompiler { config: Default::default() };
+            Some(gateway_compiler.compile_contract_class(declare_tx)?)
+        }
         _ => None,
     };
 
