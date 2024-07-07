@@ -11,6 +11,8 @@ use starknet_mempool_types::mempool_types::{Account, ThinTransaction};
 
 use crate::mempool::{Mempool, MempoolInput, TransactionReference};
 
+const TEST_SENDER_ADDRESS: u128 = 0x1000;
+
 /// Creates a valid input for mempool's `add_tx` with optional default values.
 /// Usage:
 /// 1. add_tx_input!(tip: 1, tx_hash: StarkFelt::TWO, address: "0x3", nonce: 4)
@@ -18,7 +20,13 @@ use crate::mempool::{Mempool, MempoolInput, TransactionReference};
 /// 3. add_tx_input!(tip:1 , tx_hash: StarkFelt::TWO)
 macro_rules! add_tx_input {
     // Pattern for all four arguments with keyword arguments.
-    (tip: $tip:expr, tx_hash: $tx_hash:expr, sender_address: $sender_address:expr, nonce: $nonce:expr) => {{
+    (
+        tip:
+        $tip:expr,tx_hash:
+        $tx_hash:expr,sender_address:
+        $sender_address:expr,nonce:
+        $nonce:expr
+    ) => {{
         let sender_address = contract_address!($sender_address);
         let account = Account { sender_address, ..Default::default() };
         let tx = ThinTransaction {
@@ -30,12 +38,22 @@ macro_rules! add_tx_input {
         MempoolInput { tx, account }
     }};
     // Pattern for three arguments.
-    (tip: $tip:expr, tx_hash: $tx_hash:expr, sender_address: $sender_address:expr) => {
-        add_tx_input!(tip: $tip, tx_hash: $tx_hash, sender_address: $sender_address, nonce: StarkFelt::ZERO)
+    (tip: $tip:expr,tx_hash: $tx_hash:expr,sender_address: $sender_address:expr) => {
+        add_tx_input!(
+            tip: $tip,
+            tx_hash: $tx_hash,
+            sender_address: $sender_address,
+            nonce: StarkFelt::ZERO
+        )
     };
     // Pattern for two arguments.
-    (tip: $tip:expr, tx_hash: $tx_hash:expr) => {
-        add_tx_input!(tip: $tip, tx_hash: $tx_hash, sender_address: ContractAddress::default(), nonce: StarkFelt::ZERO)
+    (tip: $tip:expr,tx_hash: $tx_hash:expr) => {
+        add_tx_input!(
+            tip: $tip,
+            tx_hash: $tx_hash,
+            sender_address: ContractAddress::default(),
+            nonce: StarkFelt::ZERO
+        )
     };
 }
 
@@ -163,4 +181,30 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
     assert_eq!(mempool.add_tx(input_big_tip_small_hash.clone()), Ok(()));
     assert_eq!(mempool.add_tx(input_small_tip_big_hash.clone()), Ok(()));
     check_mempool_txs_eq(&mempool, &[input_small_tip_big_hash.tx, input_big_tip_small_hash.tx])
+}
+
+#[rstest]
+#[case::empty_mempool(Mempool::empty())]
+#[case::mempool_contains_tx_with_nonce_2(
+    Mempool::new([add_tx_input!(tip: 0, tx_hash: StarkFelt::ONE,
+    sender_address: ContractAddress::from(TEST_SENDER_ADDRESS),
+    nonce: StarkFelt::TWO)]).unwrap()
+)]
+// TODO(Yael 7/7/2024) - add case for mempool that contains a transaction with nonce 0, and no error
+// is received. This case is not available now since the mempool doesn't supoprt multiple nonces per
+// account.
+fn test_undeployed_account(#[case] mut mempool: Mempool) {
+    let input = add_tx_input!(
+        tip: 0,
+        tx_hash: StarkFelt::ZERO,
+        sender_address: ContractAddress::from(TEST_SENDER_ADDRESS),
+        nonce: StarkFelt::ONE
+    );
+    let result = mempool.add_tx(input.clone());
+
+    assert_matches!(
+        result,
+        Err(MempoolError::UndeployedAccount { sender_address })
+        if sender_address == input.tx.sender_address
+    );
 }

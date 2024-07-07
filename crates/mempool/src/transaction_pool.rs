@@ -1,6 +1,7 @@
 use std::collections::{hash_map, BTreeMap, HashMap};
 
 use starknet_api::core::{ContractAddress, Nonce};
+use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{MempoolResult, ThinTransaction};
@@ -20,9 +21,10 @@ pub struct TransactionPool {
 }
 
 impl TransactionPool {
-    pub fn insert(&mut self, tx: ThinTransaction) -> MempoolResult<()> {
+    pub fn insert(&mut self, tx: ThinTransaction, account_nonce: Nonce) -> MempoolResult<()> {
         let tx_reference = TransactionReference::new(&tx);
         let tx_hash = tx_reference.tx_hash;
+        self.account_deployed(&tx, account_nonce)?;
 
         // Insert to pool.
         if let hash_map::Entry::Vacant(entry) = self.tx_pool.entry(tx_hash) {
@@ -40,6 +42,24 @@ impl TransactionPool {
             )
         };
 
+        Ok(())
+    }
+
+    pub fn account_deployed(
+        &self,
+        tx: &ThinTransaction,
+        account_nonce: Nonce,
+    ) -> MempoolResult<()> {
+        // If tx nonce = 1 and account nonce = 0, the gateway have skipped validations and this
+        // means that the account may not have been deployed yet and we need to check it now.
+        if tx.nonce == Nonce(StarkFelt::ONE) && account_nonce == Nonce(StarkFelt::ZERO) {
+            self.txs_by_account
+                .0
+                .get(&tx.sender_address)
+                .unwrap_or(&BTreeMap::new())
+                .get(&Nonce(StarkFelt::ZERO))
+                .ok_or(MempoolError::UndeployedAccount { sender_address: tx.sender_address })?;
+        }
         Ok(())
     }
 

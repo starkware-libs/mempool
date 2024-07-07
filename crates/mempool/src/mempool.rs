@@ -80,7 +80,7 @@ impl Mempool {
     fn insert_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
         let tx = input.tx;
 
-        self.tx_pool.insert(tx.clone())?;
+        self.tx_pool.insert(tx.clone(), input.account.state.nonce)?;
         self.tx_queue.insert(TransactionReference::new(&tx));
 
         Ok(())
