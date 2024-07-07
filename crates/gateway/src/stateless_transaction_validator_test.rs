@@ -1,6 +1,9 @@
 use assert_matches::assert_matches;
+use crate::errors::StatelessTransactionValidatorResult;
 use rstest::rstest;
-use starknet_api::rpc_transaction::{ContractClass, ResourceBoundsMapping};
+use starknet_api::core::EntryPointSelector;
+use starknet_api::rpc_transaction::{ContractClass, EntryPointByType, ResourceBoundsMapping};
+use starknet_api::state::EntryPoint;
 use starknet_api::transaction::{Calldata, Resource, ResourceBounds, TransactionSignature};
 use starknet_api::{calldata, felt};
 use starknet_types_core::felt::Felt;
@@ -325,4 +328,51 @@ fn test_declare_contract_class_size_too_long() {
             contract_class_object_size, max_contract_class_object_size
         ) == (contract_class_length, config_max_raw_class_size)
     )
+}
+
+#[rstest]
+#[case::valid(
+    vec![
+        EntryPoint { selector: EntryPointSelector(felt!(1_u128)), ..Default::default() },
+        EntryPoint { selector: EntryPointSelector(felt!(2_u128)), ..Default::default() }
+    ],
+    Ok(())
+)]
+#[case::not_sorted(
+    vec![
+        EntryPoint { selector: EntryPointSelector(felt!(2_u128)), ..Default::default() },
+        EntryPoint { selector: EntryPointSelector(felt!(1_u128)), ..Default::default() },
+    ],
+    Err(StatelessTransactionValidatorError::EntryPointsNotUniqueSorted)
+)]
+#[case::not_unique(
+    vec![
+        EntryPoint { selector: EntryPointSelector(felt!(1_u128)), ..Default::default() },
+        EntryPoint { selector: EntryPointSelector(felt!(1_u128)), ..Default::default() },
+    ],
+    Err(StatelessTransactionValidatorError::EntryPointsNotUniqueSorted)
+)]
+fn test_declare_entry_points_not_sorted_by_selector(
+    #[case] entry_points: Vec<EntryPoint>,
+    #[case] expected: StatelessTransactionValidatorResult<()>,
+) {
+
+    let tx_validator =
+        StatelessTransactionValidator { config: DEFAULT_VALIDATOR_CONFIG_FOR_TESTING };
+
+    let contract_class = ContractClass {
+        sierra_program: vec![felt!(1_u128); 3],
+        entry_points_by_type: EntryPointByType {
+            constructor: entry_points,
+            external: vec![],
+            l1handler: vec![],
+        },
+        ..Default::default()
+    };
+    let tx = external_declare_tx(declare_tx_args!(contract_class));
+
+    assert_eq!(
+        tx_validator.validate(&tx),
+        expected
+    );
 }
