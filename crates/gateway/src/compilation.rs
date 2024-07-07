@@ -1,5 +1,4 @@
 use std::panic;
-use std::sync::OnceLock;
 
 use blockifier::execution::contract_class::{ClassInfo, ContractClass, ContractClassV1};
 use cairo_lang_starknet_classes::casm_contract_class::{
@@ -20,7 +19,6 @@ use crate::utils::is_subsequence;
 mod compilation_test;
 
 pub struct GatewayCompiler {
-    #[allow(dead_code)]
     pub config: GatewayCompilerConfig,
 }
 
@@ -77,26 +75,13 @@ impl GatewayCompiler {
 
         for entry_point in entry_points_iterator {
             let builtins = &entry_point.builtins;
-            if !is_subsequence(builtins, supported_builtins()) {
+            if !is_subsequence(builtins, &self.config.supported_builtins) {
                 return Err(GatewayError::UnsupportedBuiltins {
                     builtins: builtins.clone(),
-                    supported_builtins: supported_builtins().to_vec(),
+                    supported_builtins: self.config.supported_builtins.to_vec(),
                 });
             }
         }
         Ok(())
     }
-}
-
-// TODO(Arni): Add to a config.
-// TODO(Arni): Use the Builtin enum from Starknet-api, and explicitly tag each builtin as supported
-// or unsupported so that the compiler would alert us on new builtins.
-fn supported_builtins() -> &'static Vec<String> {
-    static SUPPORTED_BUILTINS: OnceLock<Vec<String>> = OnceLock::new();
-    SUPPORTED_BUILTINS.get_or_init(|| {
-        // The OS expects this order for the builtins.
-        const SUPPORTED_BUILTIN_NAMES: [&str; 7] =
-            ["pedersen", "range_check", "ecdsa", "bitwise", "ec_op", "poseidon", "segment_arena"];
-        SUPPORTED_BUILTIN_NAMES.iter().map(|builtin| builtin.to_string()).collect::<Vec<String>>()
-    })
 }
