@@ -62,6 +62,14 @@ impl TransactionPool {
     pub fn get(&self, tx_hash: TransactionHash) -> MempoolResult<&ThinTransaction> {
         self.tx_pool.get(&tx_hash).ok_or(MempoolError::TransactionNotFound { tx_hash })
     }
+
+    pub fn get_by_account(
+        &self,
+        address: ContractAddress,
+        nonce: Nonce,
+    ) -> Option<&TransactionReference> {
+        self.txs_by_account.get(address, nonce)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -84,5 +92,9 @@ impl AccountTransactionIndex {
         }
 
         removed_tx
+    }
+
+    pub fn get(&self, address: ContractAddress, nonce: Nonce) -> Option<&TransactionReference> {
+        self.0.get(&address)?.get(&nonce)
     }
 }
