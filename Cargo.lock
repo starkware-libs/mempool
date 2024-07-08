@@ -5355,6 +5355,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -5408,7 +5409,6 @@ dependencies = [
  "test_utils",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "validator",
 ]
 
