@@ -14,6 +14,31 @@ use crate::mempool::{Mempool, MempoolInput, TransactionReference};
 use crate::transaction_pool::TransactionPool;
 use crate::transaction_queue::TransactionQueue;
 
+/// `MempoolState` is a utility struct for testing mempool scenarios. It allows the creation of
+/// different mempool states, without following the regular mempool behavior.
+struct MempoolState {
+    tx_pool: TransactionPool,
+    tx_queue: TransactionQueue,
+}
+
+impl MempoolState {
+    fn new<T>(pool_txs: T, queue_txs: T) -> Self
+    where
+        T: IntoIterator<Item = ThinTransaction>,
+    {
+        let tx_pool = pool_txs.into_iter().collect();
+        let tx_queue = queue_txs.into_iter().collect();
+        MempoolState { tx_pool, tx_queue }
+    }
+}
+
+impl From<MempoolState> for Mempool {
+    fn from(mempool_state: MempoolState) -> Mempool {
+        let MempoolState { tx_pool, tx_queue } = mempool_state;
+        Mempool { tx_pool, tx_queue }
+    }
+}
+
 impl FromIterator<ThinTransaction> for TransactionPool {
     fn from_iter<T: IntoIterator<Item = ThinTransaction>>(txs: T) -> TransactionPool {
         let mut pool = TransactionPool::default();
@@ -98,13 +123,13 @@ fn test_get_txs(#[case] requested_txs: usize) {
     let input_tip_10_address_2 = add_tx_input!(tip: 10, tx_hash: 3, sender_address: "0x2");
 
     let txs = [
-        input_tip_50_address_0.clone(),
-        input_tip_100_address_1.clone(),
-        input_tip_10_address_2.clone(),
+        input_tip_50_address_0.clone().tx,
+        input_tip_100_address_1.clone().tx,
+        input_tip_10_address_2.clone().tx,
     ];
     let n_txs = txs.len();
 
-    let mut mempool = Mempool::new(txs).unwrap();
+    let mut mempool: Mempool = MempoolState::new(txs.clone(), txs).into();
 
     let sorted_txs =
         [input_tip_100_address_1.tx, input_tip_50_address_0.tx, input_tip_10_address_2.tx];
