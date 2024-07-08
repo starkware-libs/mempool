@@ -14,7 +14,7 @@ use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 
 use crate::compilation::GatewayCompiler;
-use crate::config::StatefulTransactionValidatorConfig;
+use crate::config::{GatewayCompilerConfig, StatefulTransactionValidatorConfig};
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
 use crate::state_reader_test_utils::{
     local_test_state_reader_factory, local_test_state_reader_factory_for_deploy_account,
@@ -81,10 +81,11 @@ fn test_stateful_tx_validator(
         },
     };
     let optional_class_info = match &external_tx {
-        RPCTransaction::Declare(declare_tx) => {
-            let gateway_compiler = GatewayCompiler { config: Default::default() };
-            Some(gateway_compiler.compile_contract_class(declare_tx).unwrap())
-        }
+        RPCTransaction::Declare(declare_tx) => Some(
+            GatewayCompiler { config: GatewayCompilerConfig {} }
+                .compile_contract_class(declare_tx)
+                .unwrap(),
+        ),
         _ => None,
     };
 
