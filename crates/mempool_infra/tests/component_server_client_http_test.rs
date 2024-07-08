@@ -1,10 +1,15 @@
 mod common;
 
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+
 use async_trait::async_trait;
+use bincode::serialize;
 use common::{ComponentAClientTrait, ComponentBClientTrait, ResultA, ResultB};
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response, Server, StatusCode};
 use serde::{Deserialize, Serialize};
 use starknet_mempool_infra::component_client::ComponentClientHttp;
-use starknet_mempool_infra::component_definitions::ComponentRequestHandler;
+use starknet_mempool_infra::component_definitions::{ComponentRequestHandler, ServerError};
 use starknet_mempool_infra::component_server::ComponentServerHttp;
 use tokio::task;
 
@@ -12,6 +17,8 @@ type ComponentAClient = ComponentClientHttp<ComponentARequest, ComponentARespons
 type ComponentBClient = ComponentClientHttp<ComponentBRequest, ComponentBResponse>;
 
 use crate::common::{ComponentA, ComponentB, ValueA, ValueB};
+
+const LOCAL_IP: IpAddr = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
 
 // Todo(uriel): Move to common
 #[derive(Serialize, Deserialize, Debug)]
@@ -82,12 +89,11 @@ async fn test_setup() {
     let setup_value: ValueB = 90;
     let expected_value: ValueA = setup_value.into();
 
-    let local_ip = "::1".parse().unwrap();
     let a_port = 10000;
     let b_port = 10001;
 
-    let a_client = ComponentAClient::new(local_ip, a_port);
-    let b_client = ComponentBClient::new(local_ip, b_port);
+    let a_client = ComponentAClient::new(LOCAL_IP, a_port);
+    let b_client = ComponentBClient::new(LOCAL_IP, b_port);
 
     let component_a = ComponentA::new(Box::new(b_client));
     let component_b = ComponentB::new(setup_value, Box::new(a_client.clone()));
@@ -96,12 +102,12 @@ async fn test_setup() {
         ComponentA,
         ComponentARequest,
         ComponentAResponse,
-    >::new(component_a, local_ip, a_port);
+    >::new(component_a, LOCAL_IP, a_port);
     let mut component_b_server = ComponentServerHttp::<
         ComponentB,
         ComponentBRequest,
         ComponentBResponse,
-    >::new(component_b, local_ip, b_port);
+    >::new(component_b, LOCAL_IP, b_port);
 
     task::spawn(async move {
         component_a_server.start().await;
@@ -117,23 +123,78 @@ async fn test_setup() {
     verify_response(a_client.clone(), expected_value).await;
 }
 
-async fn verify_error(a_client: ComponentAClient, expected_error_message: &str) {
+async fn verify_error(a_client: ComponentAClient, expected_error_contained_keywords: Vec<&str>) {
     let Err(error) = a_client.a_get_value().await else {
         panic!("Expected an error.");
     };
 
-    assert_eq!(error.to_string(), expected_error_message);
+    for expected_keyword in expected_error_contained_keywords {
+        if !error.to_string().contains(expected_keyword) {
+            panic!("Expected keyword: '{expected_keyword}' is not in error: '{error}'.")
+        }
+    }
 }
 
 #[tokio::test]
 async fn test_unconnected_server() {
-    let local_ip = "::1".parse().unwrap();
     let port = 10002;
-    let client = ComponentAClient::new(local_ip, port);
+    let client = ComponentAClient::new(LOCAL_IP, port);
 
-    let expected_error_message = "Communication error: error trying to connect: tcp connect \
-                                  error: Connection refused (os error 111)";
-    verify_error(client.clone(), expected_error_message).await;
+    let expected_error_contained_keywords = vec!["Connection refused"];
+    verify_error(client.clone(), expected_error_contained_keywords).await;
+}
 
-    // Todo(uriel): Think of more errors we can catch and verify.
+#[tokio::test]
+async fn test_faulty_server_1() {
+    let port = 10003;
+    const MOCK_SERVER_ERROR: &str = "Mock server error";
+
+    task::spawn(async move {
+        async fn handler(_http_request: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+            let server_error =
+                ServerError::RequestDeserializationFailure(MOCK_SERVER_ERROR.to_string());
+            let http_response = Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from(serialize(&server_error).unwrap()))
+                .unwrap();
+            Ok(http_response)
+        }
+
+        let socket = SocketAddr::new(LOCAL_IP, port);
+        let make_svc =
+            make_service_fn(|_conn| async { Ok::<_, hyper::Error>(service_fn(handler)) });
+        Server::bind(&socket).serve(make_svc).await.unwrap();
+    });
+    task::yield_now().await;
+
+    let client = ComponentAClient::new(LOCAL_IP, port);
+    let expected_error_contained_keywords =
+        vec![StatusCode::BAD_REQUEST.as_str(), MOCK_SERVER_ERROR];
+    verify_error(client.clone(), expected_error_contained_keywords).await;
+}
+
+#[tokio::test]
+async fn test_faulty_server_2() {
+    let port = 10004;
+
+    task::spawn(async move {
+        async fn handler(_http_request: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+            let garbage = "Garbage";
+            let http_response = Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from(serialize(&garbage).unwrap()))
+                .unwrap();
+            Ok(http_response)
+        }
+
+        let socket = SocketAddr::new(LOCAL_IP, port);
+        let make_svc =
+            make_service_fn(|_conn| async { Ok::<_, hyper::Error>(service_fn(handler)) });
+        Server::bind(&socket).serve(make_svc).await.unwrap();
+    });
+    task::yield_now().await;
+
+    let client = ComponentAClient::new(LOCAL_IP, port);
+    let expected_error_contained_keywords = vec!["Could not deserialize server response"];
+    verify_error(client, expected_error_contained_keywords).await;
 }
