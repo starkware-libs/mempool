@@ -46,7 +46,7 @@ pub fn create_node_clients(
     channels: &MempoolNodeCommunication,
 ) -> MempoolNodeClients {
     let mempool_client: Option<SharedMempoolClient> =
-        match config.components.gateway_component.execute {
+        match config.components.gateway.execute {
             true => Some(Arc::new(MempoolClientImpl::new(channels.take_mempool_tx()))),
             false => None,
         };
