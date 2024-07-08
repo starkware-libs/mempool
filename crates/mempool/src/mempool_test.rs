@@ -11,6 +11,35 @@ use starknet_mempool_types::mempool_types::{Account, ThinTransaction};
 use starknet_types_core::felt::Felt;
 
 use crate::mempool::{Mempool, MempoolInput, TransactionReference};
+use crate::transaction_pool::TransactionPool;
+use crate::transaction_queue::TransactionQueue;
+
+struct MempoolState {
+    tx_pool: TransactionPool,
+    tx_queue: TransactionQueue,
+}
+
+impl MempoolState {
+    fn new(pool_txs: Vec<ThinTransaction>, queue_txs: Vec<ThinTransaction>) -> Self {
+        let mut tx_pool = TransactionPool::default();
+        for tx in pool_txs {
+            tx_pool.insert(tx).unwrap();
+        }
+
+        let mut tx_queue = TransactionQueue::default();
+        for tx in queue_txs {
+            tx_queue.insert(TransactionReference::new(&tx));
+        }
+
+        MempoolState { tx_pool, tx_queue }
+    }
+}
+
+impl From<MempoolState> for Mempool {
+    fn from(state: MempoolState) -> Mempool {
+        Mempool { tx_pool: state.tx_pool, tx_queue: state.tx_queue }
+    }
+}
 
 #[track_caller]
 fn add_tx(mempool: &mut Mempool, input: &MempoolInput) {
@@ -74,14 +103,15 @@ fn test_get_txs(#[case] requested_txs: usize) {
     let input_tip_100_address_1 = add_tx_input!(tip: 100, tx_hash: 2, sender_address: "0x1");
     let input_tip_10_address_2 = add_tx_input!(tip: 10, tx_hash: 3, sender_address: "0x2");
 
-    let txs = [
-        input_tip_50_address_0.clone(),
-        input_tip_100_address_1.clone(),
-        input_tip_10_address_2.clone(),
+    let txs = vec![
+        input_tip_50_address_0.clone().tx,
+        input_tip_100_address_1.clone().tx,
+        input_tip_10_address_2.clone().tx,
     ];
     let n_txs = txs.len();
 
-    let mut mempool = Mempool::new(txs).unwrap();
+    let mempool_state = MempoolState::new(txs.clone(), txs);
+    let mut mempool: Mempool = mempool_state.into();
 
     let sorted_txs =
         [input_tip_100_address_1.tx, input_tip_50_address_0.tx, input_tip_10_address_2.tx];
