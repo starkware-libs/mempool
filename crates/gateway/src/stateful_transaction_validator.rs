@@ -6,8 +6,8 @@ use blockifier::execution::contract_class::ClassInfo;
 use blockifier::state::cached_state::CachedState;
 use blockifier::transaction::account_transaction::AccountTransaction;
 use blockifier::versioned_constants::VersionedConstants;
-use mockall::predicate::*;
-use mockall::*;
+#[cfg(test)]
+use mockall::automock;
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 
@@ -26,7 +26,7 @@ pub struct StatefulTransactionValidator {
 
 type BlockifierStatefulValidator = GenericBlockifierStatefulValidator<Box<dyn MempoolStateReader>>;
 
-#[automock]
+#[cfg_attr(test, automock)]
 pub trait StatefulTransactionValidatorTrait {
     fn perform_validations(
         &mut self,
