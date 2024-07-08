@@ -66,7 +66,7 @@ impl Default for GatewayNetworkConfig {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Validate, PartialEq)]
 pub struct StatelessTransactionValidatorConfig {
     // If true, validates that the resource bounds are not zero.
     pub validate_non_zero_l1_gas_fee: bool,
@@ -90,8 +90,8 @@ impl Default for StatelessTransactionValidatorConfig {
             max_signature_length: 4000,
             max_bytecode_size: 81920,
             max_raw_class_size: 4089446,
-            min_sierra_version: VersionId { major: 1, minor: 1, patch: 0 },
-            max_sierra_version: VersionId { major: 1, minor: 5, patch: usize::MAX },
+            min_sierra_version: VersionId::new(1, 1, 0),
+            max_sierra_version: VersionId::new(1, 5, usize::MAX),
         }
     }
 }
