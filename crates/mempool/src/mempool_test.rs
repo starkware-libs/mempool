@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use assert_matches::assert_matches;
 use itertools::zip_eq;
 use pretty_assertions::assert_eq;
@@ -7,7 +9,7 @@ use starknet_api::hash::StarkHash;
 use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_api::{contract_address, felt, patricia_key};
 use starknet_mempool_types::errors::MempoolError;
-use starknet_mempool_types::mempool_types::{Account, ThinTransaction};
+use starknet_mempool_types::mempool_types::{Account, AccountState, ThinTransaction};
 use starknet_types_core::felt::Felt;
 
 use crate::mempool::{Mempool, MempoolInput, TransactionReference};
@@ -167,4 +169,92 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
     add_tx(&mut mempool, &input_big_tip_small_hash);
     add_tx(&mut mempool, &input_small_tip_big_hash);
     check_mempool_txs_eq(&mempool, &[input_big_tip_small_hash.tx, input_small_tip_big_hash.tx])
+}
+
+#[rstest]
+#[ignore]
+fn test_commit_block_includes_all_transactions(mut mempool: Mempool) {
+    // Mempool initializing:
+    // "0x0" -> 4.
+    // "0x1" -> 3.
+    // In Transaction queue there is a single transaction of address "0x0". A tx with nonce 4.
+    // Commit block that returns exactly the same state like Mempool state.
+
+    let tx = add_tx_input!(tip: 1, tx_hash: 1, sender_address: "0x0", nonce: 4_u16);
+
+    let commit_state = HashMap::from([
+        (contract_address!("0x0"), AccountState { nonce: Nonce(felt!(4_u16)) }),
+        (contract_address!("0x1"), AccountState { nonce: Nonce(felt!(3_u16)) }),
+    ]);
+    assert!(mempool.commit_block(commit_state).is_ok());
+
+    // Check that in the transaction queue there is a single transaction, tx 4, of address "0x0".
+    check_mempool_txs_eq(&mempool, &[tx.tx]);
+}
+
+#[rstest]
+#[ignore]
+fn test_commit_block_excludes_some_transactions(mut mempool: Mempool) {
+    // Mempool initializing:
+    // "0x0" -> 4.
+    // "0x1" -> 3.
+    // In Transaction queue there is a single transaction of address "0x0". A tx with nonce 4.
+    // Commit block that returns "0x0" -> 3, and "0x1" -> 3.
+
+    let commit_state = HashMap::from([
+        (contract_address!("0x0"), AccountState { nonce: Nonce(felt!(3_u16)) }),
+        (contract_address!("0x1"), AccountState { nonce: Nonce(felt!(3_u16)) }),
+    ]);
+    assert!(mempool.commit_block(commit_state).is_ok());
+
+    // Check that in the transaction queue is empty.
+    check_mempool_txs_eq(&mempool, &[]);
+}
+
+#[rstest]
+#[ignore]
+fn test_commit_block_invalid_account_state(mut mempool: Mempool) {
+    // Mempool initializing:
+    // "0x0" -> 4.
+    // "0x1" -> 3.
+    // In Transaction queue there is a single transaction of address "0x0". A tx with nonce 4.
+    // Commit block that returns "0x0" -> 5, and "0x1" -> 3.
+
+    let tx = add_tx_input!(tip: 1, tx_hash: 1, sender_address: "0x0", nonce: 4_u16);
+
+    let commit_state = HashMap::from([
+        (contract_address!("0x0"), AccountState { nonce: Nonce(felt!(4_u16)) }),
+        (contract_address!("0x1"), AccountState { nonce: Nonce(felt!(3_u16)) }),
+    ]);
+    assert!(mempool.commit_block(commit_state).is_ok());
+
+    let invalid_commit_state =
+        HashMap::from([(contract_address!("0x0"), AccountState { nonce: Nonce(felt!(3_u16)) })]);
+    // verify that `commit_block`` handles the invalid account state.
+    assert!(mempool.commit_block(invalid_commit_state).is_ok());
+
+    // Check that in the transaction queue is empty.
+    check_mempool_txs_eq(&mempool, &[tx.tx]);
+}
+
+#[rstest]
+#[ignore]
+fn test_commit_block_another_leader_with_unknown_transactions(mut mempool: Mempool) {
+    // Mempool initializing:
+    // "0x0" -> 3, 5.
+    // "0x1" -> 3.
+    // Transaction queue is empty.
+    // Commit block that returns exactly the same state like Mempool state.
+
+    let tx = add_tx_input!(tip: 1, tx_hash: 1, sender_address: "0x0", nonce: 6_u16);
+
+    let commit_state = HashMap::from([
+        (contract_address!("0x0"), AccountState { nonce: Nonce(felt!(5_u16)) }),
+        (contract_address!("0x1"), AccountState { nonce: Nonce(felt!(3_u16)) }),
+        (contract_address!("0x2"), AccountState { nonce: Nonce(felt!(1_u16)) }),
+    ]);
+    assert!(mempool.commit_block(commit_state).is_ok());
+
+    // Check that in the transaction queue there is a single transaction, tx 4, of address "0x0".
+    check_mempool_txs_eq(&mempool, &[tx.tx]);
 }
