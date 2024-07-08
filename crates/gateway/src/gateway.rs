@@ -36,6 +36,7 @@ pub struct AppState {
     pub stateless_tx_validator: StatelessTransactionValidator,
     pub stateful_tx_validator: Arc<StatefulTransactionValidator>,
     pub state_reader_factory: Arc<dyn StateReaderFactory>,
+    pub gateway_compiler: GatewayCompiler,
     pub mempool_client: SharedMempoolClient,
 }
 
@@ -53,6 +54,7 @@ impl Gateway {
                 config: config.stateful_tx_validator_config.clone(),
             }),
             state_reader_factory,
+            gateway_compiler: GatewayCompiler { config: config.compiler_config.clone() },
             mempool_client,
         };
         Gateway { config, app_state }
@@ -91,6 +93,7 @@ async fn add_tx(
             app_state.stateless_tx_validator,
             app_state.stateful_tx_validator.as_ref(),
             app_state.state_reader_factory.as_ref(),
+            app_state.gateway_compiler,
             tx,
         )
     })
@@ -111,6 +114,7 @@ fn process_tx(
     stateless_tx_validator: StatelessTransactionValidator,
     stateful_tx_validator: &StatefulTransactionValidator,
     state_reader_factory: &dyn StateReaderFactory,
+    gateway_compiler: GatewayCompiler,
     tx: RPCTransaction,
 ) -> GatewayResult<MempoolInput> {
     // TODO(Arni, 1/5/2024): Perform congestion control.
@@ -121,7 +125,6 @@ fn process_tx(
     // Compile Sierra to Casm.
     let optional_class_info = match &tx {
         RPCTransaction::Declare(declare_tx) => {
-            let gateway_compiler = GatewayCompiler { config: Default::default() };
             Some(gateway_compiler.compile_contract_class(declare_tx)?)
         }
         _ => None,

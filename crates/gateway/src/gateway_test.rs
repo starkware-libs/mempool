@@ -17,6 +17,7 @@ use test_utils::starknet_api_test_utils::{declare_tx, deploy_account_tx, invoke_
 use tokio::sync::mpsc::channel;
 use tokio::task;
 
+use crate::compilation_config::GatewayCompilerConfig;
 use crate::config::{StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig};
 use crate::gateway::{add_tx, AppState, GatewayCompiler, SharedMempoolClient};
 use crate::state_reader_test_utils::{
@@ -52,6 +53,7 @@ pub fn app_state(
         stateful_tx_validator: Arc::new(StatefulTransactionValidator {
             config: StatefulTransactionValidatorConfig::create_for_testing(),
         }),
+        gateway_compiler: GatewayCompiler { config: GatewayCompilerConfig {} },
         state_reader_factory: Arc::new(state_reader_factory),
         mempool_client,
     }
@@ -111,7 +113,7 @@ async fn to_bytes(res: Response) -> Bytes {
 fn calculate_hash(external_tx: &RPCTransaction) -> TransactionHash {
     let optional_class_info = match &external_tx {
         RPCTransaction::Declare(declare_tx) => Some(
-            GatewayCompiler { config: Default::default() }
+            GatewayCompiler { config: GatewayCompilerConfig {} }
                 .compile_contract_class(declare_tx)
                 .unwrap(),
         ),
