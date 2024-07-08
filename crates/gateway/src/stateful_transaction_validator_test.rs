@@ -2,6 +2,7 @@ use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::context::BlockContext;
 use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
+use mockall::predicate::eq;
 use num_bigint::BigUint;
 use rstest::rstest;
 use starknet_api::felt;
@@ -14,6 +15,7 @@ use test_utils::starknet_api_test_utils::{
 use crate::compilation::compile_contract_class;
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
+use crate::state_reader::{MockStateReaderFactory, StateReaderFactory};
 use crate::state_reader_test_utils::local_test_state_reader_factory;
 use crate::stateful_transaction_validator::{
     MockStatefulTransactionValidatorTrait, StatefulTransactionValidator,
@@ -74,6 +76,24 @@ fn test_stateful_tx_validator(
 #[test]
 fn test_instantiate_validator() {
     let state_reader_factory = local_test_state_reader_factory(CairoVersion::Cairo1, false);
+
+    let mut mock_state_reader_factory = MockStateReaderFactory::new();
+
+    // Make sure stateful_validator uses the latest block in the initiall call.
+    let latest_state_reader = state_reader_factory.get_state_reader_from_latest_block();
+    mock_state_reader_factory
+        .expect_get_state_reader_from_latest_block()
+        .return_once(|| latest_state_reader);
+
+    // Make sure stateful_validator uses the latest block in the following calls to the
+    // state_reader.
+    let latest_block = state_reader_factory.state_reader.block_info.block_number;
+    let state_reader = state_reader_factory.get_state_reader(latest_block);
+    mock_state_reader_factory
+        .expect_get_state_reader()
+        .with(eq(latest_block))
+        .return_once(move |_| state_reader);
+
     let block_context = &BlockContext::create_for_testing();
     let stateful_validator = StatefulTransactionValidator {
         config: StatefulTransactionValidatorConfig {
@@ -83,6 +103,6 @@ fn test_instantiate_validator() {
             chain_info: block_context.chain_info().clone().into(),
         },
     };
-    let blockifier_validator = stateful_validator.instantiate_validator(&state_reader_factory);
+    let blockifier_validator = stateful_validator.instantiate_validator(&mock_state_reader_factory);
     assert!(blockifier_validator.is_ok());
 }
