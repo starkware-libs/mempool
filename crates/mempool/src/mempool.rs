@@ -70,8 +70,16 @@ impl Mempool {
     // push back.
     pub fn commit_block(
         &mut self,
-        _state_changes: HashMap<ContractAddress, AccountState>,
+        state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
+        for (address, AccountState { nonce }) in state_changes {
+            // dequeue transactions from the queue if they are no longer ready to be sent.
+            if self.tx_queue.get_nonce(address).is_some_and(|queued_nonce| queued_nonce < nonce) {
+                self.tx_queue.remove(address);
+            }
+            // TODO: remove the transactions from the tx_pool.
+        }
+        // TODO: update the tx_queue with the new state changes.
         todo!()
     }
 
