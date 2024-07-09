@@ -12,6 +12,7 @@ use starknet_types_core::felt::Felt;
 
 use crate::mempool::{Mempool, MempoolInput, TransactionReference};
 use crate::transaction_pool::TransactionPool;
+use crate::transaction_queue::TransactionQueue;
 
 impl FromIterator<ThinTransaction> for TransactionPool {
     fn from_iter<T: IntoIterator<Item = ThinTransaction>>(txs: T) -> TransactionPool {
@@ -20,6 +21,17 @@ impl FromIterator<ThinTransaction> for TransactionPool {
             pool.insert(tx).unwrap();
         }
         pool
+    }
+}
+
+// TODO(Ayelet): Consider using an iterator of references to ThinTransaction to avoid cloning.
+impl FromIterator<ThinTransaction> for TransactionQueue {
+    fn from_iter<T: IntoIterator<Item = ThinTransaction>>(txs: T) -> TransactionQueue {
+        let mut queue = TransactionQueue::default();
+        for tx in txs {
+            queue.insert(TransactionReference::new(&tx));
+        }
+        queue
     }
 }
 
