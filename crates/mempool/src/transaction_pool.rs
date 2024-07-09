@@ -70,6 +70,11 @@ impl TransactionPool {
     ) -> Option<&TransactionReference> {
         self.txs_by_account.get(address, nonce)
     }
+
+    #[cfg(test)]
+    pub(crate) fn _tx_pool(&self) -> &HashMap<TransactionHash, ThinTransaction> {
+        &self.tx_pool
+    }
 }
 
 #[derive(Debug, Default)]
