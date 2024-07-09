@@ -50,6 +50,7 @@ impl TransactionQueue {
     }
 }
 
+/// `TransactionQueue` is used to order transactions by priority.
 #[derive(Clone, Debug, derive_more::Deref, derive_more::From)]
 struct QueuedTransaction(pub TransactionReference);
 
