@@ -48,6 +48,15 @@ impl TransactionQueue {
     pub fn _get_nonce(&self, address: &ContractAddress) -> Option<&Nonce> {
         self.address_to_tx.get(address).map(|tx| &tx.nonce)
     }
+
+    /// Removes the transaction of the given account address from the queue.
+    /// This is well-defined, since there is at most one transaction per address in the queue.
+    pub fn _remove(&mut self, address: ContractAddress) -> Option<TransactionReference> {
+        self.address_to_tx.remove(&address).map(|tx| {
+            self.queue.remove(&tx.into());
+            tx
+        })
+    }
 }
 
 #[derive(Clone, Debug, derive_more::Deref, derive_more::From)]
