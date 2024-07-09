@@ -3,6 +3,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::TransactionHash;
+use starknet_mempool_types::mempool_types::ThinTransaction;
 
 use crate::mempool::TransactionReference;
 // Assumption: for the MVP only one transaction from the same contract class can be in the mempool
@@ -47,6 +48,19 @@ impl TransactionQueue {
 
     pub fn _get_nonce(&self, address: &ContractAddress) -> Option<&Nonce> {
         self.address_to_nonce.get(address)
+    }
+}
+
+impl FromIterator<ThinTransaction> for TransactionQueue {
+    fn from_iter<I>(txs: I) -> Self
+    where
+        I: IntoIterator<Item = ThinTransaction>,
+    {
+        let mut queue = Self::default();
+        for tx in txs {
+            queue.insert(TransactionReference::new(&tx));
+        }
+        queue
     }
 }
 
