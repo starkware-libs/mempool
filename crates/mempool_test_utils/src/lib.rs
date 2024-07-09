@@ -2,6 +2,8 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 pub mod starknet_api_test_utils;
+#[cfg(test)]
+mod test;
 
 pub const TEST_FILES_FOLDER: &str = "crates/mempool_test_utils/test_files";
 pub const CONTRACT_CLASS_FILE: &str = "contract_class.json";

@@ -23,3 +23,13 @@ async fn test_end_to_end() {
     expected_tx_hashes.sort();
     assert_eq!(expected_tx_hashes, actual_tx_hashes);
 }
+
+// Make sure we have the arbitrary precision feature of serde_json.
+#[test]
+fn serialization_precision() {
+    let input =
+        "{\"value\":244116128358498188146337218061232635775543270890529169229936851982759783745}";
+    let serialized = serde_json::from_str::<serde_json::Value>(input).unwrap();
+    let deserialized = serde_json::to_string(&serialized).unwrap();
+    assert_eq!(input, deserialized);
+}
