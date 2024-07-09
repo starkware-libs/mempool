@@ -48,6 +48,13 @@ impl TransactionQueue {
     pub fn _get_nonce(&self, address: &ContractAddress) -> Option<&Nonce> {
         self.address_to_tx.get(address).map(|tx| &tx.0.nonce)
     }
+
+    pub fn _remove(mut self, address: &ContractAddress) -> Option<TransactionReference> {
+        self.address_to_tx.remove(address).map(|tx| {
+            self.queue.remove(&tx);
+            tx.0
+        })
+    }
 }
 
 #[derive(Clone, Debug, derive_more::Deref, derive_more::From)]
