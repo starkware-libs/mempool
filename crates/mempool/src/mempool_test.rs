@@ -39,6 +39,10 @@ macro_rules! add_tx_input {
         };
         MempoolInput { tx, account }
     }};
+    // Pattern for four arguments.
+    (tx_hash: $tx_hash:expr, sender_address: $sender_address:expr, tx_nonce: $tx_nonce:expr, account_nonce: $account_nonce:expr) => {
+        add_tx_input!(tip: 0, tx_hash: $tx_hash, sender_address: $sender_address, tx_nonce: $tx_nonce, account_nonce: $account_nonce)
+    };
     // Pattern for three arguments.
     (tip: $tip:expr, tx_hash: $tx_hash:expr, sender_address: $sender_address:expr) => {
         add_tx_input!(tip: $tip, tx_hash: $tx_hash, sender_address: $sender_address, tx_nonce: 0_u8, account_nonce: 0_u8)
@@ -56,12 +60,12 @@ fn mempool() -> Mempool {
 
 // TODO(Ayelet): replace with MempoolState checker.
 #[track_caller]
-fn _verify_mempool_state_eq(
+fn verify_mempool_state_eq(
     mempool: &Mempool,
     expected_txs: &[ThinTransaction],
     expected_queue: &[ThinTransaction],
 ) {
-    check_mempool_queue_eq(mempool, expected_queue);
+    verify_mempool_queue_eq(mempool, expected_queue);
 
     let expected_txs: HashMap<_, _> =
         expected_txs.iter().cloned().map(|tx| (tx.tx_hash, tx)).collect();
@@ -129,6 +133,31 @@ fn test_add_tx(mut mempool: Mempool) {
     let expected_queue =
         &[input_tip_100_address_1.tx, input_tip_80_address_2.tx, input_tip_50_address_0.tx];
     verify_mempool_queue_eq(&mempool, expected_queue)
+}
+
+#[rstest]
+fn test_add_tx_multi_nonce_success(mut mempool: Mempool) {
+    let input_address_0_nonce_0 =
+        add_tx_input!(tx_hash: 1, sender_address: "0x0", tx_nonce: 0_u8, account_nonce: 0_u8);
+
+    let input_address_1 =
+        add_tx_input!(tx_hash: 2, sender_address: "0x1", tx_nonce: 0_u8,account_nonce: 0_u8);
+
+    let input_address_0_nonce_1 =
+        add_tx_input!(tx_hash: 3, sender_address: "0x0", tx_nonce: 1_u8, account_nonce: 0_u8);
+
+    add_tx(&mut mempool, &input_address_0_nonce_0);
+    add_tx(&mut mempool, &input_address_1);
+    add_tx(&mut mempool, &input_address_0_nonce_1);
+
+    let expected_pool_all_txs = &[
+        input_address_0_nonce_0.tx.clone(),
+        input_address_1.tx.clone(),
+        input_address_0_nonce_1.tx,
+    ];
+    let expected_queue_only_zero_nonce_txs = &[input_address_1.tx, input_address_0_nonce_0.tx];
+
+    verify_mempool_state_eq(&mempool, expected_pool_all_txs, expected_queue_only_zero_nonce_txs);
 }
 
 #[test]
