@@ -33,6 +33,11 @@ impl MempoolState {
         let tx_queue: TransactionQueue = queue_txs.into_iter().collect();
         MempoolState { tx_pool, tx_queue }
     }
+
+    fn assert_eq_mempool_state(&self, mempool: &Mempool) {
+        assert_eq!(self.tx_pool, mempool.tx_pool);
+        assert_eq!(self.tx_queue, mempool.tx_queue);
+    }
 }
 
 impl From<MempoolState> for Mempool {
@@ -153,15 +158,17 @@ fn test_get_txs(#[case] requested_txs: usize) {
         add_tx_input[2].tx.clone(), // tip 10
     ];
 
-    // This ensures we do not exceed the number of transactions available in the mempool.
+    // Ensure we do not exceed the number of transactions available in the mempool.
     let max_requested_txs = requested_txs.min(add_tx_input.len());
 
-    // checks that the returned transactions are the ones with the highest priority.
+    // Check that the returned transactions are the ones with the highest priority.
     let (expected_queue, remaining_txs) = sorted_txs.split_at(max_requested_txs);
     assert_eq!(txs, expected_queue);
 
-    // checks that the transactions that were not returned are still in the mempool.
-    assert_eq_mempool_queue(&mempool, remaining_txs);
+    // Check that the transactions that were not returned are still in the mempool.
+    let remaining_ref_txs = remaining_txs.iter().map(TransactionReference::new);
+    let mempool_state = MempoolState::new(remaining_txs.to_vec(), remaining_ref_txs);
+    mempool_state.assert_eq_mempool_state(&mempool);
 }
 
 #[rstest]

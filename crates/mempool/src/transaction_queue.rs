@@ -5,11 +5,10 @@ use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::TransactionHash;
 
 use crate::mempool::TransactionReference;
-// Assumption: for the MVP only one transaction from the same contract class can be in the mempool
-// at a time. When this changes, saving the transactions themselves on the queu might no longer be
-// appropriate, because we'll also need to stores transactions without indexing them. For example,
-// transactions with future nonces will need to be stored, and potentially indexed on block commits.
-#[derive(Debug, Default)]
+
+// Note: PartialEq and Eq for TransactionQueue are derived, ensuring that
+// equality checks take into account the sorted nature of the BTreeSet.
+#[derive(Debug, Default, Eq, PartialEq)]
 pub struct TransactionQueue {
     // Priority queue of transactions with associated priority.
     queue: BTreeSet<QueuedTransaction>,
