@@ -4,7 +4,7 @@ use axum::body::{Bytes, HttpBody};
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use blockifier::context::ChainInfo;
+use blockifier::context::ChainInfo as BlockifierChainInfo;
 use blockifier::test_utils::CairoVersion;
 use mempool_test_utils::starknet_api_test_utils::{declare_tx, deploy_account_tx, invoke_tx};
 use rstest::{fixture, rstest};
@@ -125,7 +125,7 @@ fn calculate_hash(
     let account_tx = external_tx_to_account_tx(
         external_tx,
         optional_class_info,
-        &ChainInfo::create_for_testing().chain_id,
+        &BlockifierChainInfo::create_for_testing().chain_id,
     )
     .unwrap();
     get_tx_hash(&account_tx)

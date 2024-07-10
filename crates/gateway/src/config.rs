@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
+use std::fmt;
 use std::net::IpAddr;
 
-use blockifier::context::{BlockContext, ChainInfo, FeeTokenAddresses};
+use blockifier::context::{BlockContext, ChainInfo as BlockifierChainInfo, FeeTokenAddresses};
 use papyrus_config::dumping::{append_sub_config_name, ser_param, SerializeConfig};
 use papyrus_config::{ParamPath, ParamPrivacyInput, SerializedParam};
+use serde::de::{MapAccess, Visitor};
+use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize};
-use starknet_api::core::{ChainId, ContractAddress, Nonce};
+use starknet_api::core::Nonce;
 use starknet_types_core::felt::Felt;
 use validator::Validate;
 
@@ -175,63 +178,140 @@ impl SerializeConfig for RpcStateReaderConfig {
 }
 
 // TODO(Arni): Remove this struct once Chain info supports Papyrus serialization.
-#[derive(Clone, Debug, Serialize, Deserialize, Validate, PartialEq)]
-pub struct ChainInfoConfig {
-    pub chain_id: ChainId,
-    pub strk_fee_token_address: ContractAddress,
-    pub eth_fee_token_address: ContractAddress,
-}
+#[derive(Clone, Debug, Default)]
+pub struct ChainInfo(pub BlockifierChainInfo);
 
-impl From<ChainInfoConfig> for ChainInfo {
-    fn from(chain_info: ChainInfoConfig) -> Self {
-        Self {
-            chain_id: chain_info.chain_id,
-            fee_token_addresses: FeeTokenAddresses {
-                strk_fee_token_address: chain_info.strk_fee_token_address,
-                eth_fee_token_address: chain_info.eth_fee_token_address,
-            },
-        }
-    }
-}
-
-impl From<ChainInfo> for ChainInfoConfig {
-    fn from(chain_info: ChainInfo) -> Self {
-        let FeeTokenAddresses { strk_fee_token_address, eth_fee_token_address } =
-            chain_info.fee_token_addresses;
-        Self { chain_id: chain_info.chain_id, strk_fee_token_address, eth_fee_token_address }
-    }
-}
-
-impl Default for ChainInfoConfig {
-    fn default() -> Self {
-        ChainInfo::default().into()
-    }
-}
-
-impl ChainInfoConfig {
+impl ChainInfo {
     pub fn create_for_testing() -> Self {
-        BlockContext::create_for_testing().chain_info().clone().into()
+        Self(BlockContext::create_for_testing().chain_info().clone())
     }
 }
 
-impl SerializeConfig for ChainInfoConfig {
+// TODO(Arni): Remove this once Chain info derives PartialEq.
+impl PartialEq for ChainInfo {
+    fn eq(&self, other: &Self) -> bool {
+        fn eq(lhs: &BlockifierChainInfo, rhs: &BlockifierChainInfo) -> bool {
+            lhs.chain_id == rhs.chain_id
+                && lhs.fee_token_addresses.strk_fee_token_address
+                    == rhs.fee_token_addresses.strk_fee_token_address
+                && lhs.fee_token_addresses.eth_fee_token_address
+                    == rhs.fee_token_addresses.eth_fee_token_address
+        }
+        eq(&self.0, &other.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for ChainInfo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct ChainInfoVisitor;
+
+        impl<'de> Visitor<'de> for ChainInfoVisitor {
+            type Value = ChainInfo;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("struct ChainInfo")
+            }
+
+            fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                let mut chain_id = None;
+                let mut strk_fee_token_address = None;
+                let mut eth_fee_token_address = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        "chain_id" => {
+                            if chain_id.is_some() {
+                                return Err(serde::de::Error::duplicate_field("chain_id"));
+                            }
+                            chain_id = Some(map.next_value()?);
+                        }
+                        "strk_fee_token_address" => {
+                            if strk_fee_token_address.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "strk_fee_token_address",
+                                ));
+                            }
+                            strk_fee_token_address = Some(map.next_value()?);
+                        }
+                        "eth_fee_token_address" => {
+                            if eth_fee_token_address.is_some() {
+                                return Err(serde::de::Error::duplicate_field(
+                                    "eth_fee_token_address",
+                                ));
+                            }
+                            eth_fee_token_address = Some(map.next_value()?);
+                        }
+                        _ => {
+                            return Err(serde::de::Error::unknown_field(key, &["chain_id"]));
+                        }
+                    }
+                }
+
+                let chain_id =
+                    chain_id.ok_or_else(|| serde::de::Error::missing_field("chain_id"))?;
+                let strk_fee_token_address = strk_fee_token_address
+                    .ok_or_else(|| serde::de::Error::missing_field("strk_fee_token_address"))?;
+                let eth_fee_token_address = eth_fee_token_address
+                    .ok_or_else(|| serde::de::Error::missing_field("eth_fee_token_address"))?;
+
+                Ok(ChainInfo(BlockifierChainInfo {
+                    chain_id,
+                    fee_token_addresses: FeeTokenAddresses {
+                        strk_fee_token_address,
+                        eth_fee_token_address,
+                    },
+                }))
+            }
+        }
+
+        const FIELDS: &[&str] = &["chain_id", "strk_fee_token_address", "eth_fee_token_address"];
+        deserializer.deserialize_struct("ChainInfo", FIELDS, ChainInfoVisitor)
+    }
+}
+
+impl Serialize for ChainInfo {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("ChainInfo", 3)?;
+        s.serialize_field("chain_id", &self.0.chain_id)?;
+        s.serialize_field(
+            "strk_fee_token_address",
+            &self.0.fee_token_addresses.strk_fee_token_address,
+        )?;
+        s.serialize_field(
+            "eth_fee_token_address",
+            &self.0.fee_token_addresses.eth_fee_token_address,
+        )?;
+        s.end()
+    }
+}
+
+impl SerializeConfig for ChainInfo {
     fn dump(&self) -> BTreeMap<ParamPath, SerializedParam> {
         BTreeMap::from_iter([
             ser_param(
                 "chain_id",
-                &self.chain_id,
+                &self.0.chain_id,
                 "The chain ID of the StarkNet chain.",
                 ParamPrivacyInput::Public,
             ),
             ser_param(
                 "strk_fee_token_address",
-                &self.strk_fee_token_address,
+                &self.0.fee_token_addresses.strk_fee_token_address,
                 "Address of the STRK fee token.",
                 ParamPrivacyInput::Public,
             ),
             ser_param(
                 "eth_fee_token_address",
-                &self.eth_fee_token_address,
+                &self.0.fee_token_addresses.eth_fee_token_address,
                 "Address of the ETH fee token.",
                 ParamPrivacyInput::Public,
             ),
@@ -244,7 +324,7 @@ pub struct StatefulTransactionValidatorConfig {
     pub max_nonce_for_validation_skip: Nonce,
     pub validate_max_n_steps: u32,
     pub max_recursion_depth: usize,
-    pub chain_info: ChainInfoConfig,
+    pub chain_info: ChainInfo,
 }
 
 impl Default for StatefulTransactionValidatorConfig {
@@ -253,7 +333,7 @@ impl Default for StatefulTransactionValidatorConfig {
             max_nonce_for_validation_skip: Nonce(Felt::ONE),
             validate_max_n_steps: 1_000_000,
             max_recursion_depth: 50,
-            chain_info: ChainInfoConfig::default(),
+            chain_info: ChainInfo::default(),
         }
     }
 }
@@ -291,7 +371,7 @@ impl StatefulTransactionValidatorConfig {
             max_nonce_for_validation_skip: Default::default(),
             validate_max_n_steps: 1000000,
             max_recursion_depth: 50,
-            chain_info: ChainInfoConfig::create_for_testing(),
+            chain_info: ChainInfo::create_for_testing(),
         }
     }
 }

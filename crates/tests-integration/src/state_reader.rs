@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, OnceLock};
 
 use blockifier::abi::abi_utils::get_fee_token_var_address;
-use blockifier::context::{BlockContext, ChainInfo};
+use blockifier::context::{BlockContext, ChainInfo as BlockifierChainInfo};
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{
     CairoVersion, BALANCE, CURRENT_BLOCK_TIMESTAMP, DEFAULT_ETH_L1_GAS_PRICE,
@@ -78,7 +78,7 @@ pub async fn spawn_test_rpc_state_reader(n_accounts: usize) -> SocketAddr {
 }
 
 fn initialize_papyrus_test_state(
-    chain_info: &ChainInfo,
+    chain_info: &BlockifierChainInfo,
     initial_balances: u128,
     contract_instances: &[(FeatureContract, usize)],
     fund_additional_accounts: Vec<ContractAddress>,
@@ -97,7 +97,7 @@ fn initialize_papyrus_test_state(
 }
 
 fn prepare_state_diff(
-    chain_info: &ChainInfo,
+    chain_info: &BlockifierChainInfo,
     contract_instances: &[(FeatureContract, usize)],
     initial_balances: u128,
     fund_accounts: Vec<ContractAddress>,
@@ -232,7 +232,7 @@ fn fund_feature_account_contract(
     contract: &FeatureContract,
     instance: u16,
     initial_balances: u128,
-    chain_info: &ChainInfo,
+    chain_info: &BlockifierChainInfo,
 ) {
     match contract {
         FeatureContract::AccountWithLongValidate(_)
@@ -253,7 +253,7 @@ fn fund_account(
     storage_diffs: &mut IndexMap<ContractAddress, IndexMap<StorageKey, Felt>>,
     account_address: &ContractAddress,
     initial_balances: u128,
-    chain_info: &ChainInfo,
+    chain_info: &BlockifierChainInfo,
 ) {
     let key_value = indexmap! {
         get_fee_token_var_address(*account_address) => felt!(initial_balances),
