@@ -30,6 +30,11 @@ impl MempoolState {
         let tx_queue = queue_txs.into_iter().collect();
         MempoolState { tx_pool, tx_queue }
     }
+
+    fn verify_equality(&self, mempool: &Mempool) {
+        assert_eq!(self.tx_pool, mempool.tx_pool);
+        assert_eq!(self.tx_queue, mempool.tx_queue);
+    }
 }
 
 impl From<MempoolState> for Mempool {
@@ -144,7 +149,7 @@ fn test_get_txs(#[case] requested_txs: usize) {
     assert_eq!(txs, expected_txs);
 
     // checks that the transactions that were not returned are still in the mempool.
-    check_mempool_txs_eq(&mempool, remaining_txs);
+    MempoolState::new(remaining_txs.to_vec(), remaining_txs.to_vec()).verify_equality(&mempool);
 }
 
 #[rstest]
