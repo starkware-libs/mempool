@@ -262,5 +262,13 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
 
     add_tx(&mut mempool, &input_big_tip_small_hash);
     add_tx(&mut mempool, &input_small_tip_big_hash);
-    assert_eq_mempool_queue(&mempool, &[input_big_tip_small_hash.tx, input_small_tip_big_hash.tx])
+
+    let queue_txs = [
+        TransactionReference::new(&input_big_tip_small_hash.tx),
+        TransactionReference::new(&input_small_tip_big_hash.tx),
+    ];
+    let pool_txs = [input_big_tip_small_hash.tx, input_small_tip_big_hash.tx];
+    let expected_mempool_state = MempoolState::new(pool_txs, queue_txs);
+
+    expected_mempool_state.assert_eq_mempool_state(&mempool);
 }
