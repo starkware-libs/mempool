@@ -97,7 +97,7 @@ fn test_stateful_tx_validator(
     let optional_class_info = match &external_tx {
         RPCTransaction::Declare(declare_tx) => Some(
             GatewayCompiler { config: GatewayCompilerConfig {} }
-                .compile_contract_class(declare_tx)
+                .process_declare_tx(declare_tx)
                 .unwrap(),
         ),
         _ => None,
@@ -161,7 +161,7 @@ fn test_skip_stateful_validation(
         // To be sure that the validations were actually skipped, we check that the error came from
         // the blockifier stateful validations, and not from the pre validations since those are
         // executed also when skip_validate is true.
-        assert_matches!(result, Err(StatefulTransactionValidatorError::StatefulValidatorError(err)) 
+        assert_matches!(result, Err(StatefulTransactionValidatorError::StatefulValidatorError(err))
             if !matches!(err, StatefulValidatorError::TransactionPreValidationError(_)));
     }
 }
