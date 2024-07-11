@@ -21,7 +21,7 @@ use crate::component_runner::ComponentRunner;
 
 pub struct ComponentServer<Component, Request, Response>
 where
-    Component: ComponentRequestHandler<Request, Response>,
+    Component: ComponentRequestHandler<Request, Response> + ComponentRunner,
     Request: Send + Sync,
     Response: Send + Sync,
 {
@@ -31,7 +31,7 @@ where
 
 impl<Component, Request, Response> ComponentServer<Component, Request, Response>
 where
-    Component: ComponentRequestHandler<Request, Response>,
+    Component: ComponentRequestHandler<Request, Response> + ComponentRunner,
     Request: Send + Sync,
     Response: Send + Sync,
 {
@@ -52,11 +52,19 @@ pub trait ComponentServerStarter: Send + Sync {
 impl<Component, Request, Response> ComponentServerStarter
     for ComponentServer<Component, Request, Response>
 where
-    Component: ComponentRequestHandler<Request, Response> + Send + Sync,
+    Component: ComponentRequestHandler<Request, Response> + ComponentRunner + Send + Sync,
     Request: Send + Sync,
     Response: Send + Sync,
 {
     async fn start(&mut self) {
+        match self.component.start().await {
+            Ok(_) => info!("ComponentServer::start() completed."),
+            Err(err) => {
+                error!("ComponentServer::start() failed: {:?}", err);
+                return;
+            }
+        }
+
         while let Some(request_and_res_tx) = self.rx.recv().await {
             let request = request_and_res_tx.request;
             let tx = request_and_res_tx.tx;

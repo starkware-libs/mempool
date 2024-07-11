@@ -11,6 +11,8 @@ pub enum ComponentStartError {
 /// Interface to start components.
 #[async_trait]
 pub trait ComponentRunner {
-    /// Start the component. Normally this function should never return.
-    async fn start(&mut self) -> Result<(), ComponentStartError>;
+    /// Start the component. By default do nothing.
+    async fn start(&mut self) -> Result<(), ComponentStartError> {
+        Ok(())
+    }
 }
