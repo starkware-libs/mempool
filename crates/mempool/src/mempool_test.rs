@@ -35,9 +35,21 @@ impl MempoolState {
         MempoolState { tx_pool, tx_queue }
     }
 
+    fn new_with_pool_txs_default_queue<PoolTxs>(pool_txs: PoolTxs) -> Self
+    where
+        PoolTxs: IntoIterator<Item = ThinTransaction>,
+    {
+        let tx_pool: TransactionPool = pool_txs.into_iter().collect();
+        MempoolState { tx_pool, tx_queue: Default::default() }
+    }
+
     fn assert_eq_mempool_state(&self, mempool: &Mempool) {
-        assert_eq!(self.tx_pool, mempool.tx_pool);
+        self.assert_eq_tx_pool(mempool);
         assert_eq!(self.tx_queue, mempool.tx_queue);
+    }
+
+    fn assert_eq_tx_pool(&self, mempool: &Mempool) {
+        assert_eq!(self.tx_pool, mempool.tx_pool);
     }
 }
 
@@ -223,17 +235,20 @@ fn test_new_with_duplicate_tx() {
 
 #[rstest]
 fn test_add_tx_with_duplicate_tx(mut mempool: Mempool) {
+    // Setup
     let input = add_tx_input!(tip: 50, tx_hash: Felt::ONE);
-    let same_input = input.clone();
+    let duplicate_input = input.clone();
 
+    // Test: assert that the duplicate tx is not added to the mempool.
     add_tx(&mut mempool, &input);
-
     assert_matches!(
-        mempool.add_tx(same_input.clone()),
+        mempool.add_tx(duplicate_input),
         Err(MempoolError::DuplicateTransaction { .. })
     );
-    // Assert that the original tx remains in the pool after the failed attempt.
-    assert_eq_mempool_queue(&mempool, &[same_input.tx])
+
+    // Assert that the original tx remains in Mempool after the failed attempt.
+    let expected_mempool_state = MempoolState::new_with_pool_txs_default_queue([input.tx]);
+    expected_mempool_state.assert_eq_tx_pool(&mempool);
 }
 
 #[rstest]
