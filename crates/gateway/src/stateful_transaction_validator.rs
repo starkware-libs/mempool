@@ -41,7 +41,7 @@ impl StatefulTransactionValidator {
 
         let account_nonce = validator.get_nonce(get_sender_address(external_tx))?;
         let skip_validate = skip_stateful_validations(external_tx, account_nonce)?;
-        validator.perform_validations(account_tx, skip_validate)?;
+        validator.perform_validations(account_tx, false)?;
         Ok(tx_hash)
     }
 
