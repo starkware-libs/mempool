@@ -174,17 +174,26 @@ fn test_get_txs(#[case] requested_txs: usize) {
 
 #[rstest]
 fn test_add_tx(mut mempool: Mempool) {
-    let input_tip_50_address_0 = add_tx_input!(tip: 50, tx_hash: 1);
-    let input_tip_100_address_1 = add_tx_input!(tip: 100, tx_hash: 2, sender_address: "0x1");
-    let input_tip_80_address_2 = add_tx_input!(tip: 80, tx_hash: 3, sender_address: "0x2");
+    // Setup.
+    let mut add_tx_inputs = [
+        add_tx_input!(tip: 50, tx_hash: 1),
+        add_tx_input!(tip: 100, tx_hash: 2, sender_address: "0x1"),
+        add_tx_input!(tip: 80, tx_hash: 3, sender_address: "0x2"),
+    ];
 
-    add_tx(&mut mempool, &input_tip_50_address_0);
-    add_tx(&mut mempool, &input_tip_100_address_1);
-    add_tx(&mut mempool, &input_tip_80_address_2);
+    // Test.
+    for input in &add_tx_inputs {
+        add_tx(&mut mempool, input);
+    }
 
-    let expected_queue =
-        &[input_tip_100_address_1.tx, input_tip_80_address_2.tx, input_tip_50_address_0.tx];
-    assert_eq_mempool_queue(&mempool, expected_queue)
+    add_tx_inputs.sort_by_key(|input| Reverse(input.tx.tip));
+
+    // Assert the transactions are in the correct order, with the highest priority first.
+    let expected_pool_txs = add_tx_inputs.iter().map(|input| input.tx.clone());
+    let expected_queue_txs = add_tx_inputs.iter().map(|input| TransactionReference::new(&input.tx));
+    let expected_mempool_state = MempoolState::new(expected_pool_txs, expected_queue_txs);
+
+    expected_mempool_state.assert_eq_mempool_state(&mempool);
 }
 
 #[rstest]
