@@ -104,4 +104,28 @@ impl AccountTransactionIndex {
     fn get(&self, address: ContractAddress, nonce: Nonce) -> Option<&TransactionReference> {
         self.0.get(&address)?.get(&nonce)
     }
+
+    fn _remove_up_to_nonce(
+        &mut self,
+        address: ContractAddress,
+        nonce: Nonce,
+    ) -> Vec<TransactionReference> {
+        let Some(account_txs) = self.0.get_mut(&address) else {
+            return Vec::default();
+        };
+
+        // Split the transactions at the given nonce.
+        // After the split, `account_txs` will contain the transactions with lower nonces,
+        // and `split_txs` will contain the transactions with higher nonces.
+        let mut split_txs = account_txs.split_off(&nonce);
+        // After the swap `split_txs` will contain transactions with lower nonces.
+        std::mem::swap(account_txs, &mut split_txs);
+
+        if account_txs.is_empty() {
+            self.0.remove(&address);
+        }
+
+        // Collect and return the transactions with lower nonces.
+        split_txs.into_values().collect()
+    }
 }
