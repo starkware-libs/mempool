@@ -240,3 +240,18 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
     add_tx(&mut mempool, &input_small_tip_big_hash);
     assert_eq_mempool_queue(&mempool, &[input_big_tip_small_hash.tx, input_small_tip_big_hash.tx])
 }
+
+#[rstest]
+fn test_adding_sequential_nonce_txs(mut mempool: Mempool) {
+    let input_nonce_0 = add_tx_input!(tip: 1, tx_hash: Felt::ZERO, sender_address: "0x0", tx_nonce: 0_u8, account_nonce: 0_u8);
+    let input_nonce_1 = add_tx_input!(tip: 1, tx_hash: Felt::ONE, sender_address: "0x0", tx_nonce: 1_u8, account_nonce: 0_u8);
+
+    add_tx(&mut mempool, &input_nonce_0);
+    add_tx(&mut mempool, &input_nonce_1);
+
+    let expected_queue_txs = [TransactionReference::new(&input_nonce_0.tx)];
+    let expected_pool_txs = [input_nonce_0.tx, input_nonce_1.tx];
+    let mempool_state = MempoolState::new(expected_pool_txs, expected_queue_txs);
+
+    mempool_state.assert_eq_mempool_state(&mempool);
+}
