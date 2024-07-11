@@ -81,7 +81,8 @@ impl Mempool {
             if self.tx_queue.get_nonce(address).is_some_and(|queued_nonce| queued_nonce != nonce) {
                 self.tx_queue.remove(address);
             }
-            // TODO: remove the transactions from the tx_pool.
+
+            self.tx_pool.remove_up_to_nonce(address, nonce);
         }
         // TODO: update the tx_queue with the new state changes.
         todo!()
