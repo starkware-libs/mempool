@@ -117,7 +117,7 @@ fn calculate_hash(
 ) -> TransactionHash {
     let optional_class_info = match &external_tx {
         RPCTransaction::Declare(declare_tx) => {
-            Some(gateway_compiler.compile_contract_class(declare_tx).unwrap())
+            Some(gateway_compiler.process_declare_tx(declare_tx).unwrap())
         }
         _ => None,
     };
