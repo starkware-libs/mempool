@@ -6,6 +6,8 @@ use std::path::Path;
 use assert_matches::assert_matches;
 use blockifier::test_utils::contracts::FeatureContract;
 use blockifier::test_utils::{create_trivial_calldata, CairoVersion, NonceManager};
+use cairo_lang_starknet_classes::casm_contract_class::CasmContractClass;
+use rstest::fixture;
 use serde_json::to_string_pretty;
 use starknet_api::core::{
     calculate_contract_address, ClassHash, CompiledClassHash, ContractAddress, Nonce,
@@ -24,7 +26,8 @@ use starknet_types_core::felt::Felt;
 
 use crate::{
     declare_tx_args, deploy_account_tx_args, get_absolute_path, invoke_tx_args,
-    COMPILED_CLASS_HASH_OF_CONTRACT_CLASS, CONTRACT_CLASS_FILE, TEST_FILES_FOLDER,
+    CASM_CONTRACT_CLASS_FILE, COMPILED_CLASS_HASH_OF_CONTRACT_CLASS, CONTRACT_CLASS_FILE,
+    TEST_FILES_FOLDER,
 };
 
 pub const VALID_L1_GAS_MAX_AMOUNT: u64 = 203483;
@@ -88,11 +91,31 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
     )
 }
 
-pub fn declare_tx() -> RPCTransaction {
+/// Get the contract class used for testing.
+#[fixture]
+pub fn contract_class() -> ContractClass {
     env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Couldn't set working dir.");
     let json_file_path = Path::new(CONTRACT_CLASS_FILE);
-    let contract_class = serde_json::from_reader(File::open(json_file_path).unwrap()).unwrap();
-    let compiled_class_hash = CompiledClassHash(felt!(COMPILED_CLASS_HASH_OF_CONTRACT_CLASS));
+    serde_json::from_reader(File::open(json_file_path).unwrap()).unwrap()
+}
+
+/// Get the casm contract class corresponding to the contract class used for testing.
+#[fixture]
+pub fn casm_contract_class() -> CasmContractClass {
+    env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Couldn't set working dir.");
+    let json_file_path = Path::new(CASM_CONTRACT_CLASS_FILE);
+    serde_json::from_reader(File::open(json_file_path).unwrap()).unwrap()
+}
+
+/// Get the compiled class hash corresponding to the contract class used for testing.
+#[fixture]
+pub fn compiled_class_hash() -> CompiledClassHash {
+    CompiledClassHash(felt!(COMPILED_CLASS_HASH_OF_CONTRACT_CLASS))
+}
+
+pub fn declare_tx() -> RPCTransaction {
+    let contract_class = contract_class();
+    let compiled_class_hash = compiled_class_hash();
 
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let account_address = account_contract.get_instance_address(0);

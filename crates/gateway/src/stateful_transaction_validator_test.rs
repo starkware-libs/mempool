@@ -97,7 +97,7 @@ fn test_stateful_tx_validator(
     let optional_class_info = match &external_tx {
         RPCTransaction::Declare(declare_tx) => Some(
             GatewayCompiler { config: GatewayCompilerConfig {} }
-                .compile_contract_class(declare_tx)
+                .handle_declare_tx(declare_tx)
                 .unwrap(),
         ),
         _ => None,
