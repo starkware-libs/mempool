@@ -223,9 +223,13 @@ fn test_add_tx_with_identical_tip_succeeds(mut mempool: Mempool) {
     add_tx(&mut mempool, &input1);
     add_tx(&mut mempool, &input2);
 
+    let queue_txs = [TransactionReference::new(&input1.tx), TransactionReference::new(&input2.tx)];
+    let pool_txs = [input1.tx, input2.tx];
+    let mempool_state = MempoolState::new(pool_txs, queue_txs);
+
     // TODO: currently hash comparison tie-breaks the two. Once more robust tie-breaks are added
     // replace this assertion with a dedicated test.
-    assert_eq_mempool_queue(&mempool, &[input1.tx, input2.tx]);
+    mempool_state.assert_eq_mempool_state(&mempool);
 }
 
 #[rstest]
