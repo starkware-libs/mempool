@@ -104,4 +104,30 @@ impl AccountTransactionIndex {
     fn get(&self, address: ContractAddress, nonce: Nonce) -> Option<&TransactionReference> {
         self.0.get(&address)?.get(&nonce)
     }
+
+    fn _remove_txs_up_to_nonce(
+        &mut self,
+        address: ContractAddress,
+        nonce: Nonce,
+    ) -> Vec<TransactionReference> {
+        match self.0.get_mut(&address) {
+            Some(btree_map) => {
+                let mut txs: Vec<TransactionReference> = Vec::new();
+                let nonces_to_remove: Vec<Nonce> =
+                    btree_map.range(..=nonce).map(|(&n, _)| n).collect();
+
+                for n in nonces_to_remove {
+                    txs.push(btree_map.remove(&n).expect("Failed to remove nonce from BTreeMap"));
+                }
+
+                // Remove the entry from the HashMap if the BTreeMap is empty
+                if btree_map.is_empty() {
+                    self.0.remove(&address);
+                }
+
+                txs
+            }
+            None => Vec::default(),
+        }
+    }
 }
