@@ -27,7 +27,7 @@ fn test_compile_contract_class_compiled_class_hash_missmatch(gateway_compiler: G
     tx.compiled_class_hash = supplied_hash;
     let declare_tx = RPCDeclareTransaction::V3(tx);
 
-    let result = gateway_compiler.compile_contract_class(&declare_tx);
+    let result = gateway_compiler.handle_declare_tx(&declare_tx);
     assert_matches!(
         result.unwrap_err(),
         GatewayError::CompiledClassHashMismatch { supplied, hash_result }
@@ -45,7 +45,7 @@ fn test_compile_contract_class_bad_sierra(gateway_compiler: GatewayCompiler) {
     tx.contract_class.sierra_program = tx.contract_class.sierra_program[..100].to_vec();
     let declare_tx = RPCDeclareTransaction::V3(tx);
 
-    let result = gateway_compiler.compile_contract_class(&declare_tx);
+    let result = gateway_compiler.handle_declare_tx(&declare_tx);
     assert_matches!(
         result.unwrap_err(),
         GatewayError::CompilationError(CompilationUtilError::AllowedLibfuncsError(
@@ -55,7 +55,7 @@ fn test_compile_contract_class_bad_sierra(gateway_compiler: GatewayCompiler) {
 }
 
 #[rstest]
-fn test_compile_contract_class(gateway_compiler: GatewayCompiler) {
+fn test_handle_declare_tx(gateway_compiler: GatewayCompiler) {
     let declare_tx = assert_matches!(
         declare_tx(),
         RPCTransaction::Declare(declare_tx) => declare_tx
@@ -63,7 +63,7 @@ fn test_compile_contract_class(gateway_compiler: GatewayCompiler) {
     let RPCDeclareTransaction::V3(declare_tx_v3) = &declare_tx;
     let contract_class = &declare_tx_v3.contract_class;
 
-    let class_info = gateway_compiler.compile_contract_class(&declare_tx).unwrap();
+    let class_info = gateway_compiler.handle_declare_tx(&declare_tx).unwrap();
     assert_matches!(class_info.contract_class(), ContractClass::V1(_));
     assert_eq!(class_info.sierra_program_length(), contract_class.sierra_program.len());
     assert_eq!(class_info.abi_length(), contract_class.abi.len());
