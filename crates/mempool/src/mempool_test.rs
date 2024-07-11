@@ -254,13 +254,24 @@ fn test_add_tx_with_identical_tip_succeeds(mut mempool: Mempool) {
 
 #[rstest]
 fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
+    // Setup.
     let input_big_tip_small_hash = add_tx_input!(tip: 2, tx_hash: Felt::ONE);
 
     // Create a transaction with identical tip, it should be allowed through since the priority
     // queue tie-breaks identical tips by other tx-unique identifiers (for example tx hash).
     let input_small_tip_big_hash = add_tx_input!(tip: 1, tx_hash: Felt::TWO, sender_address: "0x1");
 
+    // Test.
     add_tx(&mut mempool, &input_big_tip_small_hash);
     add_tx(&mut mempool, &input_small_tip_big_hash);
-    assert_eq_mempool_queue(&mempool, &[input_big_tip_small_hash.tx, input_small_tip_big_hash.tx])
+
+    // Assert: ensure that the transaction with the higher tip is sequenced first.
+    let expected_queue_txs = [
+        TransactionReference::new(&input_big_tip_small_hash.tx),
+        TransactionReference::new(&input_small_tip_big_hash.tx),
+    ];
+    let expected_pool_txs = [input_big_tip_small_hash.tx, input_small_tip_big_hash.tx];
+    let expected_mempool_state = MempoolState::new(expected_pool_txs, expected_queue_txs);
+
+    expected_mempool_state.assert_eq_mempool_state(&mempool);
 }
