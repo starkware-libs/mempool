@@ -104,4 +104,25 @@ impl AccountTransactionIndex {
     fn get(&self, address: ContractAddress, nonce: Nonce) -> Option<&TransactionReference> {
         self.0.get(&address)?.get(&nonce)
     }
+
+    fn _remove_up_to_nonce(
+        &mut self,
+        address: ContractAddress,
+        nonce: Nonce,
+    ) -> Vec<TransactionReference> {
+        let Some(account_txs) = self.0.get_mut(&address) else {
+            return Vec::default();
+        };
+
+        let txs_with_higher_or_equal_nonce = account_txs.split_off(&nonce);
+        let txs_with_lower_nonce: Vec<TransactionReference> =
+            account_txs.iter().map(|(_, tx)| *tx).collect();
+
+        *account_txs = txs_with_higher_or_equal_nonce;
+        if account_txs.is_empty() {
+            self.0.remove(&address);
+        }
+
+        txs_with_lower_nonce
+    }
 }
