@@ -61,6 +61,20 @@ impl TransactionPool {
         Ok(tx)
     }
 
+    pub fn remove_from_nonce(
+        &mut self,
+        address: ContractAddress,
+        nonce: Nonce,
+    ) -> MempoolResult<()> {
+        let txs = self.txs_by_account.remove_from_nonce(address, nonce);
+        for TransactionReference { tx_hash, .. } in txs {
+            if self.tx_pool.remove(&tx_hash).is_none() {
+                return Err(MempoolError::TransactionNotFound { tx_hash });
+            }
+        }
+        Ok(())
+    }
+
     pub fn get_by_tx_hash(&self, tx_hash: TransactionHash) -> MempoolResult<&ThinTransaction> {
         self.tx_pool.get(&tx_hash).ok_or(MempoolError::TransactionNotFound { tx_hash })
     }
@@ -105,7 +119,7 @@ impl AccountTransactionIndex {
         self.0.get(&address)?.get(&nonce)
     }
 
-    fn _remove_from_nonce(
+    fn remove_from_nonce(
         &mut self,
         address: ContractAddress,
         nonce: Nonce,
