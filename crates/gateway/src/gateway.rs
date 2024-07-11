@@ -10,7 +10,7 @@ use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_infra::component_runner::{ComponentRunner, ComponentStartError};
 use starknet_mempool_types::communication::SharedMempoolClient;
-use starknet_mempool_types::mempool_types::{Account, MempoolInput};
+use starknet_mempool_types::mempool_types::{Account, GatewayMessage, MempoolInput};
 use tracing::{info, instrument};
 
 use crate::compilation::compile_contract_class;
@@ -18,7 +18,9 @@ use crate::config::{GatewayConfig, GatewayNetworkConfig, RpcStateReaderConfig};
 use crate::errors::{GatewayError, GatewayResult, GatewayRunError};
 use crate::rpc_state_reader::RpcStateReaderFactory;
 use crate::state_reader::StateReaderFactory;
-use crate::stateful_transaction_validator::StatefulTransactionValidator;
+use crate::stateful_transaction_validator::{
+    skip_stateful_validations, StatefulTransactionValidator,
+};
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_thin_tx, get_sender_address};
 
@@ -126,13 +128,16 @@ fn process_tx(
         _ => None,
     };
 
-    let validator = stateful_tx_validator.instantiate_validator(state_reader_factory)?;
-    let tx_hash = stateful_tx_validator.run_validate(&tx, optional_class_info, validator)?;
+    let mut validator = stateful_tx_validator.instantiate_validator(state_reader_factory)?;
+    let skip_validate = skip_stateful_validations(&tx, &mut validator)?;
+    let tx_hash =
+        stateful_tx_validator.run_validate(&tx, optional_class_info, validator, skip_validate)?;
 
     // TODO(Arni): Add the Sierra and the Casm to the mempool input.
     Ok(MempoolInput {
         tx: external_tx_to_thin_tx(&tx, tx_hash),
         account: Account { sender_address: get_sender_address(&tx), ..Default::default() },
+        gateway_msg: GatewayMessage { account_not_verified: skip_validate },
     })
 }
 

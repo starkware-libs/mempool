@@ -1,4 +1,3 @@
-use assert_matches::assert_matches;
 use blockifier::blockifier::stateful_validator::StatefulValidatorError;
 use blockifier::context::BlockContext;
 use blockifier::test_utils::dict_state_reader::DictStateReader;
@@ -18,6 +17,7 @@ use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_types_core::felt::Felt;
 
+use super::skip_stateful_validations;
 use crate::compilation::compile_contract_class;
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
@@ -101,7 +101,8 @@ fn test_stateful_tx_validator(
 
     let validator = stateful_validator.instantiate_validator(&state_reader_factory).unwrap();
 
-    let result = stateful_validator.run_validate(&external_tx, optional_class_info, validator);
+    let result =
+        stateful_validator.run_validate(&external_tx, optional_class_info, validator, false);
     assert_eq!(format!("{:?}", result), format!("{:?}", expected_result));
 }
 
@@ -142,24 +143,15 @@ fn test_instantiate_validator() {
     state_reader_factory_account_nonce_1(ContractAddress::from(TEST_SENDER_ADDRESS)),
     false
 )]
-// TODO(yael 10/7/2024): use mock validator in this test once ready.
 fn test_skip_stateful_validation(
     #[case] external_tx: RPCTransaction,
     #[case] state_reader_factory: TestStateReaderFactory,
-    #[case] should_pass_validation: bool,
+    #[case] expected_skip_validate: bool,
     stateful_validator: StatefulTransactionValidator,
 ) {
-    let validator = stateful_validator.instantiate_validator(&state_reader_factory).unwrap();
-    let result = stateful_validator.run_validate(&external_tx, None, validator);
-    if should_pass_validation {
-        assert_matches!(result, Ok(_));
-    } else {
-        // To be sure that the validations were actually skipped, we check that the error came from
-        // the blockifier stateful validations, and not from the pre validations since those are
-        // executed also when skip_validate is true.
-        assert_matches!(result, Err(StatefulTransactionValidatorError::StatefulValidatorError(err)) 
-            if !matches!(err, StatefulValidatorError::TransactionPreValidationError(_)));
-    }
+    let mut validator = stateful_validator.instantiate_validator(&state_reader_factory).unwrap();
+    let skip_validate = skip_stateful_validations(&external_tx, &mut validator).unwrap();
+    assert_eq!(skip_validate, expected_skip_validate);
 }
 
 fn empty_state_reader_factory() -> TestStateReaderFactory {

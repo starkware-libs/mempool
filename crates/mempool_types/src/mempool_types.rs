@@ -25,9 +25,15 @@ pub struct Account {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct GatewayMessage {
+    pub account_not_verified: bool,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct MempoolInput {
     pub tx: ThinTransaction,
     pub account: Account,
+    pub gateway_msg: GatewayMessage,
 }
 
 pub type MempoolResult<T> = Result<T, MempoolError>;

@@ -9,7 +9,9 @@ use starknet_api::hash::StarkHash;
 use starknet_api::transaction::{Tip, TransactionHash};
 use starknet_api::{contract_address, felt, patricia_key};
 use starknet_mempool_types::errors::MempoolError;
-use starknet_mempool_types::mempool_types::{Account, AccountState, ThinTransaction};
+use starknet_mempool_types::mempool_types::{
+    Account, AccountState, GatewayMessage, ThinTransaction,
+};
 use starknet_types_core::felt::Felt;
 
 use crate::mempool::{Mempool, MempoolInput, TransactionReference};
@@ -45,13 +47,14 @@ fn add_tx(mempool: &mut Mempool, input: &MempoolInput) {
 
 /// Creates a valid input for mempool's `add_tx` with optional default values.
 /// Usage:
-/// 1. add_tx_input!(tip: 1, tx_hash: 2, sender_address: 3_u8, tx_nonce: 4, account_nonce: 3)
+/// 1. add_tx_input!(tip: 1, tx_hash: 2, sender_address: 3_u8, tx_nonce: 4, account_nonce: 3,
+///    account_not_verified: false)
 /// 2. add_tx_input!(tip: 1, tx_hash: 2, sender_address: 3_u8)
 /// 3. add_tx_input!(tip: 1, tx_hash: 2)
 macro_rules! add_tx_input {
     // Pattern for all four arguments with keyword arguments.
     (tip: $tip:expr, tx_hash: $tx_hash:expr, sender_address: $sender_address:expr,
-        tx_nonce: $tx_nonce:expr, account_nonce: $account_nonce:expr) => {{
+        tx_nonce: $tx_nonce:expr, account_nonce: $account_nonce:expr, account_not_verified: $account_not_verified:expr) => {{
         let sender_address = contract_address!($sender_address);
         let account_nonce = Nonce(felt!($account_nonce));
         let account = Account { sender_address, state: AccountState {nonce: account_nonce}};
@@ -61,15 +64,16 @@ macro_rules! add_tx_input {
             sender_address,
             nonce: Nonce(felt!($tx_nonce)),
         };
-        MempoolInput { tx, account }
+        let gateway_msg = GatewayMessage { account_not_verified: $account_not_verified };
+        MempoolInput { tx, account, gateway_msg }
     }};
     // Pattern for three arguments.
     (tip: $tip:expr, tx_hash: $tx_hash:expr, sender_address: $sender_address:expr) => {
-        add_tx_input!(tip: $tip, tx_hash: $tx_hash, sender_address: $sender_address, tx_nonce: 0_u8, account_nonce: 0_u8)
+        add_tx_input!(tip: $tip, tx_hash: $tx_hash, sender_address: $sender_address, tx_nonce: 0_u8, account_nonce: 0_u8, account_not_verified: false)
     };
     // Pattern for two arguments.
     (tip: $tip:expr, tx_hash: $tx_hash:expr) => {
-        add_tx_input!(tip: $tip, tx_hash: $tx_hash, sender_address: "0x0", tx_nonce: 0_u8, account_nonce: 0_u8)
+        add_tx_input!(tip: $tip, tx_hash: $tx_hash, sender_address: "0x0", tx_nonce: 0_u8, account_nonce: 0_u8, account_not_verified: false)
     };
 }
 
@@ -212,7 +216,7 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
 #[rstest]
 #[case::empty_mempool(Mempool::empty())]
 #[case::mempool_contains_another_address(Mempool::new([
-    add_tx_input!(tip: 0, tx_hash: 1, sender_address: 0x2345_u16, tx_nonce: 2_u8, account_nonce: 0_u8),])
+    add_tx_input!(tip: 0, tx_hash: 1, sender_address: 0x2345_u16, tx_nonce: 2_u8, account_nonce: 0_u8, account_not_verified: false),])
     .unwrap()
 )]
 // TODO(Yael 7/7/2024) - add case for mempool that contains a transaction with nonce 0, and no error
@@ -224,7 +228,8 @@ fn test_undeployed_account(#[case] mut mempool: Mempool) {
         tx_hash: 0,
         sender_address: TEST_SENDER_ADDRESS,
         tx_nonce: 1_u8,
-        account_nonce: 0_u8
+        account_nonce: 0_u8,
+        account_not_verified: true
     );
     let result = mempool.add_tx(input.clone());
 

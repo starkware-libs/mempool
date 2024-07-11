@@ -31,6 +31,7 @@ impl StatefulTransactionValidator {
         external_tx: &RPCTransaction,
         optional_class_info: Option<ClassInfo>,
         mut validator: BlockifierStatefulValidator,
+        skip_validate: bool,
     ) -> StatefulTransactionValidatorResult<TransactionHash> {
         let account_tx = external_tx_to_account_tx(
             external_tx,
@@ -39,8 +40,6 @@ impl StatefulTransactionValidator {
         )?;
         let tx_hash = get_tx_hash(&account_tx);
 
-        let account_nonce = validator.get_nonce(get_sender_address(external_tx))?;
-        let skip_validate = skip_stateful_validations(external_tx, account_nonce)?;
         validator.perform_validations(account_tx, skip_validate)?;
         Ok(tx_hash)
     }
@@ -80,10 +79,11 @@ impl StatefulTransactionValidator {
 // Check if validation of an invoke transaction should be skipped due to deploy_account not being
 // proccessed yet. This feature is used to improve UX for users sending deploy_account + invoke at
 // once.
-fn skip_stateful_validations(
+pub fn skip_stateful_validations(
     tx: &RPCTransaction,
-    account_nonce: Nonce,
+    validator: &mut BlockifierStatefulValidator,
 ) -> StatefulTransactionValidatorResult<bool> {
+    let account_nonce = validator.get_nonce(get_sender_address(tx))?;
     match tx {
         RPCTransaction::Invoke(RPCInvokeTransaction::V3(tx)) => {
             // check if the transaction nonce is 1, meaning it is post deploy_account, and the
