@@ -5426,6 +5426,7 @@ dependencies = [
  "blockifier 0.8.0-dev.1",
  "cairo-lang-starknet-classes",
  "indexmap 2.2.6",
+ "itertools 0.13.0",
  "mempool_test_utils",
  "papyrus_common",
  "papyrus_rpc",
