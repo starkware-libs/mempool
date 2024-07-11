@@ -200,16 +200,21 @@ fn test_new_with_duplicate_tx() {
 #[rstest]
 fn test_add_tx_with_duplicate_tx(mut mempool: Mempool) {
     let input = add_tx_input!(tip: 50, tx_hash: Felt::ONE);
-    let same_input = input.clone();
+    let duplicate_input = input.clone();
 
     add_tx(&mut mempool, &input);
 
     assert_matches!(
-        mempool.add_tx(same_input.clone()),
+        mempool.add_tx(duplicate_input),
         Err(MempoolError::DuplicateTransaction { .. })
     );
-    // Assert that the original tx remains in the pool after the failed attempt.
-    assert_eq_mempool_queue(&mempool, &[same_input.tx])
+
+    // Assert that the original tx remains in Mempool after the failed attempt.
+    let queue_txs = [TransactionReference::new(&input.tx)];
+    let pool_txs = [input.tx];
+    let mempool_state = MempoolState::new(pool_txs, queue_txs);
+
+    mempool_state.assert_eq_mempool_state(&mempool);
 }
 
 #[rstest]
