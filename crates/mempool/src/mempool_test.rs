@@ -287,3 +287,30 @@ fn test_add_tx_sequential_nonces(mut mempool: Mempool) {
 
     expected_mempool_state.assert_eq_mempool_state(&mempool);
 }
+
+#[rstest]
+fn test_add_tx_with_holes_single_account(mut mempool: Mempool) {
+    // Setup.
+    let input_nonce_0 = add_tx_input!(tx_nonce: 0_u8, account_nonce: 0_u8);
+    let input_nonce_1 = add_tx_input!(tx_nonce: 1_u8, account_nonce: 0_u8);
+
+    // Test: add the second transaction first, which creates a hole in the sequence.
+    add_tx(&mut mempool, &input_nonce_1);
+
+    // Assert that the second transaction is in the pool and not in the queue.
+    let expected_queue_txs = [];
+    let expected_pool_txs = [input_nonce_1.tx.clone()];
+    let expected_mempool_state = MempoolState::new(expected_pool_txs, expected_queue_txs);
+
+    expected_mempool_state.assert_eq_mempool_state(&mempool);
+
+    // Test: add the first transaction, which fills the hole.
+    add_tx(&mut mempool, &input_nonce_0);
+
+    // Assert: only eligible transaction appears in the queue.
+    let expected_queue_txs = [TransactionReference::new(&input_nonce_0.tx)];
+    let expected_pool_txs = [input_nonce_1.tx, input_nonce_0.tx];
+    let expected_mempool_state = MempoolState::new(expected_pool_txs, expected_queue_txs);
+
+    expected_mempool_state.assert_eq_mempool_state(&mempool);
+}
