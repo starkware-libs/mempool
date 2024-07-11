@@ -119,9 +119,10 @@ pub fn invoke_tx(cairo_version: CairoVersion) -> RPCTransaction {
         .generate_default()
 }
 
-// TODO: when moving this to Starknet API crate, move this const into a module alongside
-// MultiAcconutTransactionGenerator.
-type AccountId = u16;
+// TODO: when moving the transaction generator to Starknet API crate, move these consts
+// into the module alongside MultiAcconutTransactionGenerator.
+type AccountId = usize;
+type ContractInstanceId = u16;
 
 /// Manages transaction generation for multiple pre-funded accounts, internally bumping nonces
 /// as needed.
@@ -147,6 +148,11 @@ pub struct MultiAccountTransactionGenerator {
     account_contracts: HashMap<AccountId, FeatureContract>,
     // Invariant: nonces managed internally thorugh `generate` API.
     nonce_manager: NonceManager,
+    // Maps account IDs to their ordinal position within their contract type group in
+    // the initialization array.
+    // Invariant: should have the same keys as account_contracts
+    // TODO: consider merging the maps, but that might over-complicate things.
+    account_variant_indices: HashMap<AccountId, ContractInstanceId>,
 }
 
 impl MultiAccountTransactionGenerator {
@@ -158,14 +164,27 @@ impl MultiAccountTransactionGenerator {
     }
 
     pub fn new_for_account_contracts(accounts: impl IntoIterator<Item = FeatureContract>) -> Self {
-        let enumerated_accounts = (0..).zip(accounts);
-        let account_contracts = enumerated_accounts.collect();
+        let mut account_contracts = HashMap::new();
+        let mut variant_counters = HashMap::new();
+        let mut account_variant_indices = HashMap::new();
 
-        Self { account_contracts, nonce_manager: NonceManager::default() }
+        for (account_id, contract) in accounts.into_iter().enumerate() {
+            account_contracts.insert(account_id, contract);
+
+            let n_current_contract = variant_counters.entry(contract).or_insert(0);
+            account_variant_indices.insert(account_id, *n_current_contract);
+            *n_current_contract += 1;
+        }
+
+        Self { account_contracts, account_variant_indices, nonce_manager: NonceManager::default() }
     }
 
     pub fn account_with_id(&mut self, account_id: AccountId) -> AccountTransactionGenerator<'_> {
-        AccountTransactionGenerator { account_id, generator: self }
+        AccountTransactionGenerator::new(account_id, self)
+    }
+
+    fn contract_instance_id(&self, account_id: AccountId) -> ContractInstanceId {
+        *self.account_variant_indices.get(&account_id).unwrap_or(&0)
     }
 }
 
@@ -178,10 +197,16 @@ impl MultiAccountTransactionGenerator {
 /// TODO: add more transaction generation methods as needed.
 pub struct AccountTransactionGenerator<'a> {
     account_id: AccountId,
+    contract_instance_id: ContractInstanceId,
     generator: &'a mut MultiAccountTransactionGenerator,
 }
 
 impl<'a> AccountTransactionGenerator<'a> {
+    pub fn new(account_id: AccountId, generator: &'a mut MultiAccountTransactionGenerator) -> Self {
+        let contract_instance_id = generator.contract_instance_id(account_id);
+        Self { account_id, contract_instance_id, generator }
+    }
+
     /// Generate a valid `RPCTransaction` with default parameters.
     pub fn generate_default(&mut self) -> RPCTransaction {
         let invoke_args = invoke_tx_args!(
@@ -196,7 +221,7 @@ impl<'a> AccountTransactionGenerator<'a> {
     // TODO: support more contracts, instead of this hardcoded type.
     pub fn test_contract_address(&mut self) -> ContractAddress {
         let cairo_version = self.generator.account_contracts[&self.account_id].cairo_version();
-        FeatureContract::TestContract(cairo_version).get_instance_address(self.account_id)
+        FeatureContract::TestContract(cairo_version).get_instance_address(0)
     }
 
     /// Generates an `RPCTransaction` with fully custom parameters.
@@ -212,8 +237,8 @@ impl<'a> AccountTransactionGenerator<'a> {
     }
 
     pub fn sender_address(&mut self) -> ContractAddress {
-        let account_id = self.account_id;
-        self.generator.account_contracts[&account_id].get_instance_address(account_id)
+        self.generator.account_contracts[&self.account_id]
+            .get_instance_address(self.contract_instance_id)
     }
 
     /// Retrieves the nonce for the current account, and __increments__ it internally.
