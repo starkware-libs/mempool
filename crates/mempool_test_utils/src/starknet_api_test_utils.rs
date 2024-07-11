@@ -116,7 +116,7 @@ pub fn invoke_tx(cairo_version: CairoVersion) -> RPCTransaction {
 
     MultiAccountTransactionGenerator::new_for_account_contracts([default_account])
         .account_with_id(0)
-        .generate_default()
+        .generate_default_invoke()
 }
 
 // TODO: when moving this to Starknet API crate, move this const into a module alongside
@@ -183,7 +183,7 @@ pub struct AccountTransactionGenerator<'a> {
 
 impl<'a> AccountTransactionGenerator<'a> {
     /// Generate a valid `RPCTransaction` with default parameters.
-    pub fn generate_default(&mut self) -> RPCTransaction {
+    pub fn generate_default_invoke(&mut self) -> RPCTransaction {
         let invoke_args = invoke_tx_args!(
             sender_address: self.sender_address(),
             resource_bounds: executable_resource_bounds_mapping(),
