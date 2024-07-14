@@ -82,9 +82,17 @@ impl Mempool {
                 self.tx_queue.remove(address);
             }
             // TODO: remove the transactions from the tx_pool.
+
+            // Insert an eligible transaction into the queue with a nonce matching the state
+            // changes. This is applicable when the block originates from a different
+            // leader.
+            if self.tx_queue.get_nonce(address).is_none() {
+                if let Some(tx) = self.tx_pool.get_by_address_and_nonce(address, nonce) {
+                    self.tx_queue.insert(*tx);
+                }
+            }
         }
-        // TODO: update the tx_queue with the new state changes.
-        todo!()
+        Ok(())
     }
 
     fn insert_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
