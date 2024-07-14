@@ -73,18 +73,19 @@ impl Mempool {
         state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
         for (address, AccountState { nonce }) in state_changes {
-            // Dequeue transactions from the queue in the following cases:
-            // 1. Remove a transaction from queue with nonce lower than those committed to the
-            //    block, applicable when the block is from the same leader.
-            // 2. Remove a transaction from queue with nonce greater than those committed to the
-            //    block, applicable when the block is from a different leader.
+            // Align the queue with the committed nonces.
             if self.tx_queue.get_nonce(address).is_some_and(|queued_nonce| queued_nonce != nonce) {
                 self.tx_queue.remove(address);
             }
+            if self.tx_queue.get_nonce(address).is_none() {
+                if let Some(tx) = self.tx_pool.get_by_address_and_nonce(address, nonce) {
+                    self.tx_queue.insert(*tx);
+                }
+            }
+
             // TODO: remove the transactions from the tx_pool.
         }
-        // TODO: update the tx_queue with the new state changes.
-        todo!()
+        Ok(())
     }
 
     fn insert_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
