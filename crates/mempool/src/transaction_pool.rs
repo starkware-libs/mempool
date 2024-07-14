@@ -67,10 +67,9 @@ impl TransactionPool {
 
     pub fn get_by_address_and_nonce(
         &self,
-        address: ContractAddress,
-        nonce: Nonce,
+        tx_identifier: TransactionIdentifier,
     ) -> Option<&TransactionReference> {
-        self.txs_by_account.get(address, nonce)
+        self.txs_by_account.get(tx_identifier)
     }
 
     #[cfg(test)]
@@ -101,7 +100,13 @@ impl AccountTransactionIndex {
         removed_tx
     }
 
-    fn get(&self, address: ContractAddress, nonce: Nonce) -> Option<&TransactionReference> {
-        self.0.get(&address)?.get(&nonce)
+    fn get(&self, tx_identifier: TransactionIdentifier) -> Option<&TransactionReference> {
+        self.0.get(&tx_identifier.address)?.get(&tx_identifier.nonce)
     }
+}
+
+#[derive(Debug, Default)]
+pub struct TransactionIdentifier {
+    pub address: ContractAddress,
+    pub nonce: Nonce,
 }
