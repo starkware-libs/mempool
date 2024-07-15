@@ -175,6 +175,31 @@ fn test_get_txs(#[case] requested_txs: usize) {
 }
 
 #[rstest]
+// TODO(Ayelet): remove ignore once replenishing is merged.
+#[ignore]
+fn test_get_txs_multi_nonce() {
+    // Setup.
+    let tx_address_0_nonce_0 =
+        add_tx_input!(tx_hash: 1, sender_address: "0x0", tx_nonce: 0_u8, account_nonce: 0_u8).tx;
+    let tx_address_0_nonce_1 =
+        add_tx_input!(tx_hash: 2, sender_address: "0x0", tx_nonce: 1_u8, account_nonce: 0_u8).tx;
+
+    let queue_txs = [TransactionReference::new(&tx_address_0_nonce_0)];
+    let pool_txs = [tx_address_0_nonce_0.clone(), tx_address_0_nonce_1.clone()];
+    let mut mempool: Mempool = MempoolState::new(pool_txs, queue_txs).into();
+
+    // Test.
+    let txs = mempool.get_txs(1).unwrap();
+
+    // Assert that the account's next tx was added the queue.
+    assert_eq!(txs, &[tx_address_0_nonce_0]);
+    let expected_queue_txs = [TransactionReference::new(&tx_address_0_nonce_1)];
+    let expected_pool_txs = [tx_address_0_nonce_1];
+    let expected_mempool_state = MempoolState::new(expected_pool_txs, expected_queue_txs);
+    expected_mempool_state.assert_eq_mempool_state(&mempool);
+}
+
+#[rstest]
 fn test_add_tx(mut mempool: Mempool) {
     let input_tip_50_address_0 = add_tx_input!(tip: 50, tx_hash: 1);
     let input_tip_100_address_1 = add_tx_input!(tip: 100, tx_hash: 2, sender_address: "0x1");
