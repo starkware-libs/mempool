@@ -64,6 +64,10 @@ impl Mempool {
         self.insert_tx(input)
     }
 
+    pub fn account_exists(&mut self, _account_address: ContractAddress) -> MempoolResult<bool> {
+        todo!()
+    }
+
     /// Update the mempool's internal state according to the committed block (resolves nonce gaps,
     /// updates account balances).
     // TODO: the part about resolving nonce gaps is incorrect if we delete txs in get_txs and then

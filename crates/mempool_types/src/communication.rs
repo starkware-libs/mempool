@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use starknet_api::core::ContractAddress;
 use starknet_mempool_infra::component_client::{ClientError, ComponentClient};
 use starknet_mempool_infra::component_definitions::ComponentRequestAndResponseSender;
 use thiserror::Error;
@@ -20,18 +21,21 @@ pub type SharedMempoolClient = Arc<dyn MempoolClient>;
 #[async_trait]
 pub trait MempoolClient: Send + Sync {
     async fn add_tx(&self, mempool_input: MempoolInput) -> MempoolClientResult<()>;
+    async fn account_exists(&self, contract_address: ContractAddress) -> MempoolClientResult<bool>;
     async fn get_txs(&self, n_txs: usize) -> MempoolClientResult<Vec<ThinTransaction>>;
 }
 
 #[derive(Debug)]
 pub enum MempoolRequest {
     AddTransaction(MempoolInput),
+    AccountExists(ContractAddress),
     GetTransactions(usize),
 }
 
 #[derive(Debug)]
 pub enum MempoolResponse {
     AddTransaction(MempoolResult<()>),
+    AccountExists(MempoolResult<bool>),
     GetTransactions(MempoolResult<Vec<ThinTransaction>>),
 }
 
@@ -51,6 +55,18 @@ impl MempoolClient for MempoolClientImpl {
         match response {
             MempoolResponse::AddTransaction(Ok(response)) => Ok(response),
             MempoolResponse::AddTransaction(Err(response)) => {
+                Err(MempoolClientError::MempoolError(response))
+            }
+            _ => Err(MempoolClientError::ClientError(ClientError::UnexpectedResponse)),
+        }
+    }
+
+    async fn account_exists(&self, contract_address: ContractAddress) -> MempoolClientResult<bool> {
+        let request = MempoolRequest::AccountExists(contract_address);
+        let response = self.send(request).await;
+        match response {
+            MempoolResponse::AccountExists(Ok(response)) => Ok(response),
+            MempoolResponse::AccountExists(Err(response)) => {
                 Err(MempoolClientError::MempoolError(response))
             }
             _ => Err(MempoolClientError::ClientError(ClientError::UnexpectedResponse)),

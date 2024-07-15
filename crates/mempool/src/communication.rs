@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use starknet_api::core::ContractAddress;
 use starknet_mempool_infra::component_definitions::ComponentRequestHandler;
 use starknet_mempool_infra::component_runner::ComponentStarter;
 use starknet_mempool_infra::component_server::ComponentServer;
@@ -35,6 +36,10 @@ impl MempoolCommunicationWrapper {
         self.mempool.add_tx(mempool_input)
     }
 
+    fn account_exists(&mut self, account_address: ContractAddress) -> MempoolResult<bool> {
+        self.mempool.account_exists(account_address)
+    }
+
     fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
         self.mempool.get_txs(n_txs)
     }
@@ -46,6 +51,9 @@ impl ComponentRequestHandler<MempoolRequest, MempoolResponse> for MempoolCommuni
         match request {
             MempoolRequest::AddTransaction(mempool_input) => {
                 MempoolResponse::AddTransaction(self.add_tx(mempool_input))
+            }
+            MempoolRequest::AccountExists(account_address) => {
+                MempoolResponse::AccountExists(self.account_exists(account_address))
             }
             MempoolRequest::GetTransactions(n_txs) => {
                 MempoolResponse::GetTransactions(self.get_txs(n_txs))
