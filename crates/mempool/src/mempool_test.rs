@@ -268,3 +268,29 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
     add_tx(&mut mempool, &input_small_tip_big_hash);
     assert_eq_mempool_queue(&mempool, &[input_big_tip_small_hash.tx, input_small_tip_big_hash.tx])
 }
+
+#[rstest]
+fn test_flow_with_holes(mut mempool: Mempool) {
+    // Setup.
+    let input_address_0_nonce_0 =
+        add_tx_input!(tx_hash: 1, sender_address: "0x0", tx_nonce: 0_u8, account_nonce: 0_u8);
+    let input_address_0_nonce_1 =
+        add_tx_input!(tx_hash: 2, sender_address: "0x0", tx_nonce: 1_u8, account_nonce: 0_u8);
+    let input_address_1_nonce_0 =
+        add_tx_input!(tx_hash: 3, sender_address: "0x1", tx_nonce: 0_u8, account_nonce: 0_u8);
+
+    // Test
+    add_tx(&mut mempool, &input_address_0_nonce_1);
+    add_tx(&mut mempool, &input_address_1_nonce_0);
+    let txs = mempool.get_txs(2).unwrap();
+
+    // Assert that the tx of account 1 nonce 0 is returned and the tx of account 0 nonce 0 is not.
+    assert_eq!(txs, &[input_address_1_nonce_0.tx]);
+
+    // Test
+    add_tx(&mut mempool, &input_address_0_nonce_0);
+    let txs = mempool.get_txs(2).unwrap();
+
+    // Assert that all remaining txs are returned.
+    assert_eq!(txs, &[input_address_0_nonce_0.tx, input_address_0_nonce_1.tx]);
+}
