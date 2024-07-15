@@ -55,8 +55,9 @@ impl GatewayCompiler {
         &self,
         cairo_lang_contract_class: CairoLangContractClass,
     ) -> Result<CasmContractClass, GatewayError> {
-        let catch_unwind_result =
-            panic::catch_unwind(|| compile_sierra_to_casm(cairo_lang_contract_class));
+        let catch_unwind_result = panic::catch_unwind(|| {
+            compile_sierra_to_casm(cairo_lang_contract_class, self.config.max_casm_bytecode_size)
+        });
         let casm_contract_class =
             catch_unwind_result.map_err(|_| CompilationUtilError::CompilationPanic)??;
 
