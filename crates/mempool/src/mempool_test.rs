@@ -173,6 +173,29 @@ fn test_get_txs(#[case] requested_txs: usize) {
 }
 
 #[rstest]
+fn test_get_txs_multi_nonce() {
+    // Setup.
+    let input_address_0_nonce_0 =
+        add_tx_input!(tx_hash: 1, sender_address: "0x0", tx_nonce: 0_u8, account_nonce: 0_u8);
+    let input_address_0_nonce_1 =
+        add_tx_input!(tx_hash: 2, sender_address: "0x0", tx_nonce: 1_u8, account_nonce: 0_u8);
+
+    let queue_txs = [TransactionReference::new(&input_address_0_nonce_0.tx)];
+    let pool_txs = [input_address_0_nonce_0.tx.clone(), input_address_0_nonce_1.tx.clone()];
+    let mut mempool: Mempool = MempoolState::new(pool_txs, queue_txs).into();
+
+    // Test.
+    let txs = mempool.get_txs(1).unwrap();
+
+    // Assert that the account's next tx was added the queue.
+    assert_eq!(txs, &[input_address_0_nonce_0.tx]);
+    let expected_queue_txs = [TransactionReference::new(&input_address_0_nonce_1.tx)];
+    let expected_pool_txs = [input_address_0_nonce_1.tx];
+    let expected_mempool_state = MempoolState::new(expected_pool_txs, expected_queue_txs);
+    expected_mempool_state.assert_eq_mempool_state(&mempool);
+}
+
+#[rstest]
 fn test_add_tx(mut mempool: Mempool) {
     let input_tip_50_address_0 = add_tx_input!(tip: 50, tx_hash: 1);
     let input_tip_100_address_1 = add_tx_input!(tip: 100, tx_hash: 2, sender_address: "0x1");
