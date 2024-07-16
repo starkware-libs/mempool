@@ -44,6 +44,7 @@ clap = "4.3.10"
 colored = "2.1.0"
 const_format = "0.2.30"
 derive_more = "0.99"
+enum-assoc = "1.1.0"
 futures = "0.3.30"
 hyper = { version = "0.14", features = ["client", "http1", "http2", "server", "tcp"] }
 indexmap = "2.1.0"
@@ -70,7 +71,7 @@ starknet_api = "0.13.0-dev.9"
 # starknet-api version. This should be removed once we have a mono-repo.
 starknet-types-core = { version = "0.1.5", features = ["hash", "prime-bigint", "std"] }
 starknet_client = { git = "https://github.com/starkware-libs/papyrus.git", rev = "ca83fd42" }
-strum = "0.24.1"
+strum = { version = "0.24.1", features = ["derive"] }
 tempfile = "3.3.0"
 thiserror = "1.0"
 tokio = { version = "1.37.0", features = ["full"] }
