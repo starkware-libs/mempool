@@ -9,11 +9,12 @@ use reqwest::{Client, Response};
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_gateway::config::{
-    GatewayConfig, GatewayNetworkConfig, RpcStateReaderConfig, StatefulTransactionValidatorConfig,
+    GatewayConfig, GatewayNetworkConfig, StatefulTransactionValidatorConfig,
     StatelessTransactionValidatorConfig,
 };
 use starknet_gateway::errors::GatewayError;
 use starknet_mempool_node::config::MempoolNodeConfig;
+use starknet_state_reader::config::RpcStateReaderConfig;
 use tokio::net::TcpListener;
 
 use crate::integration_test_setup::IntegrationTestSetup;
