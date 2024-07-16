@@ -1856,6 +1856,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum-assoc"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24247b89d37b9502dc5a4b80d369aab1a12106067776e440094c786dae5b9d07"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5451,6 +5462,7 @@ dependencies = [
  "blockifier 0.8.0-rc.0 (git+https://github.com/starkware-libs/blockifier.git?rev=32191d41)",
  "cairo-lang-starknet-classes",
  "cairo-vm",
+ "enum-assoc",
  "hyper",
  "mempool_test_utils",
  "mockall",
@@ -5470,6 +5482,7 @@ dependencies = [
  "starknet_mempool_infra",
  "starknet_mempool_types",
  "starknet_sierra_compile",
+ "strum 0.24.1",
  "thiserror",
  "tokio",
  "tracing",
@@ -5638,6 +5651,9 @@ name = "strum"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
+dependencies = [
+ "strum_macros 0.24.3",
+]
 
 [[package]]
 name = "strum"
