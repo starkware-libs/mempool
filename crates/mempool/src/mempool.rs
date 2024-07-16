@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
+use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, MempoolInput, MempoolResult, ThinTransaction,
 };
+use starknet_types_core::felt::Felt;
 
 use crate::transaction_pool::TransactionPool;
 use crate::transaction_queue::TransactionQueue;
@@ -61,6 +63,9 @@ impl Mempool {
     /// TODO: support fee escalation and transactions with future nonces.
     /// TODO: check Account nonce and balance.
     pub fn add_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
+        // TODO(Yael 8/7/2024): Consider removing this check and instead add an API for the gateway
+        // to check if the deploy_account tx exists.
+        self.should_insert(&input)?;
         self.insert_tx(input)
     }
 
@@ -97,6 +102,25 @@ impl Mempool {
             self.tx_queue.insert(tx_reference);
         }
 
+        Ok(())
+    }
+
+    pub fn should_insert(&self, input: &MempoolInput) -> MempoolResult<()> {
+        // If the tx nonce is 1 and the account nonce is 0, the account was not deployed yet and the
+        // gateway has skipped validations. In this case, we need to verify that a deploy_account
+        // transaction exists for this account. It is suficient to check if the account exists in
+        // the mempool since it means that either it has a deploy_account transaction or
+        // transactions with future nonces that passed validations.
+        // TODO(Yael 8/7/2024): Consider instead of checking the nonces, get a value from the
+        // gateway that indicates that the mempool needs to check the deploy_account existence.
+        if input.tx.nonce == Nonce(Felt::ONE)
+            && input.account.state.nonce == Nonce(Felt::ZERO)
+            && !self.tx_pool.contains_address(input.tx.sender_address)
+        {
+            return Err(MempoolError::UndeployedAccount {
+                sender_address: input.tx.sender_address,
+            });
+        }
         Ok(())
     }
 

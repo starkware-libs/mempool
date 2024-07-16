@@ -68,6 +68,8 @@ impl FromIterator<TransactionReference> for TransactionQueue {
     }
 }
 
+const TEST_SENDER_ADDRESS: u8 = 0x1;
+
 #[track_caller]
 fn add_tx(mempool: &mut Mempool, input: &MempoolInput) {
     assert_eq!(mempool.add_tx(input.clone()), Ok(()));
@@ -267,4 +269,31 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
     add_tx(&mut mempool, &input_big_tip_small_hash);
     add_tx(&mut mempool, &input_small_tip_big_hash);
     assert_eq_mempool_queue(&mempool, &[input_big_tip_small_hash.tx, input_small_tip_big_hash.tx])
+}
+
+#[rstest]
+#[case::empty_mempool(Mempool::empty())]
+#[case::mempool_contains_another_address(Mempool::new([
+    add_tx_input!(tip: 0, tx_hash: 1, sender_address: 0x2345_u16, tx_nonce: 2_u8, account_nonce: 0_u8),])
+    .unwrap()
+)]
+// TODO(Yael 7/7/2024) - add case for mempool that contains a transaction with nonce 0, and no error
+// is received. This case is not available now since the mempool doesn't supoprt multiple nonces per
+// account.
+fn test_undeployed_account(#[case] mut mempool: Mempool) {
+    let input = add_tx_input!(
+        tip: 0,
+        tx_hash: 0,
+        sender_address: TEST_SENDER_ADDRESS,
+        tx_nonce: 1_u8,
+        account_nonce: 0_u8
+    );
+    let result = mempool.add_tx(input.clone());
+
+    assert_eq!(
+        result,
+        Err(MempoolError::UndeployedAccount {
+            sender_address: contract_address!(TEST_SENDER_ADDRESS)
+        })
+    );
 }
