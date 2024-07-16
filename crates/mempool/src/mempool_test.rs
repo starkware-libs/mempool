@@ -362,3 +362,41 @@ fn test_flow_filling_holes(mut mempool: Mempool) {
     // Assert: all remaining transactions are returned.
     assert_eq!(txs, &[input_address_0_nonce_0.tx]);
 }
+
+#[rstest]
+#[ignore]
+fn test_commit_block_another_leader_with_unknown_transactions() {
+    // Mempool initializing:
+    // "0x0" -> 3, 5.
+    // "0x1" -> 3.
+    // Transaction queue is empty.
+    // Commit block that returns exactly the same state like Mempool state.
+
+    let tx_address0_nonce3 = add_tx_input!(tip: 1, tx_hash: 1, sender_address: "0x0", tx_nonce: 3_u8, account_nonce: 3_u8).tx;
+    let tx_address0_nonce5 = add_tx_input!(tip: 1, tx_hash: 2, sender_address: "0x0", tx_nonce: 5_u8, account_nonce: 3_u8).tx;
+    let tx_address0_nonce6 = add_tx_input!(tip: 1, tx_hash: 3, sender_address: "0x0", tx_nonce: 6_u8, account_nonce: 3_u8).tx;
+    let tx_address1_nonce3 = add_tx_input!(tip: 1, tx_hash: 4, sender_address: "0x1", tx_nonce: 3_u8, account_nonce: 3_u8).tx;
+
+    let queued_txs = vec![];
+    let pool_txs = vec![
+        tx_address0_nonce3,
+        tx_address0_nonce5,
+        tx_address0_nonce6.clone(),
+        tx_address1_nonce3,
+    ];
+
+    let tx_references_iterator = queued_txs.iter().map(TransactionReference::new);
+    let txs_iterator = pool_txs.iter().cloned();
+
+    let mut mempool: Mempool = MempoolState::new(txs_iterator, tx_references_iterator).into();
+
+    let commit_state = HashMap::from([
+        (contract_address!("0x0"), AccountState { nonce: Nonce(felt!(5_u16)) }),
+        (contract_address!("0x1"), AccountState { nonce: Nonce(felt!(3_u16)) }),
+        (contract_address!("0x2"), AccountState { nonce: Nonce(felt!(1_u16)) }),
+    ]);
+    assert!(mempool.commit_block(commit_state).is_ok());
+
+    // Check that in the transaction queue there is a single transaction, tx 4, of address "0x0".
+    assert_eq_mempool_queue(&mempool, &[tx_address0_nonce6])
+}
