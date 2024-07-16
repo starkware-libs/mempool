@@ -16,15 +16,15 @@ use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::felt;
 use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
+use starknet_state_reader::state_reader_test_utils::{
+    local_test_state_reader_factory, local_test_state_reader_factory_for_deploy_account,
+    TestStateReader, TestStateReaderFactory,
+};
 use starknet_types_core::felt::Felt;
 
 use crate::compilation::GatewayCompiler;
 use crate::config::{GatewayCompilerConfig, StatefulTransactionValidatorConfig};
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
-use crate::state_reader_test_utils::{
-    local_test_state_reader_factory, local_test_state_reader_factory_for_deploy_account,
-    TestStateReader, TestStateReaderFactory,
-};
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 
 #[fixture]

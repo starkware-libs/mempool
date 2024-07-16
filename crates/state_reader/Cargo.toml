@@ -1,11 +1,18 @@
 [package]
-name = "state_reader"
+name = "starknet_state_reader"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
-[dependencies]
-
 [lints]
 workspace = true
+
+[features]
+testing = []
+
+[dependencies]
+blockifier = { workspace = true, features = ["testing"] }
+mempool_test_utils = { path = "../mempool_test_utils", version = "0.0" }
+starknet-types-core.workspace = true
+starknet_api.workspace = true

@@ -11,13 +11,13 @@ use starknet_api::transaction::TransactionHash;
 use starknet_mempool_infra::component_runner::{ComponentStartError, ComponentStarter};
 use starknet_mempool_types::communication::SharedMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, MempoolInput};
+use starknet_state_reader::state_reader::StateReaderFactory;
 use tracing::{info, instrument};
 
 use crate::compilation::GatewayCompiler;
 use crate::config::{GatewayConfig, GatewayNetworkConfig, RpcStateReaderConfig};
 use crate::errors::{GatewayError, GatewayResult, GatewayRunError};
 use crate::rpc_state_reader::RpcStateReaderFactory;
-use crate::state_reader::StateReaderFactory;
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_thin_tx, get_sender_address};
