@@ -421,3 +421,23 @@ fn test_flow_filling_holes(mut mempool: Mempool) {
     // Assert: all remaining transactions are returned.
     assert_eq!(txs, &[input_address_0_nonce_0.tx]);
 }
+
+#[rstest]
+#[ignore]
+
+fn test_commit_block_excludes_some_transactions() {
+    let tx_address0_nonce5 = add_tx_input!(tip: 1, tx_hash: 2, sender_address: "0x0", tx_nonce: 5_u8, account_nonce: 4_u8).tx;
+
+    let queued_txs = [TransactionReference::new(&tx_address0_nonce5)];
+    let pool_txs = [tx_address0_nonce5];
+    let mut mempool: Mempool = MempoolState::new(pool_txs, queued_txs).into();
+
+    let commit_state = HashMap::from([
+        (contract_address!("0x0"), AccountState { nonce: Nonce(felt!(3_u16)) }),
+        (contract_address!("0x1"), AccountState { nonce: Nonce(felt!(3_u16)) }),
+    ]);
+    assert!(mempool.commit_block(commit_state).is_ok());
+
+    // Check that in the transaction queue is empty.
+    assert_eq_mempool_queue(&mempool, &[])
+}
