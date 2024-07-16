@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::sync::Arc;
 
 use axum::body::{Bytes, HttpBody};
@@ -6,6 +7,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use blockifier::context::ChainInfo;
 use blockifier::test_utils::CairoVersion;
+use mempool_test_utils::get_absolute_path;
 use mempool_test_utils::starknet_api_test_utils::invoke_tx;
 use mockall::predicate::eq;
 use starknet_api::core::ContractAddress;
@@ -13,11 +15,13 @@ use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::communication::MockMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, AccountState, MempoolInput, ThinTransaction};
+use strum::IntoEnumIterator;
 
 use crate::compilation::GatewayCompiler;
 use crate::config::{
     GatewayCompilerConfig, StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig,
 };
+use crate::errors::GatewaySpecError;
 use crate::gateway::{add_tx, AppState, SharedMempoolClient};
 use crate::state_reader_test_utils::{local_test_state_reader_factory, TestStateReaderFactory};
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
@@ -106,4 +110,37 @@ fn calculate_hash(external_tx: &RPCTransaction) -> TransactionHash {
     )
     .unwrap();
     get_tx_hash(&account_tx)
+}
+
+#[test]
+fn test_errors_match_spec() {
+    let spec: serde_json::Value = serde_json::from_reader(
+        File::open(get_absolute_path("crates/gateway/resources/starknet_write_api.json")).unwrap(),
+    )
+    .unwrap();
+    let spec_errors = &spec["components"]["errors"].as_object().unwrap();
+    assert_eq!(spec_errors.len(), GatewaySpecError::iter().count());
+
+    for err in GatewaySpecError::iter() {
+        // Use the error serialization to get the error name, and then use it to get the error
+        // schema.
+        let err_schema = match serde_json::to_value(&err).unwrap() {
+            serde_json::Value::String(err_name) => &spec_errors[&err_name],
+            // Errors that contain data.
+            serde_json::Value::Object(mapping) => {
+                assert_eq!(mapping.len(), 1);
+                let err_name = mapping.keys().next().unwrap().as_str();
+                &spec_errors[err_name]
+            }
+            _ => panic!("Unexpected error type"),
+        };
+
+        let expected_code: u16 = err_schema["code"].as_u64().unwrap().try_into().unwrap();
+        assert_eq!(err.code(), expected_code);
+
+        let expected_message = err_schema["message"].as_str().unwrap();
+        assert_eq!(err.to_string(), expected_message);
+
+        assert_eq!(err_schema.get("data").is_some(), err.data().is_some());
+    }
 }
