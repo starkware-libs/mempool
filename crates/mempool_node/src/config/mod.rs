@@ -10,7 +10,8 @@ use papyrus_config::dumping::{append_sub_config_name, ser_param, SerializeConfig
 use papyrus_config::loading::load_and_process_config;
 use papyrus_config::{ConfigError, ParamPath, ParamPrivacyInput, SerializedParam};
 use serde::{Deserialize, Serialize};
-use starknet_gateway::config::{GatewayConfig, RpcStateReaderConfig};
+use starknet_gateway::config::GatewayConfig;
+use starknet_state_reader::config::RpcStateReaderConfig;
 use validator::{Validate, ValidationError};
 
 use crate::version::VERSION_FULL;

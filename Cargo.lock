@@ -5458,7 +5458,6 @@ dependencies = [
  "num-bigint",
  "num-traits 0.2.19",
  "papyrus_config",
- "papyrus_rpc",
  "pretty_assertions",
  "reqwest",
  "rstest",
@@ -5535,6 +5534,7 @@ dependencies = [
  "starknet_mempool_infra",
  "starknet_mempool_node",
  "starknet_mempool_types",
+ "starknet_state_reader",
  "starknet_task_executor",
  "strum 0.24.1",
  "tempfile",
@@ -5561,6 +5561,7 @@ dependencies = [
  "starknet_mempool",
  "starknet_mempool_infra",
  "starknet_mempool_types",
+ "starknet_state_reader",
  "tokio",
  "tracing",
  "validator",
@@ -5597,10 +5598,21 @@ dependencies = [
 name = "starknet_state_reader"
 version = "0.0.0"
 dependencies = [
+ "axum",
  "blockifier 0.8.0-rc.0 (git+https://github.com/starkware-libs/blockifier.git?rev=32191d41)",
+ "cairo-lang-starknet-classes",
  "mempool_test_utils",
+ "mockito",
+ "papyrus_config",
+ "papyrus_rpc",
+ "reqwest",
+ "serde",
+ "serde_json",
  "starknet-types-core",
  "starknet_api",
+ "thiserror",
+ "tokio",
+ "validator",
 ]
 
 [[package]]

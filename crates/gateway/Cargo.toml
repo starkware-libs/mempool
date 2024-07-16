@@ -21,7 +21,6 @@ hyper.workspace = true
 mempool_test_utils = { path = "../mempool_test_utils", version = "0.0" }
 num-traits.workspace = true
 papyrus_config.workspace = true
-papyrus_rpc.workspace = true
 reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true

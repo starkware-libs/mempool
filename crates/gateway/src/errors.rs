@@ -5,7 +5,7 @@ use blockifier::execution::errors::ContractClassError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
 use cairo_vm::types::errors::program_errors::ProgramError;
-use serde_json::{Error as SerdeError, Value};
+use serde_json::Value;
 use starknet_api::block::{BlockNumber, GasPrice};
 use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Resource, ResourceBounds};
@@ -133,25 +133,4 @@ pub enum RPCStateReaderError {
     RPCError(StatusCode),
     #[error("Unexpected error code: {0}")]
     UnexpectedErrorCode(u16),
-}
-
-pub type RPCStateReaderResult<T> = Result<T, RPCStateReaderError>;
-
-impl From<RPCStateReaderError> for StateError {
-    fn from(err: RPCStateReaderError) -> Self {
-        match err {
-            RPCStateReaderError::ClassHashNotFound(request) => {
-                match serde_json::from_value(request["params"]["class_hash"].clone()) {
-                    Ok(class_hash) => StateError::UndeclaredClassHash(class_hash),
-                    Err(e) => serde_err_to_state_err(e),
-                }
-            }
-            _ => StateError::StateReadError(err.to_string()),
-        }
-    }
-}
-
-// Converts a serde error to the error type of the state reader.
-pub fn serde_err_to_state_err(err: SerdeError) -> StateError {
-    StateError::StateReadError(format!("Failed to parse rpc result {:?}", err.to_string()))
 }
