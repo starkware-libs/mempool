@@ -35,7 +35,7 @@ assert_matches = "1.5.0"
 async-trait = "0.1.79"
 axum = "0.6.12"
 bincode = "1.3.3"
-blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "32191d41" }
+blockifier = { git = "https://github.com/starkware-libs/blockifier.git", rev = "32191d41", features = ["testing"]}
 cairo-lang-sierra = "2.7.0-dev.0"
 cairo-lang-starknet-classes = "2.7.0-dev.0"
 cairo-lang-utils = "2.7.0-dev.0"
