@@ -8,11 +8,11 @@ use blockifier::versioned_constants::VersionedConstants;
 use starknet_api::core::Nonce;
 use starknet_api::rpc_transaction::{RPCInvokeTransaction, RPCTransaction};
 use starknet_api::transaction::TransactionHash;
+use starknet_state_reader::state_reader::{MempoolStateReader, StateReaderFactory};
 use starknet_types_core::felt::Felt;
 
 use crate::config::StatefulTransactionValidatorConfig;
 use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
-use crate::state_reader::{MempoolStateReader, StateReaderFactory};
 use crate::utils::{external_tx_to_account_tx, get_sender_address, get_tx_hash};
 
 #[cfg(test)]

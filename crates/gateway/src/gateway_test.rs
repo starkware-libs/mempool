@@ -13,13 +13,15 @@ use starknet_api::rpc_transaction::RPCTransaction;
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::communication::MockMempoolClient;
 use starknet_mempool_types::mempool_types::{Account, AccountState, MempoolInput, ThinTransaction};
+use starknet_state_reader::state_reader_test_utils::{
+    local_test_state_reader_factory, TestStateReaderFactory,
+};
 
 use crate::compilation::GatewayCompiler;
 use crate::config::{
     GatewayCompilerConfig, StatefulTransactionValidatorConfig, StatelessTransactionValidatorConfig,
 };
 use crate::gateway::{add_tx, AppState, SharedMempoolClient};
-use crate::state_reader_test_utils::{local_test_state_reader_factory, TestStateReaderFactory};
 use crate::stateful_transaction_validator::StatefulTransactionValidator;
 use crate::stateless_transaction_validator::StatelessTransactionValidator;
 use crate::utils::{external_tx_to_account_tx, get_tx_hash};

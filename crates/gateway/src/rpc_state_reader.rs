@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ClassHash, CompiledClassHash, ContractAddress, Nonce};
 use starknet_api::state::StorageKey;
+use starknet_state_reader::state_reader::{MempoolStateReader, StateReaderFactory};
 use starknet_types_core::felt::Felt;
 
 use crate::config::RpcStateReaderConfig;
@@ -18,7 +19,6 @@ use crate::rpc_objects::{
     GetCompiledContractClassParams, GetNonceParams, GetStorageAtParams, RpcResponse,
     RPC_CLASS_HASH_NOT_FOUND, RPC_ERROR_BLOCK_NOT_FOUND, RPC_ERROR_CONTRACT_ADDRESS_NOT_FOUND,
 };
-use crate::state_reader::{MempoolStateReader, StateReaderFactory};
 
 pub struct RpcStateReader {
     pub config: RpcStateReaderConfig,
