@@ -5470,6 +5470,7 @@ dependencies = [
  "starknet_mempool_infra",
  "starknet_mempool_types",
  "starknet_sierra_compile",
+ "starknet_state_reader",
  "thiserror",
  "tokio",
  "tracing",
@@ -5593,6 +5594,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "starknet_state_reader"
+version = "0.0.0"
+dependencies = [
+ "assert_matches",
+ "async-trait",
+ "axum",
+ "blockifier 0.8.0-rc.0 (git+https://github.com/starkware-libs/blockifier.git?rev=32191d41)",
+ "cairo-lang-starknet-classes",
+ "cairo-vm",
+ "hyper",
+ "mempool_test_utils",
+ "mockall",
+ "mockito",
+ "num-bigint",
+ "num-traits 0.2.19",
+ "papyrus_config",
+ "papyrus_rpc",
+ "pretty_assertions",
+ "reqwest",
+ "rstest",
+ "serde",
+ "serde_json",
+ "starknet-types-core",
+ "starknet_api",
+ "starknet_mempool",
+ "starknet_mempool_infra",
+ "starknet_mempool_types",
+ "starknet_sierra_compile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "validator",
+]
+
+[[package]]
 name = "starknet_task_executor"
 version = "0.0.0"
 dependencies = [
@@ -5601,10 +5637,6 @@ dependencies = [
  "tokio",
  "tokio-test",
 ]
-
-[[package]]
-name = "state_reader"
-version = "0.0.0"
 
 [[package]]
 name = "static_assertions"

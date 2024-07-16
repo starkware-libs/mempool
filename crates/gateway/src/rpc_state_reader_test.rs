@@ -7,6 +7,7 @@ use serde_json::json;
 use starknet_api::block::{BlockNumber, GasPrice};
 use starknet_api::core::{ClassHash, ContractAddress, Nonce, PatriciaKey};
 use starknet_api::{class_hash, contract_address, felt, patricia_key};
+use starknet_state_reader::state_reader::MempoolStateReader;
 
 use crate::config::RpcStateReaderConfig;
 use crate::rpc_objects::{
@@ -15,7 +16,6 @@ use crate::rpc_objects::{
     RpcSuccessResponse,
 };
 use crate::rpc_state_reader::RpcStateReader;
-use crate::state_reader::MempoolStateReader;
 
 async fn run_rpc_server() -> mockito::ServerGuard {
     mockito::Server::new_async().await
