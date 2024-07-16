@@ -5,12 +5,15 @@ use blockifier::execution::errors::ContractClassError;
 use blockifier::state::errors::StateError;
 use blockifier::transaction::errors::TransactionExecutionError;
 use cairo_vm::types::errors::program_errors::ProgramError;
+use enum_assoc::Assoc;
+use serde::Serialize;
 use serde_json::{Error as SerdeError, Value};
 use starknet_api::block::{BlockNumber, GasPrice};
 use starknet_api::core::CompiledClassHash;
 use starknet_api::transaction::{Resource, ResourceBounds};
 use starknet_api::StarknetApiError;
 use starknet_sierra_compile::errors::CompilationUtilError;
+use strum::EnumIter;
 use thiserror::Error;
 use tokio::task::JoinError;
 
@@ -51,6 +54,57 @@ impl IntoResponse for GatewayError {
         let body = self.to_string();
         (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
     }
+}
+
+#[derive(Error, Debug, Assoc, Clone, EnumIter, Serialize)]
+#[func(pub fn code(&self) -> u16)]
+#[func(pub fn data(&self) -> Option<&str>)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum GatewaySpecError {
+    #[error("Class hash not found")]
+    #[assoc(code = 28)]
+    ClassHashNotFound,
+    #[error("Class already declared")]
+    #[assoc(code = 51)]
+    ClassAlreadyDeclared,
+    #[error("Invalid transaction nonce")]
+    #[assoc(code = 52)]
+    InvalidTransactionNonce,
+    #[error("Max fee is smaller than the minimal transaction cost (validation plus fee transfer)")]
+    #[assoc(code = 53)]
+    InsufficientMaxFee,
+    #[error("Account balance is smaller than the transaction's max_fee")]
+    #[assoc(code = 54)]
+    InsufficientAccountBalance,
+    #[error("Account validation failed")]
+    #[assoc(code = 55)]
+    #[assoc(data = _0)]
+    ValidationFailure(String),
+    #[error("Compilation failed")]
+    #[assoc(code = 56)]
+    CompilationFailed,
+    #[error("Contract class size it too large")]
+    #[assoc(code = 57)]
+    ContractClassSizeIsTooLarge,
+    #[error("Sender address in not an account contract")]
+    #[assoc(code = 58)]
+    NonAccount,
+    #[error("A transaction with the same hash already exists in the mempool")]
+    #[assoc(code = 59)]
+    DuplicateTx,
+    #[error("the compiled class hash did not match the one supplied in the transaction")]
+    #[assoc(code = 60)]
+    CompiledClassHashMismatch,
+    #[error("the transaction version is not supported")]
+    #[assoc(code = 61)]
+    UnsupportedTxVersion,
+    #[error("the contract class version is not supported")]
+    #[assoc(code = 62)]
+    UnsupportedContractClassVersion,
+    #[error("An unexpected error occurred")]
+    #[assoc(code = 63)]
+    #[assoc(data = _0)]
+    UnexpectedError(String),
 }
 
 #[derive(Debug, Error)]
