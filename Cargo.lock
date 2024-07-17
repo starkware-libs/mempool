@@ -4891,6 +4891,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "scc"
+version = "2.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4465c22496331e20eb047ff46e7366455bc01c0c02015c4a376de0b2cd3a1af"
+dependencies = [
+ "sdd",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4951,6 +4960,12 @@ dependencies = [
  "ring 0.17.8",
  "untrusted 0.9.0",
 ]
+
+[[package]]
+name = "sdd"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8eb0dde0ccd15e337a3cf738a9a38115c6d8e74795d074e73973dad3d229a897"
 
 [[package]]
 name = "sec1"
@@ -5092,6 +5107,31 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serial_test"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b4b487fe2acf240a021cf57c6b2b4903b1e78ca0ecd862a71b71d2a51fed77d"
+dependencies = [
+ "futures",
+ "log",
+ "once_cell",
+ "parking_lot 0.12.3",
+ "scc",
+ "serial_test_derive",
+]
+
+[[package]]
+name = "serial_test_derive"
+version = "3.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82fe9db325bcef1fbcde82e078a5cc4efdf787e96b3b9cf45b50b529f2083d67"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.70",
 ]
 
 [[package]]
@@ -5504,6 +5544,7 @@ dependencies = [
  "pretty_assertions",
  "rstest",
  "serde",
+ "serial_test",
  "thiserror",
  "tokio",
  "tracing",

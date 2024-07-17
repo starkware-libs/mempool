@@ -14,6 +14,7 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Client, Request, Response, Server, StatusCode, Uri};
 use rstest::rstest;
 use serde::Serialize;
+use serial_test::serial;
 use starknet_mempool_infra::component_client::{ClientError, ComponentClientHttp};
 use starknet_mempool_infra::component_definitions::{
     ComponentRequestHandler, ServerError, APPLICATION_OCTET_STREAM,
@@ -27,13 +28,8 @@ type ComponentBClient = ComponentClientHttp<ComponentBRequest, ComponentBRespons
 use crate::common::{ComponentA, ComponentB, ValueA, ValueB};
 
 const LOCAL_IP: IpAddr = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
-const A_PORT_TEST_SETUP: u16 = 10000;
-const B_PORT_TEST_SETUP: u16 = 10001;
-const A_PORT_FAULTY_CLIENT: u16 = 10010;
-const B_PORT_FAULTY_CLIENT: u16 = 10011;
-const UNCONNECTED_SERVER_PORT: u16 = 10002;
-const FAULTY_SERVER_REQ_DESER_PORT: u16 = 10003;
-const FAULTY_SERVER_RES_DESER_PORT: u16 = 10004;
+const A_PORT: u16 = 10000;
+const B_PORT: u16 = 10001;
 const MOCK_SERVER_ERROR: &str = "mock server error";
 
 #[async_trait]
@@ -72,21 +68,14 @@ impl ComponentRequestHandler<ComponentBRequest, ComponentBResponse> for Componen
     }
 }
 
-struct FaultyAClient {
-    uri: Uri,
-}
-
-impl FaultyAClient {
-    pub fn new(ip: IpAddr, port: u16) -> Self {
-        Self { uri: format!("http://[{}]:{}/", ip, port).parse().unwrap() }
-    }
-}
+struct FaultyAClient;
 
 #[async_trait]
 impl ComponentAClientTrait for FaultyAClient {
     async fn a_get_value(&self) -> ResultA {
         let component_request = "bla bla arbitrary data".to_string();
-        let http_request = Request::post(self.uri.clone())
+        let uri: Uri = format!("http://[{}]:{}/", LOCAL_IP, A_PORT).parse().unwrap();
+        let http_request = Request::post(uri)
             .header(CONTENT_TYPE, APPLICATION_OCTET_STREAM)
             .body(Body::from(serialize(&component_request).unwrap()))
             .unwrap();
@@ -121,38 +110,9 @@ fn assert_error_contains_keywords(error: String, expected_error_contained_keywor
     }
 }
 
-async fn create_client_and_faulty_server<T>(port: u16, body: T) -> ComponentAClient
-where
-    T: Serialize + Send + Sync + 'static + Clone,
-{
-    task::spawn(async move {
-        async fn handler<T: Serialize>(
-            _http_request: Request<Body>,
-            body: T,
-        ) -> Result<Response<Body>, hyper::Error> {
-            Ok(Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from(serialize(&body).unwrap()))
-                .unwrap())
-        }
-
-        let socket = SocketAddr::new(LOCAL_IP, port);
-        let make_svc = make_service_fn(|_conn| {
-            let body = body.clone();
-            async move { Ok::<_, hyper::Error>(service_fn(move |req| handler(req, body.clone()))) }
-        });
-        Server::bind(&socket).serve(make_svc).await.unwrap();
-    });
-
-    // Ensure the server starts running.
-    task::yield_now().await;
-
-    ComponentAClient::new(LOCAL_IP, port)
-}
-
-async fn prepare_test_setup(setup_value: ValueB, a_port: u16, b_port: u16) {
-    let a_client = ComponentAClient::new(LOCAL_IP, a_port);
-    let b_client = ComponentBClient::new(LOCAL_IP, b_port);
+async fn prepare_test_setup(setup_value: ValueB) {
+    let a_client = ComponentAClient::new(LOCAL_IP, A_PORT);
+    let b_client = ComponentBClient::new(LOCAL_IP, B_PORT);
 
     let component_a = ComponentA::new(Box::new(b_client));
     let component_b = ComponentB::new(setup_value, Box::new(a_client.clone()));
@@ -161,12 +121,12 @@ async fn prepare_test_setup(setup_value: ValueB, a_port: u16, b_port: u16) {
         ComponentA,
         ComponentARequest,
         ComponentAResponse,
-    >::new(component_a, LOCAL_IP, a_port);
+    >::new(component_a, LOCAL_IP, A_PORT);
     let mut component_b_server = ComponentServerHttp::<
         ComponentB,
         ComponentBRequest,
         ComponentBResponse,
-    >::new(component_b, LOCAL_IP, b_port);
+    >::new(component_b, LOCAL_IP, B_PORT);
 
     task::spawn(async move {
         component_a_server.start().await;
@@ -181,47 +141,72 @@ async fn prepare_test_setup(setup_value: ValueB, a_port: u16, b_port: u16) {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_proper_setup() {
     let setup_value: ValueB = 90;
     let expected_value: ValueA = setup_value.into();
-    prepare_test_setup(setup_value, A_PORT_TEST_SETUP, B_PORT_TEST_SETUP).await;
-    let a_client = ComponentAClient::new(LOCAL_IP, A_PORT_TEST_SETUP);
+    prepare_test_setup(setup_value).await;
+
+    let a_client = ComponentAClient::new(LOCAL_IP, A_PORT);
     verify_response(a_client, expected_value).await;
 }
 
 #[tokio::test]
+#[serial]
 async fn test_faulty_client_setup() {
-    prepare_test_setup(123, A_PORT_FAULTY_CLIENT, B_PORT_FAULTY_CLIENT).await;
-    let faulty_a_client = FaultyAClient::new(LOCAL_IP, A_PORT_FAULTY_CLIENT);
+    prepare_test_setup(123).await; // Some random value, we don't check it anyway
+
+    let faulty_a_client = FaultyAClient;
     let expected_error_contained_keywords =
         [StatusCode::BAD_REQUEST.as_str(), "Could not deserialize client request"];
     verify_error(faulty_a_client, &expected_error_contained_keywords).await;
 }
 
 #[tokio::test]
+#[serial]
 async fn test_unconnected_server() {
-    let client = ComponentAClient::new(LOCAL_IP, UNCONNECTED_SERVER_PORT);
-
+    let a_client = ComponentAClient::new(LOCAL_IP, A_PORT);
     let expected_error_contained_keywords = ["Connection refused"];
-    verify_error(client, &expected_error_contained_keywords).await;
+    verify_error(a_client, &expected_error_contained_keywords).await;
 }
 
 #[rstest]
 #[case::request_deserialization_failure(
-    create_client_and_faulty_server(
-        FAULTY_SERVER_REQ_DESER_PORT,
-        ServerError::RequestDeserializationFailure(MOCK_SERVER_ERROR.to_string())
-    ).await,
+    ServerError::RequestDeserializationFailure(MOCK_SERVER_ERROR.to_string()),
     &[StatusCode::BAD_REQUEST.as_str(), "Could not deserialize client request", MOCK_SERVER_ERROR],
 )]
 #[case::response_deserialization_failure(
-    create_client_and_faulty_server(FAULTY_SERVER_RES_DESER_PORT, "arbitrary data").await,
+    "arbitrary data",
     &["Could not deserialize server response"],
 )]
 #[tokio::test]
-async fn test_faulty_server(
-    #[case] client: ComponentAClient,
-    #[case] expected_error_contained_keywords: &[&str],
-) {
-    verify_error(client, expected_error_contained_keywords).await;
+#[serial]
+async fn test_faulty_server<T>(#[case] body: T, #[case] expected_error_contained_keywords: &[&str])
+where
+    T: Serialize + Send + Sync + 'static + Clone,
+{
+    task::spawn(async move {
+        async fn handler<T: Serialize>(
+            _http_request: Request<Body>,
+            body: T,
+        ) -> Result<Response<Body>, hyper::Error> {
+            Ok(Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Body::from(serialize(&body).unwrap()))
+                .unwrap())
+        }
+
+        let socket = SocketAddr::new(LOCAL_IP, A_PORT);
+        let make_svc = make_service_fn(|_conn| {
+            let body = body.clone();
+            async move { Ok::<_, hyper::Error>(service_fn(move |req| handler(req, body.clone()))) }
+        });
+        Server::bind(&socket).serve(make_svc).await.unwrap();
+    });
+
+    // Ensure the server starts running.
+    task::yield_now().await;
+
+    let a_client = ComponentAClient::new(LOCAL_IP, A_PORT);
+    verify_error(a_client, expected_error_contained_keywords).await;
 }
