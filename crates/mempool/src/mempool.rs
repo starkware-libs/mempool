@@ -53,6 +53,7 @@ impl Mempool {
             let tx = self.tx_pool.remove(tx_hash)?;
             eligible_txs.push(tx);
         }
+        self.enqueue_next_eligible_txs(&eligible_txs)?;
 
         Ok(eligible_txs)
     }
@@ -97,6 +98,21 @@ impl Mempool {
             self.tx_queue.insert(tx_reference);
         }
 
+        Ok(())
+    }
+
+    fn enqueue_next_eligible_txs(&mut self, txs: &[ThinTransaction]) -> MempoolResult<()> {
+        for tx in txs {
+            let current_account_state = Account {
+                sender_address: tx.sender_address,
+                state: AccountState { nonce: tx.nonce },
+            };
+            if let Some(next_tx_reference) =
+                self.tx_pool.get_next_eligible_tx(current_account_state)?
+            {
+                self.tx_queue.insert(*next_tx_reference);
+            }
+        }
         Ok(())
     }
 
