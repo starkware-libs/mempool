@@ -10,8 +10,8 @@ use crate::test_utils::contract_class_from_file;
 
 #[test]
 fn test_compile_sierra_to_casm() {
-    env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Failed to set current dir.");
-    let sierra_path = Path::new(FAULTY_ACCOUNT_CLASS_FILE);
+    env::set_current_dir(get_absolute_path("")).expect("Failed to set current dir.");
+    let sierra_path = Path::new(TEST_FILES_FOLDER).join(FAULTY_ACCOUNT_CLASS_FILE);
     let expected_casm_contract_length = 72304;
 
     let contract_class = contract_class_from_file(sierra_path);
@@ -24,8 +24,8 @@ fn test_compile_sierra_to_casm() {
 // TODO(Arni, 1/5/2024): Add a test for panic result test.
 #[test]
 fn test_negative_flow_compile_sierra_to_casm() {
-    env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Failed to set current dir.");
-    let sierra_path = Path::new(FAULTY_ACCOUNT_CLASS_FILE);
+    env::set_current_dir(get_absolute_path("")).expect("Failed to set current dir.");
+    let sierra_path = Path::new(TEST_FILES_FOLDER).join(FAULTY_ACCOUNT_CLASS_FILE);
 
     let mut contract_class = contract_class_from_file(sierra_path);
     // Truncate the sierra program to trigger an error.
