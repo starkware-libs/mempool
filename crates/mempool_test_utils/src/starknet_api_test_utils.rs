@@ -91,8 +91,8 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
 }
 
 pub fn declare_tx() -> RPCTransaction {
-    env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Couldn't set working dir.");
-    let json_file_path = Path::new(CONTRACT_CLASS_FILE);
+    env::set_current_dir(get_absolute_path("")).expect("Couldn't set working dir.");
+    let json_file_path = Path::new(TEST_FILES_FOLDER).join(CONTRACT_CLASS_FILE);
     let contract_class = serde_json::from_reader(File::open(json_file_path).unwrap()).unwrap();
     let compiled_class_hash = CompiledClassHash(felt!(COMPILED_CLASS_HASH_OF_CONTRACT_CLASS));
 
