@@ -53,6 +53,7 @@ impl Mempool {
             let tx = self.tx_pool.remove(tx_hash)?;
             eligible_txs.push(tx);
         }
+        self.enqueue_next_eligible_txs(&eligible_txs);
 
         Ok(eligible_txs)
     }
@@ -98,6 +99,19 @@ impl Mempool {
         }
 
         Ok(())
+    }
+
+    fn enqueue_next_eligible_txs(&mut self, txs: &[ThinTransaction]) {
+        for tx in txs {
+            // TODO(Ayelet): Add PartialEq to StarknetApi, use StarknetApiErrror, and remove this
+            // unwrap.
+            let nonce = tx.nonce.try_increment().unwrap();
+            if let Some(next_tx_reference) =
+                self.tx_pool.get_by_address_and_nonce(tx.sender_address, nonce)
+            {
+                self.tx_queue.insert(*next_tx_reference);
+            }
+        }
     }
 
     #[cfg(test)]
