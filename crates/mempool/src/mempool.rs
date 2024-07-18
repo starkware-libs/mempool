@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
+use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, MempoolInput, MempoolResult, ThinTransaction,
 };
@@ -20,6 +21,7 @@ pub struct Mempool {
     tx_pool: TransactionPool,
     // Transactions eligible for sequencing.
     tx_queue: TransactionQueue,
+    mempool_state: HashMap<ContractAddress, AccountState>,
 }
 
 impl Mempool {
@@ -54,6 +56,16 @@ impl Mempool {
             eligible_txs.push(tx);
         }
 
+        for tx in &eligible_txs {
+            self.mempool_state.entry(tx.sender_address).and_modify(|account| {
+                account.nonce = tx.nonce;
+            });
+        }
+
+        for tx in &eligible_txs {
+            self.mempool_state.entry(tx.sender_address).or_default().nonce = tx.nonce;
+        }
+
         Ok(eligible_txs)
     }
 
@@ -61,6 +73,7 @@ impl Mempool {
     /// TODO: support fee escalation and transactions with future nonces.
     /// TODO: check Account nonce and balance.
     pub fn add_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
+        self.is_duplicated_tx(&input.tx)?;
         self.insert_tx(input)
     }
 
@@ -97,6 +110,15 @@ impl Mempool {
             self.tx_queue.insert(tx_reference);
         }
 
+        Ok(())
+    }
+
+    fn is_duplicated_tx(&self, tx: &ThinTransaction) -> MempoolResult<()> {
+        if let Some(AccountState { nonce }) = self.mempool_state.get(&tx.sender_address) {
+            if *nonce >= tx.nonce {
+                return Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash });
+            }
+        }
         Ok(())
     }
 
