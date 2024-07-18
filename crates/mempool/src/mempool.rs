@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::{Tip, TransactionHash};
+use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{
     Account, AccountState, MempoolInput, MempoolResult, ThinTransaction,
 };
@@ -96,13 +97,25 @@ impl Mempool {
     }
 
     fn insert_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
-        let MempoolInput { tx, account } = input;
-        let tx_reference = TransactionReference::new(&tx);
+        let MempoolInput { tx, account: Account { sender_address, state: AccountState { nonce } } } =
+            input;
+
+        // Invalid input.
+        if tx.nonce < nonce {
+            return Err(MempoolError::DuplicateTransaction { tx_hash: tx.tx_hash });
+        }
 
         self.tx_pool.insert(tx)?;
 
-        if is_eligible_for_sequencing(tx_reference, account) {
-            self.tx_queue.insert(tx_reference);
+        // If the queue is empty, check if a transaction can be inserted into the transaction queue:
+        // 1. If the input transaction can be added to the queue, this can happen when the input
+        //    transaction's nonce equals the next nonce.
+        // 2. If the input state fills a gap in the transaction queue, insert it into the queue.
+        if self.tx_queue.get_nonce(sender_address).is_none() {
+            if let Some(tx_reference) = self.tx_pool.get_by_address_and_nonce(sender_address, nonce)
+            {
+                self.tx_queue.insert(*tx_reference);
+            }
         }
 
         Ok(())
@@ -135,8 +148,4 @@ impl TransactionReference {
             tip: tx.tip,
         }
     }
-}
-
-fn is_eligible_for_sequencing(tx_reference: TransactionReference, account: Account) -> bool {
-    tx_reference.nonce == account.state.nonce
 }
