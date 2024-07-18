@@ -89,7 +89,7 @@ impl Mempool {
         &mut self,
         state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
-        for (address, AccountState { nonce }) in state_changes {
+        for (&address, AccountState { nonce }) in state_changes.iter() {
             let next_nonce = Nonce(nonce.0 + Felt::ONE);
             // Dequeue transactions from the queue in the following cases:
             // 1. Remove a transaction from queue with nonce lower and eq than those committed to
@@ -106,7 +106,17 @@ impl Mempool {
             // TODO: remove the transactions from the tx_pool.
         }
         // TODO: update the tx_queue with the new state changes.
-        todo!()
+
+        // Iterate over the mempool state and remove any addresses from the transaction queue
+        // that do not appear in state_changes, as they were not included in the block.
+        for address in self.mempool_state.keys() {
+            if state_changes.get(address).is_none() {
+                self.tx_queue.remove(*address);
+            }
+        }
+        self.mempool_state.clear();
+
+        Ok(())
     }
 
     fn insert_tx(&mut self, input: MempoolInput) -> MempoolResult<()> {
