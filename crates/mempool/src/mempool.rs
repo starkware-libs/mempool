@@ -83,7 +83,7 @@ impl Mempool {
         &mut self,
         state_changes: HashMap<ContractAddress, AccountState>,
     ) -> MempoolResult<()> {
-        for (address, AccountState { nonce }) in state_changes {
+        for (&address, AccountState { nonce }) in &state_changes {
             let next_nonce = nonce.try_increment().map_err(|_| MempoolError::FeltOutOfRange)?;
 
             // Align the queue with the committed nonces.
@@ -96,13 +96,23 @@ impl Mempool {
             }
 
             if self.tx_queue.get_nonce(address).is_none() {
-                if let Some(tx) = self.tx_pool.get_by_address_and_nonce(address, nonce) {
+                if let Some(tx) = self.tx_pool.get_by_address_and_nonce(address, next_nonce) {
                     self.tx_queue.insert(*tx);
                 }
             }
 
             self.tx_pool.remove_up_to_nonce(address, next_nonce);
         }
+
+        // Iterate over the mempool state and remove any addresses from the transaction queue
+        // that do not appear in state_changes, as they were not included in the block.
+        for address in self.mempool_state.keys() {
+            if !state_changes.contains_key(address) {
+                self.tx_queue.remove(*address);
+            }
+        }
+        self.mempool_state.clear();
+
         Ok(())
     }
 
