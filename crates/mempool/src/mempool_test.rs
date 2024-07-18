@@ -199,6 +199,34 @@ fn test_get_txs_multi_nonce() {
 }
 
 #[rstest]
+fn test_get_txs_multi_nonce_multi_account_validate_replenishing_queue() {
+    // Setup.
+    let tx_address_0_nonce_0 =
+        add_tx_input!(tip: 20, tx_hash: 1, sender_address: "0x0", tx_nonce: 0_u8, account_nonce: 0_u8).tx;
+    let tx_address_0_nonce_1 =
+        add_tx_input!(tip: 20, tx_hash: 2, sender_address: "0x0", tx_nonce: 1_u8, account_nonce: 0_u8).tx;
+    let tx_address_1_nonce_0 =
+        add_tx_input!(tip: 10, tx_hash: 3, sender_address: "0x1", tx_nonce: 0_u8, account_nonce: 0_u8).tx;
+
+    let queue_txs = [
+        TransactionReference::new(&tx_address_0_nonce_0),
+        TransactionReference::new(&tx_address_1_nonce_0),
+    ];
+    let pool_txs =
+        [tx_address_0_nonce_0.clone(), tx_address_0_nonce_1.clone(), tx_address_1_nonce_0.clone()];
+    let mut mempool: Mempool = MempoolState::new(pool_txs, queue_txs).into();
+
+    // Test.
+    let txs = mempool.get_txs(3).unwrap();
+
+    // Assert: all transactions are returned. The second transaction from account 0 is replenished
+    // and processed after the transaction from account 1, even though it has a higher tip.
+    assert_eq!(txs, &[tx_address_0_nonce_0, tx_address_1_nonce_0, tx_address_0_nonce_1]);
+    let expected_mempool_state = MempoolState::new([], []);
+    expected_mempool_state.assert_eq_mempool_state(&mempool);
+}
+
+#[rstest]
 fn test_add_tx(mut mempool: Mempool) {
     // Setup.
     let mut add_tx_inputs = [
