@@ -63,6 +63,10 @@ impl TransactionQueue {
         }
         false
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.queue.is_empty()
+    }
 }
 
 /// Encapsulates a transaction reference to assess its order (i.e., priority).
