@@ -49,11 +49,22 @@ impl Mempool {
     // library.
     pub fn get_txs(&mut self, n_txs: usize) -> MempoolResult<Vec<ThinTransaction>> {
         let mut eligible_txs: Vec<ThinTransaction> = Vec::with_capacity(n_txs);
-        for tx_hash in self.tx_queue.pop_chunk(n_txs) {
-            let tx = self.tx_pool.remove(tx_hash)?;
-            eligible_txs.push(tx);
+        let mut n_remaining_txs = n_txs;
+
+        while n_remaining_txs > 0 && !self.tx_queue.is_empty() {
+            let mut popped_txs = Vec::with_capacity(n_remaining_txs);
+
+            for tx_hash in self.tx_queue.pop_chunk(n_remaining_txs) {
+                let tx = self.tx_pool.remove(tx_hash)?;
+                popped_txs.push(tx);
+            }
+
+            self.enqueue_next_eligible_txs(&popped_txs);
+
+            n_remaining_txs -= popped_txs.len();
+
+            eligible_txs.extend(popped_txs);
         }
-        self.enqueue_next_eligible_txs(&eligible_txs);
 
         Ok(eligible_txs)
     }
