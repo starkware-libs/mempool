@@ -1,9 +1,11 @@
 use std::collections::{hash_map, BTreeMap, HashMap};
+use std::fmt::Debug;
 
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
 use starknet_mempool_types::mempool_types::{MempoolResult, ThinTransaction};
+use thiserror::Error;
 
 use crate::mempool::TransactionReference;
 
@@ -103,5 +105,103 @@ impl AccountTransactionIndex {
 
     fn get(&self, address: ContractAddress, nonce: Nonce) -> Option<&TransactionReference> {
         self.0.get(&address)?.get(&nonce)
+    }
+}
+
+pub trait State {}
+
+pub trait Executable {
+    type State: State;
+    type Output;
+    type Error: Debug;
+
+    fn execute(&self, state: &mut Self::State) -> Result<Self::Output, Self::Error>;
+}
+pub trait TxExecutor {
+    type State: State;
+    type Tx: Executable<State = Self::State>;
+
+    #[allow(clippy::type_complexity)]
+    fn execute_txs(
+        &self,
+        state: &mut Self::State,
+        txs: &[Self::Tx],
+    ) -> Vec<Result<<Self::Tx as Executable>::Output, <Self::Tx as Executable>::Error>>;
+}
+
+pub struct StateDiff {
+    _nonces: HashMap<ContractAddress, Nonce>,
+}
+
+#[derive(Debug, Error)]
+
+pub enum _MempoolError {}
+
+pub type _MempoolResult<T> = Result<T, _MempoolError>;
+
+pub trait MempoolClient {
+    type State: State;
+    type Tx: Executable<State = Self::State> + PartialEq + Eq;
+
+    fn get_txs(&mut self, n_txs: usize) -> _MempoolResult<Vec<Self::Tx>>;
+    fn add_tx(&mut self, tx: Self::Tx) -> _MempoolResult<()>;
+    fn commit_block(&mut self, state_changes: StateDiff) -> _MempoolResult<()>;
+}
+
+struct Block<Tx: Executable> {
+    tx_executions: Vec<Tx::Output>,
+}
+
+struct BlockContext;
+
+#[derive(Debug, Error)]
+pub enum BatcherError {
+    #[error(transparent)]
+    MempoolError(_MempoolError),
+}
+
+impl From<_MempoolError> for BatcherError {
+    fn from(err: _MempoolError) -> Self {
+        BatcherError::MempoolError(err)
+    }
+}
+
+pub type BatcherResult<T> = Result<T, BatcherError>;
+
+struct Batcher<
+    S: State,
+    Tx: Executable<State = S>,
+    Mempool: MempoolClient<State = S, Tx = Tx>,
+    TxExec: TxExecutor<State = S, Tx = Tx>,
+> {
+    mempool: Mempool,
+    tx_executor: TxExec,
+}
+
+impl<S, Tx, Mempool, TxExec> Batcher<S, Tx, Mempool, TxExec>
+where
+    S: State,
+    Tx: Executable<State = S>,
+    Mempool: MempoolClient<State = S, Tx = Tx>,
+    TxExec: TxExecutor<State = S, Tx = Tx>,
+{
+    // fn new(mempool_client: Self::Mempool, tx_executor: Self::TxExecutor) -> Self;
+
+    fn build_tx_executor(&self, block_context: &BlockContext) -> BatcherResult<TxExec> {
+        unimplemented!()
+    }
+
+    fn build_state(&self, block_context: &BlockContext) -> BatcherResult<S> {
+        unimplemented!()
+    }
+
+    fn build_block(&mut self, block_context: &BlockContext) -> BatcherResult<Block<Tx>> {
+        let tx_executor = self.build_tx_executor(block_context)?;
+        let mut state = self.build_state(block_context)?;
+        let txs = self.mempool.get_txs(10)?;
+        let results = tx_executor.execute_txs(&mut state, &txs);
+        let tx_executions = results.into_iter().filter_map(Result::ok).collect();
+
+        Ok(Block { tx_executions })
     }
 }

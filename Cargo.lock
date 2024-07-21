@@ -5490,6 +5490,7 @@ dependencies = [
  "starknet_api",
  "starknet_mempool_infra",
  "starknet_mempool_types",
+ "thiserror",
  "tokio",
 ]
 
