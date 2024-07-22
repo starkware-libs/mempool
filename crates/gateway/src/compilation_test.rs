@@ -1,6 +1,8 @@
 use assert_matches::assert_matches;
 use blockifier::execution::contract_class::ContractClass;
+use cairo_lang_sierra_to_casm::compiler::CompilationError;
 use cairo_lang_starknet_classes::allowed_libfuncs::AllowedLibfuncsError;
+use cairo_lang_starknet_classes::casm_contract_class::StarknetSierraCompilationError;
 use mempool_test_utils::starknet_api_test_utils::declare_tx as rpc_declare_tx;
 use rstest::{fixture, rstest};
 use starknet_api::core::CompiledClassHash;
@@ -52,7 +54,13 @@ fn test_compile_contract_class_bytecode_size_validation(declare_tx: RPCDeclareTr
     };
 
     let result = gateway_compiler.process_declare_tx(&declare_tx);
-    assert_matches!(result.unwrap_err(), GatewayError::CasmBytecodeSizeTooLarge { .. })
+    assert_matches!(
+        result.unwrap_err(),
+        GatewayError::CompilationError(CompilationUtilError::StarknetSierraCompilationError(
+            StarknetSierraCompilationError::CompilationError(err)
+        ))
+        if matches!(err.as_ref(), CompilationError::CodeSizeLimitExceeded)
+    )
 }
 
 // TODO(Arni): Redesign this test once the compiler is passed with dependancy injection.
