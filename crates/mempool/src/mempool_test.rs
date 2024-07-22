@@ -310,6 +310,23 @@ fn test_tip_priority_over_tx_hash(mut mempool: Mempool) {
 }
 
 #[rstest]
+fn test_add_tx_fills_nonce_gap(mut mempool: Mempool) {
+    let tx_input_nonce_1 = add_tx_input!(tx_hash: 1, tx_nonce: 1_u8, account_nonce: 0_u8);
+    // Transaction that increments the account state.
+    let tx_input_nonce_2 = add_tx_input!(tx_hash: 2, tx_nonce: 2_u8, account_nonce: 1_u8);
+    let tx_input_nonce_3 = add_tx_input!(tx_hash: 3, tx_nonce: 3_u8, account_nonce: 0_u8);
+
+    add_tx(&mut mempool, &tx_input_nonce_1);
+    add_tx(&mut mempool, &tx_input_nonce_3);
+    // Queue is empty due to a nonce gap.
+    assert_eq_mempool_queue(&mempool, &[]);
+
+    // Insert transaction that updates the account state and fills the nonce gap.
+    add_tx(&mut mempool, &tx_input_nonce_2);
+    assert_eq_mempool_queue(&mempool, &[tx_input_nonce_1.tx]);
+}
+
+#[rstest]
 fn test_get_txs_with_holes_multiple_accounts() {
     // Setup.
     let tx_address_0_nonce_1 =
