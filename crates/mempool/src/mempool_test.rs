@@ -421,3 +421,36 @@ fn test_flow_filling_holes(mut mempool: Mempool) {
     // Assert: all remaining transactions are returned.
     assert_eq!(txs, &[input_address_0_nonce_0.tx]);
 }
+
+#[rstest]
+#[ignore]
+// Revert a tx by commit block, then check than adding it again doesn't fail.
+fn test_flow_send_tx_twice() {
+    let tx_nonce3 =
+        add_tx_input!(tip: 10, tx_hash: 1, sender_address: "0x0", tx_nonce: 3_u8, account_nonce: 3_u8).tx;
+    let tx_input_nonce4 = add_tx_input!(tip: 11, tx_hash: 2, sender_address: "0x0", tx_nonce: 4_u8, account_nonce: 5_u8);
+    let tx_nonce5 =
+        add_tx_input!(tip: 12, tx_hash: 3, sender_address: "0x0", tx_nonce: 5_u8, account_nonce: 3_u8).tx;
+
+    let queued_txs = [tx_nonce3.clone()];
+    let pool_txs = vec![tx_nonce3.clone(), tx_input_nonce4.tx.clone(), tx_nonce5.clone()];
+
+    let tx_references_iterator = queued_txs.iter().map(TransactionReference::new);
+    let txs_iterator = pool_txs.iter().cloned();
+    let mut mempool: Mempool = MempoolState::new(txs_iterator, tx_references_iterator).into();
+
+    let txs = mempool.get_txs(2).unwrap();
+    assert_eq!(txs, &[tx_nonce3, tx_input_nonce4.tx.clone()]);
+
+    // Tx 4 is reverted.
+    let commit_state =
+        HashMap::from([(contract_address!("0x0"), AccountState { nonce: Nonce(felt!(3_u16)) })]);
+    assert!(mempool.commit_block(commit_state).is_ok());
+
+    mempool.add_tx(tx_input_nonce4.clone()).unwrap();
+
+    let txs = mempool.get_txs(1).unwrap();
+    assert_eq!(txs, &[tx_input_nonce4.tx]);
+
+    assert_eq_mempool_queue(&mempool, &[tx_nonce5]);
+}
