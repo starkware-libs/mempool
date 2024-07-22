@@ -421,3 +421,29 @@ fn test_flow_filling_holes(mut mempool: Mempool) {
     // Assert: all remaining transactions are returned.
     assert_eq!(txs, &[input_address_0_nonce_0.tx]);
 }
+
+#[rstest]
+#[ignore]
+fn test_flow_commit_block_closed_gap() {
+    let tx_nonce3 =
+        add_tx_input!(tip: 10, tx_hash: 1, sender_address: "0x0", tx_nonce: 3_u8, account_nonce: 3_u8).tx;
+    let tx_input_nonce4 = add_tx_input!(tip: 11, tx_hash: 2, sender_address: "0x0", tx_nonce: 4_u8, account_nonce: 5_u8);
+    let tx_nonce5 =
+        add_tx_input!(tip: 12, tx_hash: 3, sender_address: "0x0", tx_nonce: 5_u8, account_nonce: 3_u8).tx;
+
+    let queued_txs = vec![tx_nonce3.clone()];
+    let pool_txs = vec![tx_nonce3, tx_nonce5.clone()];
+
+    let tx_references_iterator = queued_txs.iter().map(TransactionReference::new);
+    let txs_iterator = pool_txs.iter().cloned();
+    let mut mempool: Mempool = MempoolState::new(txs_iterator, tx_references_iterator).into();
+
+    let commit_state =
+        HashMap::from([(contract_address!("0x0"), AccountState { nonce: Nonce(felt!(4_u16)) })]);
+    assert!(mempool.commit_block(commit_state).is_ok());
+
+    mempool.add_tx(tx_input_nonce4).unwrap(); // BUG! It should fail on DuplicateTransaction.
+
+    // Check that in the transaction queue there is a single transaction, tx 5, of address "0x0".
+    assert_eq_mempool_queue(&mempool, &[tx_nonce5]);
+}
