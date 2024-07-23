@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use tokio::sync::mpsc::Receiver;
+use tracing::error;
 
 use super::definitions::{start_component, ComponentServerStarter};
 use crate::component_definitions::{ComponentRequestAndResponseSender, ComponentRequestHandler};
@@ -145,6 +146,67 @@ where
 
                 tx.send(res).await.expect("Response connection should be open.");
             }
+        }
+    }
+}
+
+pub struct LocalActiveComponentServer<Component, Request, Response>
+where
+    Component: ComponentRequestHandler<Request, Response> + ComponentStarter + Clone + Send + Sync,
+    Request: Send + Sync,
+    Response: Send + Sync,
+{
+    component: Component,
+    rx: Receiver<ComponentRequestAndResponseSender<Request, Response>>,
+}
+
+impl<Component, Request, Response> LocalActiveComponentServer<Component, Request, Response>
+where
+    Component: ComponentRequestHandler<Request, Response> + ComponentStarter + Clone + Send + Sync,
+    Request: Send + Sync,
+    Response: Send + Sync,
+{
+    pub fn new(
+        component: Component,
+        rx: Receiver<ComponentRequestAndResponseSender<Request, Response>>,
+    ) -> Self {
+        Self { component, rx }
+    }
+}
+
+#[async_trait]
+impl<Component, Request, Response> ComponentServerStarter
+    for LocalActiveComponentServer<Component, Request, Response>
+where
+    Component: ComponentRequestHandler<Request, Response> + ComponentStarter + Clone + Send + Sync,
+    Request: Send + Sync,
+    Response: Send + Sync,
+{
+    async fn start(&mut self) {
+        let mut component = self.component.clone();
+        // let component_future = async move {component.start().await }.boxed();
+        let component_future = async move { component.start().await };
+        let request_responce_future = self.request_response_loop();
+
+        tokio::select! {
+            _res = component_future => {
+                error!("Component stopped.");
+            }
+            _res = request_responce_future => {
+                error!("Server stopped.");
+            }
+        };
+        error!("Servers ended with unexpected Ok.");
+    }
+
+    async fn request_response_loop(&mut self) {
+        while let Some(request_and_res_tx) = self.rx.recv().await {
+            let request = request_and_res_tx.request;
+            let tx = request_and_res_tx.tx;
+
+            let res = self.component.handle_request(request).await;
+
+            tx.send(res).await.expect("Response connection should be open.");
         }
     }
 }
