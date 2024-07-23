@@ -1,6 +1,7 @@
 use std::collections::{hash_map, BTreeMap, HashMap};
 use std::fmt::Debug;
 
+use num::CheckedSub;
 use starknet_api::core::{ContractAddress, Nonce};
 use starknet_api::transaction::TransactionHash;
 use starknet_mempool_types::errors::MempoolError;
@@ -173,17 +174,23 @@ struct Batcher<
     Tx: Executable<State = S>,
     Mempool: MempoolClient<State = S, Tx = Tx>,
     TxExec: TxExecutor<State = S, Tx = Tx>,
+    Bnc: Bouncer<State = S, Tx = Tx>,
+    TxState: Transactional<S> + State,
+    TxBnc: Transactional<Bnc> + Bouncer<State = S, Tx = Tx>,
 > {
     mempool: Mempool,
-    tx_executor: TxExec,
 }
 
-impl<S, Tx, Mempool, TxExec> Batcher<S, Tx, Mempool, TxExec>
+impl<S, Tx, Mempool, TxExec, Bnc, TxState, TxBnc>
+    Batcher<S, Tx, Mempool, TxExec, Bnc, TxState, TxBnc>
 where
     S: State,
     Tx: Executable<State = S>,
     Mempool: MempoolClient<State = S, Tx = Tx>,
     TxExec: TxExecutor<State = S, Tx = Tx>,
+    Bnc: Bouncer<State = S, Tx = Tx>,
+    TxState: Transactional<S> + State,
+    TxBnc: Transactional<Bnc> + Bouncer<State = S, Tx = Tx>,
 {
     // fn new(mempool_client: Self::Mempool, tx_executor: Self::TxExecutor) -> Self;
 
@@ -191,17 +198,56 @@ where
         unimplemented!()
     }
 
-    fn build_state(&self, block_context: &BlockContext) -> BatcherResult<S> {
+    fn build_transactional_state(&self, block_context: &BlockContext) -> BatcherResult<TxState> {
+        unimplemented!()
+    }
+
+    fn build_transactional_bouncer(&self, block_context: &BlockContext) -> BatcherResult<TxBnc> {
         unimplemented!()
     }
 
     fn build_block(&mut self, block_context: &BlockContext) -> BatcherResult<Block<Tx>> {
-        let tx_executor = self.build_tx_executor(block_context)?;
-        let mut state = self.build_state(block_context)?;
+        let tx_executor: TxExec = self.build_tx_executor(block_context)?;
+        let mut state: TxState = self.build_transactional_state(block_context)?;
+        let mut bouncer: TxBnc = self.build_transactional_bouncer(block_context)?;
+
         let txs = self.mempool.get_txs(10)?;
         let results = tx_executor.execute_txs(&mut state, &txs);
         let tx_executions = results.into_iter().filter_map(Result::ok).collect();
+        // for each execution, calc. resources and try to sub them from bouncer
+        // let resources = tx_executions
+        //     .iter()
+        //     .map(|tx_exec| bouncer.calculate_residual_resources(&state, tx_exec))
+        //     .collect::<Vec<_>>();
+        // if bouncer.get_remaining_capacity().checked_sub(resources).is_err() {
+        //     return Err(BatcherError::MempoolError(_MempoolError {}));
+        // }
 
         Ok(Block { tx_executions })
     }
+}
+
+pub trait Bouncer: CheckedSub {
+    type State: State;
+    type Tx: Executable<State = Self::State>;
+    type Resources: CheckedSub;
+
+    fn calculate_residual_resources(
+        &self,
+        state: &Self::State,
+        tx_execution_output: &<Self::Tx as Executable>::Output,
+    ) -> Self::Resources;
+
+    fn get_remaining_capacity(&self) -> Self::Resources;
+
+    fn should_close_block(&self, resources: &Self::Resources) -> bool;
+}
+
+pub enum TransactionalError {}
+pub type TransactionalResult<T> = Result<T, TransactionalError>;
+
+pub trait Transactional<T> {
+    fn create_transactional(inner: T) -> Self;
+    fn commit(&mut self) -> TransactionalResult<()>;
+    fn other(self) -> TransactionalResult<()>;
 }

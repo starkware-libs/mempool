@@ -17,7 +17,7 @@ starknet_mempool_types = { path = "../mempool_types", version = "0.0" }
 starknet-types-core.workspace = true
 tokio.workspace = true
 thiserror.workspace = true
-
+num.workspace = true
 
 [dev-dependencies]
 assert_matches.workspace = true
