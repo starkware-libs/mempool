@@ -92,8 +92,8 @@ pub fn executable_resource_bounds_mapping() -> ResourceBoundsMapping {
 
 /// Get the contract class used for testing.
 pub fn contract_class() -> ContractClass {
-    env::set_current_dir(get_absolute_path(TEST_FILES_FOLDER)).expect("Couldn't set working dir.");
-    let json_file_path = Path::new(CONTRACT_CLASS_FILE);
+    env::set_current_dir(get_absolute_path("")).expect("Couldn't set working dir.");
+    let json_file_path = Path::new(TEST_FILES_FOLDER).join(CONTRACT_CLASS_FILE);
     serde_json::from_reader(File::open(json_file_path).unwrap()).unwrap()
 }
 
