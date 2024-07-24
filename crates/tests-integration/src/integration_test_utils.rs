@@ -12,7 +12,7 @@ use starknet_gateway::config::{
     GatewayConfig, GatewayNetworkConfig, RpcStateReaderConfig, StatefulTransactionValidatorConfig,
     StatelessTransactionValidatorConfig,
 };
-use starknet_gateway::errors::GatewayError;
+use starknet_gateway::errors::GatewaySpecError;
 use starknet_mempool_node::config::MempoolNodeConfig;
 use tokio::net::TcpListener;
 
@@ -65,7 +65,7 @@ impl GatewayClient {
     }
 
     // TODO: implement when usage eventually arises.
-    pub async fn assert_add_tx_error(&self, _tx: &RPCTransaction) -> GatewayError {
+    pub async fn assert_add_tx_error(&self, _tx: &RPCTransaction) -> GatewaySpecError {
         todo!()
     }
 

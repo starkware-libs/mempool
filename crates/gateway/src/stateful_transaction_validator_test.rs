@@ -1,11 +1,13 @@
-use blockifier::blockifier::stateful_validator::StatefulValidatorError;
+use blockifier::blockifier::stateful_validator::{
+    StatefulValidatorError as BlockifierStatefulValidatorError,
+    StatefulValidatorResult as BlockifierStatefulValidatorResult,
+};
 use blockifier::context::BlockContext;
 use blockifier::test_utils::CairoVersion;
 use blockifier::transaction::errors::{TransactionFeeError, TransactionPreValidationError};
 use mempool_test_utils::invoke_tx_args;
 use mempool_test_utils::starknet_api_test_utils::{
     deploy_account_tx, external_invoke_tx, invoke_tx, TEST_SENDER_ADDRESS, VALID_L1_GAS_MAX_AMOUNT,
-    VALID_L1_GAS_MAX_PRICE_PER_UNIT,
 };
 use mockall::predicate::eq;
 use num_bigint::BigUint;
@@ -19,13 +21,12 @@ use starknet_types_core::felt::Felt;
 
 use crate::compilation::GatewayCompiler;
 use crate::config::{GatewayCompilerConfig, StatefulTransactionValidatorConfig};
-use crate::errors::{StatefulTransactionValidatorError, StatefulTransactionValidatorResult};
+use crate::errors::GatewaySpecError;
 use crate::state_reader::{MockStateReaderFactory, StateReaderFactory};
 use crate::state_reader_test_utils::local_test_state_reader_factory;
 use crate::stateful_transaction_validator::{
     MockStatefulTransactionValidatorTrait, StatefulTransactionValidator,
 };
-
 #[fixture]
 fn block_context() -> BlockContext {
     BlockContext::create_for_testing()
@@ -52,21 +53,20 @@ fn stateful_validator(block_context: BlockContext) -> StatefulTransactionValidat
 )]
 #[case::invalid_tx(
     invoke_tx(CairoVersion::Cairo1),
-    Err(StatefulTransactionValidatorError::StatefulValidatorError(
-        StatefulValidatorError::TransactionPreValidationError(
+    Err(
+        BlockifierStatefulValidatorError::TransactionPreValidationError(
             TransactionPreValidationError::TransactionFeeError(
                 TransactionFeeError::L1GasBoundsExceedBalance {
                     max_amount: VALID_L1_GAS_MAX_AMOUNT,
-                    max_price: VALID_L1_GAS_MAX_PRICE_PER_UNIT,
+                    max_price: mempool_test_utils::starknet_api_test_utils::VALID_L1_GAS_MAX_PRICE_PER_UNIT,
                     balance: BigUint::ZERO,
                 }
             )
-        )
     ))
 )]
 fn test_stateful_tx_validator(
     #[case] external_tx: RPCTransaction,
-    #[case] expected_result: StatefulTransactionValidatorResult<TransactionHash>,
+    #[case] expected_result: BlockifierStatefulValidatorResult<TransactionHash>,
     stateful_validator: StatefulTransactionValidator,
 ) {
     let optional_class_info = match &external_tx {
@@ -78,18 +78,17 @@ fn test_stateful_tx_validator(
         _ => None,
     };
 
-    let expected_result_msg = format!("{:?}", expected_result);
+    let expected_result_as_stateful_transaction_result =
+        expected_result.as_ref().map(|tx_hash| *tx_hash).map_err(|blockifier_error| {
+            GatewaySpecError::ValidationFailure(blockifier_error.to_string())
+        });
 
     let mut mock_validator = MockStatefulTransactionValidatorTrait::new();
-    mock_validator.expect_validate().return_once(|_, _| match expected_result {
-        Ok(_) => Ok(()),
-        Err(StatefulTransactionValidatorError::StatefulValidatorError(err)) => Err(err),
-        _ => panic!("Expecting StatefulTransactionValidatorError::StatefulValidatorError"),
-    });
+    mock_validator.expect_validate().return_once(|_, _| expected_result.map(|_| ()));
     mock_validator.expect_get_nonce().returning(|_| Ok(Nonce(Felt::ZERO)));
 
     let result = stateful_validator.run_validate(&external_tx, optional_class_info, mock_validator);
-    assert_eq!(format!("{:?}", result), expected_result_msg);
+    assert_eq!(result, expected_result_as_stateful_transaction_result);
 }
 
 #[test]
