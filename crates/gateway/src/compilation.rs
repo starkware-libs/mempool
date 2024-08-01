@@ -21,9 +21,9 @@ use crate::utils::is_subsequence;
 mod compilation_test;
 
 // TODO(Arni): Pass the compiler with dependancy injection.
+// TODO(Define a function for `compile_contract_class` - which ignores the `config` parameter).
 #[derive(Clone)]
 pub struct GatewayCompiler {
-    #[allow(dead_code)]
     pub config: GatewayCompilerConfig,
 }
 
@@ -43,6 +43,7 @@ impl GatewayCompiler {
 
         validate_compiled_class_hash(&casm_contract_class, &tx.compiled_class_hash)?;
         validate_casm_class(&casm_contract_class)?;
+        self.validate_casm_class_size(&casm_contract_class)?;
 
         Ok(ClassInfo::new(
             &ContractClass::V1(ContractClassV1::try_from(casm_contract_class)?),
@@ -62,6 +63,35 @@ impl GatewayCompiler {
             catch_unwind_result.map_err(|_| CompilationUtilError::CompilationPanic)??;
 
         Ok(casm_contract_class)
+    }
+
+    // TODO(Arni): consider validating the size of other members of the Casm class. Cosider removing
+    // the validation of the raw class size. The validation should be linked to the way the class is
+    // saved in Papyrus etc.
+    /// Validates that the Casm class is within size limit. Specifically, this function validates
+    /// the size of the bytecode and the serialized class.
+    fn validate_casm_class_size(
+        &self,
+        casm_contract_class: &CasmContractClass,
+    ) -> Result<(), GatewayError> {
+        let bytecode_size = casm_contract_class.bytecode.len();
+        if bytecode_size > self.config.max_casm_bytecode_size {
+            return Err(GatewayError::CasmBytecodeSizeTooLarge {
+                bytecode_size,
+                max_bytecode_size: self.config.max_casm_bytecode_size,
+            });
+        }
+        let contract_class_object_size = serde_json::to_string(&casm_contract_class)
+            .expect("Unexpected error serializing Casm contract class.")
+            .len();
+        if contract_class_object_size > self.config.max_raw_casm_class_size {
+            return Err(GatewayError::CasmContractClassObjectSizeTooLarge {
+                contract_class_object_size,
+                max_contract_class_object_size: self.config.max_raw_casm_class_size,
+            });
+        }
+
+        Ok(())
     }
 }
 
