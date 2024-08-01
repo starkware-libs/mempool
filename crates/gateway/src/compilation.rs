@@ -57,8 +57,9 @@ impl GatewayCompiler {
         &self,
         cairo_lang_contract_class: CairoLangContractClass,
     ) -> Result<CasmContractClass, GatewayError> {
-        let catch_unwind_result =
-            panic::catch_unwind(|| compile_sierra_to_casm(cairo_lang_contract_class));
+        let catch_unwind_result = panic::catch_unwind(|| {
+            compile_sierra_to_casm(cairo_lang_contract_class, self.config.max_casm_bytecode_size)
+        });
         let casm_contract_class =
             catch_unwind_result.map_err(|_| CompilationUtilError::CompilationPanic)??;
 
@@ -69,18 +70,11 @@ impl GatewayCompiler {
     // the validation of the raw class size. The validation should be linked to the way the class is
     // saved in Papyrus etc.
     /// Validates that the Casm class is within size limit. Specifically, this function validates
-    /// the size of the bytecode and the serialized class.
+    /// the size of the serialized class.
     fn validate_casm_class_size(
         &self,
         casm_contract_class: &CasmContractClass,
     ) -> Result<(), GatewayError> {
-        let bytecode_size = casm_contract_class.bytecode.len();
-        if bytecode_size > self.config.max_casm_bytecode_size {
-            return Err(GatewayError::CasmBytecodeSizeTooLarge {
-                bytecode_size,
-                max_bytecode_size: self.config.max_casm_bytecode_size,
-            });
-        }
         let contract_class_object_size = serde_json::to_string(&casm_contract_class)
             .expect("Unexpected error serializing Casm contract class.")
             .len();

@@ -5449,6 +5449,7 @@ dependencies = [
  "async-trait",
  "axum",
  "blockifier 0.8.0-rc.0 (git+https://github.com/starkware-libs/blockifier.git?rev=32191d41)",
+ "cairo-lang-sierra-to-casm",
  "cairo-lang-starknet-classes",
  "cairo-vm",
  "hyper",
